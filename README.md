@@ -46,6 +46,20 @@ VITE_GAS_API_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 4. 배포 → 웹 앱으로 배포 (실행 사용자: 본인, 액세스: 모든 사용자)
 5. 배포된 URL을 프론트엔드 `VITE_GAS_API_URL`에 설정
 
+## 데이터 저장·조회 (웹 ↔ 구글 시트)
+
+- **웹에서 등록/작성** → 웹앱이 GAS API를 호출하고, GAS가 구글 스프레드시트에 저장합니다. (학생 등록, 폼 생성, 폴더 생성, 응답 제출 등 모두 동일)
+- **시트에 직접 입력** → 같은 스프레드시트를 GAS가 읽으므로, 시트에 직접 행을 추가해도 웹에서 조회됩니다. (열 이름·순서는 위 시트 구성과 맞춰야 함)
+- 정리: **웹에서 하든 시트에서 하든, 같은 시트를 보고 씁니다.**
+
+## "Failed to fetch" / 서버 연결 실패 시
+
+1. **GAS 배포 확인**: 스크립트 편집기에서 "배포" → "웹 앱으로 배포"가 되어 있고, URL이 복사된 값과 같은지 확인
+2. **VITE_GAS_API_URL**:  
+   - 로컬: `.env`에 `VITE_GAS_API_URL=실제_GAS_웹앱_URL`  
+   - Netlify: Site settings → Environment variables에 `VITE_GAS_API_URL` 추가 후 **사이트 다시 빌드·배포** (빌드 시점에 값이 들어가므로, 추가만 하고 재배포하지 않으면 적용 안 됨)
+3. **스프레드시트**: GAS에서 사용하는 스프레드시트에 위 5개 시트(탭)가 있고, Script Property `SPREADSHEET_ID` 또는 코드 내 스프레드시트 지정이 맞는지 확인
+
 ## 라우트
 
 - `/admin` — 관리자 대시보드 (폴더/문서 카드, +폴더로 폴더 생성)

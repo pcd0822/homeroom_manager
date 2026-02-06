@@ -38,12 +38,23 @@ async function request<T = unknown>(
     options.body = JSON.stringify({ action, ...payload })
   }
 
-  const res = await fetch(method === 'GET' ? url.toString() : BASE_URL, options)
-  const data = (await res.json()) as ApiResponse<T>
-  if (!res.ok) {
-    return { success: false, error: data.error || res.statusText }
+  try {
+    const res = await fetch(method === 'GET' ? url.toString() : BASE_URL, options)
+    const data = (await res.json()) as ApiResponse<T>
+    if (!res.ok) {
+      return { success: false, error: data.error || res.statusText }
+    }
+    return data
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    if (message === 'Failed to fetch' || message.includes('fetch')) {
+      return {
+        success: false,
+        error: '서버에 연결할 수 없습니다. GAS 배포 URL(VITE_GAS_API_URL)과 스프레드시트 연결을 확인하고, Netlify 배포 시 환경변수 설정 후 다시 빌드해 주세요.',
+      }
+    }
+    return { success: false, error: message }
   }
-  return data
 }
 
 // ----- Forms -----

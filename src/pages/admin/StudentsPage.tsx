@@ -45,7 +45,7 @@ export function StudentsPage() {
     addStudent({ student_id: studentId.trim(), name: name.trim() })
       .then((res) => {
         if (res.success && res.data) {
-          setMessage({ type: 'success', text: `${res.data.name}님의 인증코드가 발급되었습니다.` })
+          setMessage({ type: 'success', text: `${res.data.name}님의 인증코드가 발급되었습니다. 구글 시트 'Students' 탭에 저장되었습니다.` })
           setIssuedAuthCode(res.data.auth_code)
           setStudentId('')
           setName('')
@@ -53,6 +53,9 @@ export function StudentsPage() {
         } else {
           setMessage({ type: 'error', text: res.error || '등록에 실패했습니다.' })
         }
+      })
+      .catch(() => {
+        setMessage({ type: 'error', text: '서버 연결에 실패했습니다. GAS URL과 배포를 확인해 주세요.' })
       })
       .finally(() => setSubmitting(false))
   }
@@ -65,6 +68,13 @@ export function StudentsPage() {
           <p className="mt-1 text-sm text-gray-600">
             학번과 이름을 등록하면 인증코드(auth_code)가 자동 발급됩니다. 학생에게 전달해 폼 제출 시 사용하세요.
           </p>
+          <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
+            <strong>데이터 저장·조회 안내</strong>
+            <ul className="mt-1 list-inside list-disc space-y-0.5">
+              <li><strong>웹에서 등록</strong> → 구글 스프레드시트 &apos;Students&apos; 탭에 바로 저장됩니다.</li>
+              <li><strong>시트에 직접 입력</strong> → 같은 시트이므로 웹에서 조회할 수 있습니다. (학번, 이름, auth_code, phone_student, phone_parent 열 순서 유지)</li>
+            </ul>
+          </div>
         </header>
 
         <div className="space-y-8">
