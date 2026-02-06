@@ -1,0 +1,331 @@
+/**
+ * 학급 경영 올인원 - Google Apps Script 백엔드
+ * doPost/doGet에서 action 파라미터로 분기하여 REST API 역할 수행
+ * 시트: Forms, Responses, Folders, Students, SmsLogs
+ */
+
+var SPREADSHEET_ID = null; // 배포 시 스프레드시트 ID로 설정하거나 Script Property 사용
+
+function getSpreadsheet() {
+  if (SPREADSHEET_ID) {
+    return SpreadsheetApp.openById(SPREADSHEET_ID);
+  }
+  var id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+  if (id) return SpreadsheetApp.openById(id);
+  return SpreadsheetApp.getActiveSpreadsheet();
+}
+
+// ----- 시트 이름 상수 -----
+var SHEETS = {
+  FORMS: 'Forms',
+  RESPONSES: 'Responses',
+  FOLDERS: 'Folders',
+  STUDENTS: 'Students',
+  SMS_LOGS: 'SmsLogs'
+};
+
+/**
+ * doGet: GET 요청 처리 (CORS 헤더 포함)
+ */
+function doGet(e) {
+  return handleRequest(e, 'GET');
+}
+
+/**
+ * doPost: POST 요청 처리
+ */
+function doPost(e) {
+  return handleRequest(e, 'POST');
+}
+
+function handleRequest(e, method) {
+  var result = { success: false, error: 'Unknown action' };
+  try {
+    var params = method === 'GET' ? (e && e.parameter) || {} : {};
+    if (method === 'POST' && e && e.postData && e.postData.contents) {
+      try {
+        var body = JSON.parse(e.postData.contents);
+        params = body || {};
+      } catch (err) {
+        result.error = 'Invalid JSON body';
+        return jsonResponse(result);
+      }
+    }
+    var action = params.action || (e && e.parameter && e.parameter.action);
+    if (!action) {
+      result.error = 'Missing action';
+      return jsonResponse(result);
+    }
+
+    switch (action) {
+      case 'GET_FORM':
+        result = getForm(params.form_id);
+        break;
+      case 'GET_FORMS':
+        result = getForms(params.folder_id);
+        break;
+      case 'GET_FOLDERS':
+        result = getFolders();
+        break;
+      case 'GET_RESPONSES':
+        result = getResponses(params.form_id);
+        break;
+      case 'GET_NON_RESPONDERS':
+        result = getNonResponders(params.form_id);
+        break;
+      case 'GET_STUDENTS':
+        result = getStudents();
+        break;
+      case 'SUBMIT_RESPONSE':
+        result = submitResponse(params);
+        break;
+      case 'AUTH_STUDENT':
+        result = authStudent(params.student_id, params.auth_code);
+        break;
+      case 'UPDATE_RESPONSE':
+        result = updateResponse(params);
+        break;
+      case 'DELETE_RESPONSE':
+        result = deleteResponse(params.response_id);
+        break;
+      case 'CREATE_FORM':
+        result = createForm(params);
+        break;
+      case 'SEND_SMS':
+        result = sendSms(params);
+        break;
+      default:
+        result.error = 'Unknown action: ' + action;
+    }
+  } catch (err) {
+    result = { success: false, error: (err && err.message) || String(err) };
+  }
+  return jsonResponse(result);
+}
+
+function jsonResponse(obj) {
+  var output = ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+  return output;
+}
+
+// ----- 시트 유틸: 행 배열 → 객체 배열 -----
+function sheetToObjects(sheet, headers) {
+  if (!sheet || !headers || headers.length === 0) return [];
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return [];
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var obj = {};
+    for (var j = 0; j < headers.length; j++) {
+      obj[headers[j]] = row[j];
+    }
+    out.push(obj);
+  }
+  return out;
+}
+
+function getSheetHeaders(sheet) {
+  var row = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  return row.map(String);
+}
+
+// ----- 액션 구현 -----
+
+function getForm(formId) {
+  if (!formId) return { success: false, error: 'form_id required' };
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.FORMS);
+  if (!sheet) return { success: false, error: 'Forms sheet not found' };
+  var headers = getSheetHeaders(sheet);
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(formId)) {
+      var row = data[i];
+      var obj = {};
+      for (var j = 0; j < headers.length; j++) obj[headers[j]] = row[j];
+      return { success: true, data: obj };
+    }
+  }
+  return { success: false, error: 'Form not found' };
+}
+
+function getForms(folderId) {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.FORMS);
+  if (!sheet) return { success: false, error: 'Forms sheet not found' };
+  var headers = getSheetHeaders(sheet);
+  var rows = sheetToObjects(sheet, headers);
+  if (folderId) {
+    rows = rows.filter(function (r) { return r.folder_id === folderId; });
+  }
+  rows = rows.filter(function (r) { return r.is_active === true || r.is_active === 'TRUE'; });
+  return { success: true, data: rows };
+}
+
+function getFolders() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.FOLDERS);
+  if (!sheet) return { success: false, error: 'Folders sheet not found' };
+  var headers = getSheetHeaders(sheet);
+  var data = sheetToObjects(sheet, headers);
+  return { success: true, data: data };
+}
+
+function getResponses(formId) {
+  if (!formId) return { success: false, error: 'form_id required' };
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.RESPONSES);
+  if (!sheet) return { success: false, error: 'Responses sheet not found' };
+  var headers = getSheetHeaders(sheet);
+  var rows = sheetToObjects(sheet, headers);
+  rows = rows.filter(function (r) { return r.form_id === formId; });
+  return { success: true, data: rows };
+}
+
+function getStudents() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.STUDENTS);
+  if (!sheet) return { success: false, error: 'Students sheet not found' };
+  var headers = getSheetHeaders(sheet);
+  var data = sheetToObjects(sheet, headers);
+  return { success: true, data: data };
+}
+
+function getNonResponders(formId) {
+  var formRes = getForm(formId);
+  if (!formRes.success) return formRes;
+  var studentsRes = getStudents();
+  if (!studentsRes.success) return studentsRes;
+  var responsesRes = getResponses(formId);
+  if (!responsesRes.success) return responsesRes;
+  var submittedIds = (responsesRes.data || []).map(function (r) { return r.student_id; });
+  var students = (studentsRes.data || []).filter(function (s) {
+    return submittedIds.indexOf(s.student_id) === -1;
+  });
+  return { success: true, data: students };
+}
+
+function authStudent(studentId, authCode) {
+  if (!studentId || !authCode) return { success: false, error: 'student_id and auth_code required' };
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.STUDENTS);
+  if (!sheet) return { success: false, error: 'Students sheet not found' };
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var sidCol = headers.indexOf('student_id');
+  var codeCol = headers.indexOf('auth_code');
+  var nameCol = headers.indexOf('name');
+  if (sidCol < 0 || codeCol < 0) return { success: false, error: 'Column not found' };
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][sidCol]) === String(studentId) && String(data[i][codeCol]) === String(authCode)) {
+      return {
+        success: true,
+        data: {
+          student_id: data[i][sidCol],
+          name: nameCol >= 0 ? data[i][nameCol] : ''
+        }
+      };
+    }
+  }
+  return { success: false, error: 'Invalid credentials' };
+}
+
+function generateId() {
+  return Utilities.getUuid();
+}
+
+function submitResponse(params) {
+  var formId = params.form_id, student_id = params.student_id, student_name = params.student_name;
+  var answer_data = typeof params.answer_data === 'string' ? params.answer_data : JSON.stringify(params.answer_data || {});
+  if (!formId || !student_id) return { success: false, error: 'form_id and student_id required' };
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.RESPONSES);
+  if (!sheet) return { success: false, error: 'Responses sheet not found' };
+  var responseId = generateId();
+  var submittedAt = new Date().toISOString();
+  sheet.appendRow([responseId, formId, student_id, student_name || '', answer_data, submittedAt]);
+  return { success: true, data: { response_id: responseId, submitted_at: submittedAt } };
+}
+
+function updateResponse(params) {
+  var responseId = params.response_id;
+  var answer_data = typeof params.answer_data === 'string' ? params.answer_data : JSON.stringify(params.answer_data || {});
+  if (!responseId) return { success: false, error: 'response_id required' };
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.RESPONSES);
+  if (!sheet) return { success: false, error: 'Responses sheet not found' };
+  var data = sheet.getDataRange().getValues();
+  var colCount = data[0].length;
+  var answerCol = 4; // answer_data 열 인덱스 (0-based: response_id, form_id, student_id, student_name, answer_data, submitted_at)
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(responseId)) {
+      sheet.getRange(i + 1, answerCol + 1).setValue(answer_data);
+      return { success: true };
+    }
+  }
+  return { success: false, error: 'Response not found' };
+}
+
+function deleteResponse(responseId) {
+  if (!responseId) return { success: false, error: 'response_id required' };
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.RESPONSES);
+  if (!sheet) return { success: false, error: 'Responses sheet not found' };
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]) === String(responseId)) {
+      sheet.deleteRow(i + 1);
+      return { success: true };
+    }
+  }
+  return { success: false, error: 'Response not found' };
+}
+
+function createForm(params) {
+  var folder_id = params.folder_id, title = params.title, type = params.type || 'survey';
+  var schema = typeof params.schema === 'string' ? params.schema : JSON.stringify(params.schema || { fields: [] });
+  if (!title) return { success: false, error: 'title required' };
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.FORMS);
+  if (!sheet) return { success: false, error: 'Forms sheet not found' };
+  var formId = generateId();
+  var createdAt = new Date().toISOString();
+  sheet.appendRow([formId, folder_id || '', title, type, schema, true, createdAt]);
+  return { success: true, data: { form_id: formId, created_at: createdAt } };
+}
+
+/**
+ * SMS 발송 (CoolSMS 등 외부 API 연동)
+ * API Key는 Script Property에 COOLSMS_API_KEY, COOLSMS_SECRET 등으로 저장한다고 가정
+ */
+function sendSms(params) {
+  var receivers = params.receivers || []; // [{ phone: '010...', name: '홍길동' }]
+  var message = params.message || '';
+  var template = params.template; // 예: "{name} 학생, 제출해 주세요."
+  if (!receivers.length || (!message && !template)) {
+    return { success: false, error: 'receivers and (message or template) required' };
+  }
+  // 템플릿 치환
+  var finalMessages = receivers.map(function (r) {
+    if (template) {
+      return template.replace(/\{name\}/g, r.name || '').replace(/\{phone\}/g, r.phone || '');
+    }
+    return message;
+  });
+  // 실제 발송은 외부 API 호출 (CoolSMS 예시 - Mockup)
+  // var apiKey = PropertiesService.getScriptProperties().getProperty('COOLSMS_API_KEY');
+  // var secret = PropertiesService.getScriptProperties().getProperty('COOLSMS_SECRET');
+  // for (var i = 0; i < receivers.length; i++) {
+  //   UrlFetchApp.fetch('https://api.coolsms.co.kr/...', { method: 'post', payload: { ... } });
+  // }
+  var logId = generateId();
+  var sentAt = new Date().toISOString();
+  var ss = getSpreadsheet();
+  var logSheet = ss.getSheetByName(SHEETS.SMS_LOGS);
+  if (logSheet) {
+    logSheet.appendRow([logId, sentAt, receivers.length, message || template, 'sent']);
+  }
+  return { success: true, data: { log_id: logId, sent_at: sentAt, receiver_count: receivers.length } };
+}

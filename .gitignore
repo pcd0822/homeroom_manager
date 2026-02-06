@@ -1,0 +1,25 @@
+# Dependencies
+node_modules
+
+# Build
+dist
+
+# Local env (실제 API URL 등 - 커밋하지 않음)
+.env
+.env.local
+.env.*.local
+
+# .env.example 은 템플릿으로 커밋해 두세요
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
