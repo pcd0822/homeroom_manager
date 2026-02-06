@@ -53,6 +53,7 @@ export interface Student {
   auth_code: string
   phone_student: string
   phone_parent: string
+  email?: string
 }
 
 export interface SmsLog {

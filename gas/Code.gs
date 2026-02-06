@@ -199,6 +199,18 @@ function getStudents() {
   if (!sheet) return { success: false, error: 'Students sheet not found' };
   var headers = getSheetHeaders(sheet);
   var data = sheetToObjects(sheet, headers);
+  // 시트에서 숫자로 읽힌 값(학번, 전화번호 등)을 문자열로 통일해 반환
+  data = data.map(function (row) {
+    var emailVal = row['e-mail'] != null ? row['e-mail'] : (row.email != null ? row.email : '');
+    return {
+      student_id: String(row.student_id != null ? row.student_id : ''),
+      name: String(row.name != null ? row.name : ''),
+      auth_code: String(row.auth_code != null ? row.auth_code : ''),
+      phone_student: String(row.phone_student != null ? row.phone_student : ''),
+      phone_parent: String(row.phone_parent != null ? row.phone_parent : ''),
+      email: String(emailVal)
+    };
+  });
   return { success: true, data: data };
 }
 
@@ -338,7 +350,10 @@ function addStudent(params) {
     }
   }
   var authCode = generateAuthCode();
-  sheet.appendRow([String(student_id).trim(), String(name).trim(), authCode, '', '']);
+  var phone_student = params.phone_student != null ? String(params.phone_student).trim() : '';
+  var phone_parent = params.phone_parent != null ? String(params.phone_parent).trim() : '';
+  var email = params.email != null ? String(params.email).trim() : '';
+  sheet.appendRow([String(student_id).trim(), String(name).trim(), authCode, phone_student, phone_parent, email]);
   return { success: true, data: { student_id: String(student_id).trim(), name: String(name).trim(), auth_code: authCode } };
 }
 
@@ -349,6 +364,7 @@ function updateStudent(params) {
   var auth_code = params.auth_code != null ? String(params.auth_code).trim() : '';
   var phone_student = params.phone_student != null ? String(params.phone_student).trim() : '';
   var phone_parent = params.phone_parent != null ? String(params.phone_parent).trim() : '';
+  var email = params.email != null ? String(params.email).trim() : '';
   if (!find_by_student_id) return { success: false, error: 'find_by_student_id required' };
   var ss = getSpreadsheet();
   var sheet = ss.getSheetByName(SHEETS.STUDENTS);
@@ -359,8 +375,9 @@ function updateStudent(params) {
       sheet.getRange(i + 1, 1).setValue(student_id || data[i][0]);
       sheet.getRange(i + 1, 2).setValue(name || data[i][1]);
       sheet.getRange(i + 1, 3).setValue(auth_code || data[i][2]);
-      sheet.getRange(i + 1, 4).setValue(phone_student);
-      sheet.getRange(i + 1, 5).setValue(phone_parent);
+      sheet.getRange(i + 1, 4).setNumberFormat('@').setValue(phone_student);
+      sheet.getRange(i + 1, 5).setNumberFormat('@').setValue(phone_parent);
+      sheet.getRange(i + 1, 6).setValue(email);
       return { success: true };
     }
   }

@@ -35,7 +35,7 @@ VITE_GAS_API_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 - **Forms:** form_id, folder_id, title, type, schema, is_active, created_at
 - **Responses:** response_id, form_id, student_id, student_name, answer_data, submitted_at
 - **Folders:** folder_id, name
-- **Students:** student_id, name, auth_code, phone_student, phone_parent
+- **Students:** student_id, name, auth_code, phone_student, phone_parent, e-mail
 - **SmsLogs:** log_id, sent_at, receiver_count, message_content, status
 
 ### 3. GAS 배포
@@ -69,6 +69,7 @@ VITE_GAS_API_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 - `/admin/sms` — 문자 발송 (학생/학부모 번호 선택)
 - `/admin/students` — 학생관리 (학번·이름 등록, 인증코드 발급)
 - `/view/:formId` — 학생용 폼 보기/제출 (인증 후 Survey 또는 Notice 렌더링)
+- `/register` — 학생 자가등록 (학번, 이름, 학생·부모 번호, 이메일 입력 후 인증코드 발급)
 
 ## Netlify 환경 변수 (가정통신문 챗봇)
 

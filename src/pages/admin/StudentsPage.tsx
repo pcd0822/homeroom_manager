@@ -1,9 +1,32 @@
 import { useEffect, useState, useCallback } from 'react'
 import { getStudents, addStudent, updateStudent } from '@/api/api'
 import type { Student } from '@/types'
-import { cn } from '@/lib/utils'
+import { cn, formatPhoneKorean } from '@/lib/utils'
+import { downloadRosterPdf } from '@/lib/rosterPdf'
 
 const PROFILE_PHOTO_KEY = 'homeroom_student_photo_'
+const ROSTER_META_KEY = 'homeroom_roster_meta'
+
+function getRosterMeta(): { grade: string; classNum: string; teacherName: string } {
+  try {
+    const raw = localStorage.getItem(ROSTER_META_KEY)
+    if (raw) {
+      const o = JSON.parse(raw)
+      return { grade: o.grade ?? '', classNum: o.classNum ?? '', teacherName: o.teacherName ?? '' }
+    }
+  } catch {
+    // ignore
+  }
+  return { grade: '', classNum: '', teacherName: '' }
+}
+
+function setRosterMeta(grade: string, classNum: string, teacherName: string) {
+  try {
+    localStorage.setItem(ROSTER_META_KEY, JSON.stringify({ grade, classNum, teacherName }))
+  } catch {
+    // ignore
+  }
+}
 
 function getProfilePhotoUrl(studentId: string): string | null {
   try {
@@ -53,12 +76,25 @@ export function StudentsPage() {
     auth_code: '',
     phone_student: '',
     phone_parent: '',
+    email: '',
   })
+  const [rosterMeta, setRosterMetaState] = useState(getRosterMeta)
   const [editProfileDataUrl, setEditProfileDataUrl] = useState<string | null>(null)
   const [savingModal, setSavingModal] = useState(false)
   const [modalError, setModalError] = useState('')
 
   const [listViewMode, setListViewMode] = useState<'card' | 'row'>('card')
+  const [registerLinkCopied, setRegisterLinkCopied] = useState(false)
+
+  const registerUrl = typeof window !== 'undefined' ? `${window.location.origin}/register` : ''
+
+  const copyRegisterLink = () => {
+    if (!registerUrl) return
+    navigator.clipboard.writeText(registerUrl).then(() => {
+      setRegisterLinkCopied(true)
+      setTimeout(() => setRegisterLinkCopied(false), 2000)
+    })
+  }
 
   const load = useCallback(() => {
     setLoading(true)
@@ -81,9 +117,16 @@ export function StudentsPage() {
       auth_code: String(s.auth_code ?? ''),
       phone_student: String(s.phone_student ?? ''),
       phone_parent: String(s.phone_parent ?? ''),
+      email: String(s.email ?? ''),
     })
     setEditProfileDataUrl(getProfilePhotoUrl(String(s.student_id)))
     setModalError('')
+  }
+
+  const handleRosterMetaChange = (field: 'grade' | 'classNum' | 'teacherName', value: string) => {
+    const next = { ...rosterMeta, [field]: value }
+    setRosterMetaState(next)
+    setRosterMeta(next.grade, next.classNum, next.teacherName)
   }
 
   const closeModal = () => {
@@ -113,13 +156,17 @@ export function StudentsPage() {
     setModalError('')
     const oldId = String(modalStudent.student_id)
     const newId = sid
+    const phoneStudentRaw = String(editForm.phone_student ?? '').trim()
+    const phoneParentRaw = String(editForm.phone_parent ?? '').trim()
+    const emailRaw = String(editForm.email ?? '').trim()
     updateStudent({
       find_by_student_id: oldId,
       student_id: newId,
       name: n,
       auth_code: String(editForm.auth_code ?? '').trim() || undefined,
-      phone_student: String(editForm.phone_student ?? '').trim() || undefined,
-      phone_parent: String(editForm.phone_parent ?? '').trim() || undefined,
+      phone_student: phoneStudentRaw ? formatPhoneKorean(phoneStudentRaw) : undefined,
+      phone_parent: phoneParentRaw ? formatPhoneKorean(phoneParentRaw) : undefined,
+      email: emailRaw || undefined,
     })
       .then((res) => {
         if (res.success) {
@@ -178,6 +225,64 @@ export function StudentsPage() {
           <p className="mt-1 text-sm text-gray-600">
             학번과 이름을 등록하면 인증코드(auth_code)가 자동 발급됩니다. 학생에게 전달해 폼 제출 시 사용하세요.
           </p>
+          {/* 학년·학급·담임 (명렬표 PDF용) */}
+          <section className="mt-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <h2 className="mb-3 text-sm font-medium text-gray-700">명렬표 정보 (PDF 저장 시 문서 제목·담임 표기용)</h2>
+            <div className="flex flex-wrap items-center gap-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">학년</label>
+                <input
+                  type="text"
+                  value={rosterMeta.grade}
+                  onChange={(e) => handleRosterMetaChange('grade', e.target.value)}
+                  placeholder="예: 1"
+                  className="w-20 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">학급</label>
+                <input
+                  type="text"
+                  value={rosterMeta.classNum}
+                  onChange={(e) => handleRosterMetaChange('classNum', e.target.value)}
+                  placeholder="예: 3"
+                  className="w-20 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">담임교사</label>
+                <input
+                  type="text"
+                  value={rosterMeta.teacherName}
+                  onChange={(e) => handleRosterMetaChange('teacherName', e.target.value)}
+                  placeholder="예: 홍길동"
+                  className="w-32 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                />
+              </div>
+            </div>
+          </section>
+          {/* 학생 자가등록 링크 */}
+          <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <h2 className="mb-2 text-sm font-medium text-gray-700">학생 자가등록 링크</h2>
+            <p className="mb-3 text-xs text-gray-500">
+              아래 링크를 학생에게 공유하면 학생이 직접 학번·이름·연락처·이메일을 등록하고 인증코드를 받을 수 있습니다.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={registerUrl}
+                className="min-w-0 flex-1 rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700"
+              />
+              <button
+                type="button"
+                onClick={copyRegisterLink}
+                className="shrink-0 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                {registerLinkCopied ? '복사됨' : '링크 복사'}
+              </button>
+            </div>
+          </section>
           <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
             <strong>데이터 저장·조회 안내</strong>
             <ul className="mt-1 list-inside list-disc space-y-0.5">
@@ -243,9 +348,19 @@ export function StudentsPage() {
 
           {/* 학생 목록 - 보기 방식 선택 */}
           <section>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-medium text-gray-700">등록된 학생 목록</h2>
-              <div className="flex rounded-lg border border-gray-200 bg-white p-0.5 shadow-sm">
+              <div className="flex items-center gap-2">
+                {listViewMode === 'row' && students.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => downloadRosterPdf(students, rosterMeta)}
+                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                  >
+                    명렬표 PDF 저장
+                  </button>
+                )}
+                <div className="flex rounded-lg border border-gray-200 bg-white p-0.5 shadow-sm">
                 <button
                   type="button"
                   onClick={() => setListViewMode('card')}
@@ -270,6 +385,7 @@ export function StudentsPage() {
                 >
                   로우 데이터로 보기
                 </button>
+                </div>
               </div>
             </div>
             {loading ? (
@@ -316,6 +432,7 @@ export function StudentsPage() {
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">인증코드</th>
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">학생 번호</th>
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">부모님 번호</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">이메일</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
@@ -345,6 +462,7 @@ export function StudentsPage() {
                           <td className="whitespace-nowrap px-4 py-3 font-mono text-sm text-gray-700">{s.auth_code || '-'}</td>
                           <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{s.phone_student || '-'}</td>
                           <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{s.phone_parent || '-'}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{s.email || '-'}</td>
                         </tr>
                       )
                     })}
@@ -444,6 +562,16 @@ export function StudentsPage() {
                   value={editForm.phone_parent}
                   onChange={(e) => setEditForm((f) => ({ ...f, phone_parent: e.target.value }))}
                   placeholder="예: 010-9876-5432"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">이메일</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                  placeholder="예: student@school.kr"
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                 />
               </div>

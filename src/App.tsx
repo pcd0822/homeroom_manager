@@ -6,11 +6,13 @@ import { ResponseGridPage } from '@/pages/admin/ResponseGridPage'
 import { SmsPage } from '@/pages/admin/SmsPage'
 import { StudentsPage } from '@/pages/admin/StudentsPage'
 import { FormView } from '@/pages/view/FormView'
+import { RegisterPage } from '@/pages/RegisterPage'
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/admin" replace />} />
+      <Route path="/register" element={<RegisterPage />} />
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminDashboard />} />
         <Route path="forms/new" element={<FormBuilderPage />} />

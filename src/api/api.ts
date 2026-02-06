@@ -116,7 +116,13 @@ export function getStudents() {
   return request<Student[]>('GET_STUDENTS', 'POST')
 }
 
-export function addStudent(params: { student_id: string; name: string }) {
+export function addStudent(params: {
+  student_id: string
+  name: string
+  phone_student?: string
+  phone_parent?: string
+  email?: string
+}) {
   return request<{ student_id: string; name: string; auth_code: string }>('ADD_STUDENT', 'POST', params)
 }
 
@@ -127,6 +133,7 @@ export function updateStudent(params: {
   auth_code?: string
   phone_student?: string
   phone_parent?: string
+  email?: string
 }) {
   return request('UPDATE_STUDENT', 'POST', params)
 }
