@@ -28,11 +28,13 @@ export function FormEditSlidePanel({
   folders,
   onClose,
   onSaved,
+  className,
 }: {
   form: Form
   folders: Folder[]
   onClose: () => void
   onSaved: () => void
+  className?: string
 }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -126,7 +128,7 @@ export function FormEditSlidePanel({
   }
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col bg-white shadow-2xl transition-transform duration-300 ease-out sm:max-w-xl">
+    <div className={`fixed inset-y-0 right-0 flex w-full max-w-lg flex-col bg-white shadow-2xl sm:max-w-xl ${className ?? ''}`}>
       <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
         <h2 className="text-lg font-semibold text-gray-900">문서 수정</h2>
         <button

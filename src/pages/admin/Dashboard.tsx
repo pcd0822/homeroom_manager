@@ -77,6 +77,7 @@ export function AdminDashboard() {
   const [folderModalUpdating, setFolderModalUpdating] = useState(false)
   const [deletingFormId, setDeletingFormId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Form | null>(null)
+  const [folderSortOrder, setFolderSortOrder] = useState<'asc' | 'desc'>('asc')
 
   const copyShareLink = (formId: string) => {
     const url = `${window.location.origin}/view/${formId}`
@@ -169,6 +170,11 @@ export function AdminDashboard() {
     ? forms.filter((f) => f.folder_id === selectedFolderId)
     : forms
 
+  const sortedFolders = [...folders].sort((a, b) => {
+    const cmp = a.name.localeCompare(b.name, 'ko')
+    return folderSortOrder === 'asc' ? cmp : -cmp
+  })
+
   return (
     <div className="min-h-full">
       <div className="mx-auto max-w-6xl">
@@ -183,16 +189,42 @@ export function AdminDashboard() {
           <div className="space-y-8">
             {/* 폴더 섹션 - 카드 그리드 */}
             <section>
-              <div className="mb-3 flex items-center justify-between">
+              <div className="mb-3 flex items-center justify-between gap-2">
                 <h2 className="text-sm font-medium text-gray-700">폴더</h2>
-                <button
-                  type="button"
-                  onClick={() => setShowAddFolder(true)}
-                  className="flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-                >
-                  <PlusIcon className="h-4 w-4" />
-                  폴더
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setFolderSortOrder('asc')}
+                    className={cn(
+                      'rounded-md border px-2.5 py-1.5 text-xs font-medium',
+                      folderSortOrder === 'asc'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+                    )}
+                  >
+                    오름차순
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFolderSortOrder('desc')}
+                    className={cn(
+                      'rounded-md border px-2.5 py-1.5 text-xs font-medium',
+                      folderSortOrder === 'desc'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+                    )}
+                  >
+                    내림차순
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddFolder(true)}
+                    className="flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                  >
+                    <PlusIcon className="h-4 w-4" />
+                    폴더
+                  </button>
+                </div>
               </div>
               {showAddFolder && (
                 <div className="mb-4 flex gap-2 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
@@ -240,7 +272,7 @@ export function AdminDashboard() {
                   </div>
                   <span className="font-medium text-gray-900">전체</span>
                 </button>
-                {folders.map((f) => (
+                {sortedFolders.map((f) => (
                   <button
                     key={f.folder_id}
                     type="button"
@@ -442,18 +474,17 @@ export function AdminDashboard() {
         {editForm && (
           <>
             <div
-              className="fixed inset-0 z-40 bg-black/30 transition-opacity"
+              className="fixed inset-0 z-40 bg-black/30"
               onClick={() => setEditForm(null)}
               aria-hidden="true"
             />
-            <div className="fixed inset-y-0 right-0 z-50 animate-slide-in-right">
-              <FormEditSlidePanel
-                form={editForm}
-                folders={folders}
-                onClose={() => setEditForm(null)}
-                onSaved={load}
-              />
-            </div>
+            <FormEditSlidePanel
+              form={editForm}
+              folders={folders}
+              onClose={() => setEditForm(null)}
+              onSaved={load}
+              className="fixed inset-y-0 right-0 z-50 animate-slide-in-right"
+            />
           </>
         )}
       </div>
