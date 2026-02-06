@@ -52,6 +52,40 @@ export function FormBuilderPage() {
     setFields((prev) => prev.filter((f) => f.id !== id))
   }
 
+  /** 선택형 필드: 선택지 추가 */
+  const addOption = (fieldId: string) => {
+    setFields((prev) =>
+      prev.map((f) => {
+        if (f.id !== fieldId) return f
+        const opts = f.options || []
+        return { ...f, options: [...opts, `선택지 ${opts.length + 1}`] }
+      })
+    )
+  }
+
+  /** 선택형 필드: 선택지 내용 변경 */
+  const updateOption = (fieldId: string, index: number, value: string) => {
+    setFields((prev) =>
+      prev.map((f) => {
+        if (f.id !== fieldId || !f.options) return f
+        const next = [...f.options]
+        next[index] = value
+        return { ...f, options: next }
+      })
+    )
+  }
+
+  /** 선택형 필드: 선택지 삭제 */
+  const removeOption = (fieldId: string, index: number) => {
+    setFields((prev) =>
+      prev.map((f) => {
+        if (f.id !== fieldId || !f.options) return f
+        const next = f.options.filter((_, i) => i !== index)
+        return { ...f, options: next }
+      })
+    )
+  }
+
   const handleChat = async () => {
     const msg = chatInput.trim()
     if (!msg) return
@@ -213,7 +247,14 @@ export function FormBuilderPage() {
                   <div key={field.id} className="flex flex-wrap items-start gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
                     <select
                       value={field.type}
-                      onChange={(e) => updateField(field.id, { type: e.target.value as FieldType })}
+                      onChange={(e) => {
+                        const newType = e.target.value as FieldType
+                        const patch: Partial<FormFieldSchema> = { type: newType }
+                        if ((newType === 'radio' || newType === 'checkbox') && !(field.options?.length)) {
+                          patch.options = ['선택지 1']
+                        }
+                        updateField(field.id, patch)
+                      }}
                       className="rounded border border-gray-300 px-2 py-1.5 text-sm"
                     >
                       {FIELD_TYPES.map((opt) => (
@@ -236,17 +277,45 @@ export function FormBuilderPage() {
                       필수
                     </label>
                     {(field.type === 'radio' || field.type === 'checkbox') && (
-                      <input
-                        type="text"
-                        value={(field.options || []).join(', ')}
-                        onChange={(e) =>
-                          updateField(field.id, {
-                            options: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
-                          })
-                        }
-                        placeholder="옵션1, 옵션2, 옵션3"
-                        className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
-                      />
+                      <div className="w-full space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-gray-600">선택지</span>
+                          <button
+                            type="button"
+                            onClick={() => addOption(field.id)}
+                            className="rounded border border-blue-600 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
+                          >
+                            + 선택지 추가
+                          </button>
+                        </div>
+                        <ul className="space-y-1.5">
+                          {(field.options || []).map((opt, idx) => (
+                            <li key={idx} className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={opt}
+                                onChange={(e) => updateOption(field.id, idx, e.target.value)}
+                                placeholder={`선택지 ${idx + 1}`}
+                                className="flex-1 min-w-0 rounded border border-gray-300 px-2 py-1.5 text-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeOption(field.id, idx)}
+                                className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-red-600"
+                                title="삭제"
+                                aria-label="선택지 삭제"
+                              >
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                        {(field.options?.length ?? 0) === 0 && (
+                          <p className="text-xs text-gray-500">선택지를 추가해 주세요.</p>
+                        )}
+                      </div>
                     )}
                     <button
                       type="button"
