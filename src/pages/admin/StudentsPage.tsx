@@ -29,6 +29,14 @@ function UserGroupIcon({ className }: { className?: string }) {
   )
 }
 
+function XIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  )
+}
+
 export function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
@@ -68,13 +76,13 @@ export function StudentsPage() {
   const openModal = (s: Student) => {
     setModalStudent(s)
     setEditForm({
-      student_id: s.student_id,
-      name: s.name,
-      auth_code: s.auth_code || '',
-      phone_student: s.phone_student || '',
-      phone_parent: s.phone_parent || '',
+      student_id: String(s.student_id ?? ''),
+      name: String(s.name ?? ''),
+      auth_code: String(s.auth_code ?? ''),
+      phone_student: String(s.phone_student ?? ''),
+      phone_parent: String(s.phone_parent ?? ''),
     })
-    setEditProfileDataUrl(getProfilePhotoUrl(s.student_id))
+    setEditProfileDataUrl(getProfilePhotoUrl(String(s.student_id)))
     setModalError('')
   }
 
@@ -95,21 +103,23 @@ export function StudentsPage() {
 
   const handleSaveModal = () => {
     if (!modalStudent) return
-    if (!editForm.student_id.trim() || !editForm.name.trim()) {
+    const sid = String(editForm.student_id ?? '').trim()
+    const n = String(editForm.name ?? '').trim()
+    if (!sid || !n) {
       setModalError('학번과 이름은 필수입니다.')
       return
     }
     setSavingModal(true)
     setModalError('')
-    const oldId = modalStudent.student_id
-    const newId = editForm.student_id.trim()
+    const oldId = String(modalStudent.student_id)
+    const newId = sid
     updateStudent({
       find_by_student_id: oldId,
       student_id: newId,
-      name: editForm.name.trim(),
-      auth_code: editForm.auth_code.trim() || undefined,
-      phone_student: editForm.phone_student.trim() || undefined,
-      phone_parent: editForm.phone_parent.trim() || undefined,
+      name: n,
+      auth_code: String(editForm.auth_code ?? '').trim() || undefined,
+      phone_student: String(editForm.phone_student ?? '').trim() || undefined,
+      phone_parent: String(editForm.phone_parent ?? '').trim() || undefined,
     })
       .then((res) => {
         if (res.success) {
@@ -271,7 +281,7 @@ export function StudentsPage() {
             ) : listViewMode === 'card' ? (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {students.map((s) => {
-                  const photoUrl = getProfilePhotoUrl(s.student_id)
+                  const photoUrl = getProfilePhotoUrl(String(s.student_id))
                   return (
                     <button
                       key={s.student_id}
@@ -310,7 +320,7 @@ export function StudentsPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
                     {students.map((s) => {
-                      const photoUrl = getProfilePhotoUrl(s.student_id)
+                      const photoUrl = getProfilePhotoUrl(String(s.student_id))
                       return (
                         <tr key={s.student_id} className="hover:bg-gray-50">
                           <td className="whitespace-nowrap px-4 py-3">
@@ -346,21 +356,25 @@ export function StudentsPage() {
         </div>
       </div>
 
-      {/* 수정 모달 */}
+      {/* 수정 모달 - X 버튼 또는 저장 완료 시에만 닫힘 */}
       {modalStudent && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={closeModal}
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-title"
         >
-          <div
-            className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="border-b border-gray-200 px-6 py-4">
+          <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
               <h2 id="modal-title" className="text-lg font-semibold text-gray-900">학생 정보 수정</h2>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                aria-label="닫기"
+              >
+                <XIcon className="h-5 w-5" />
+              </button>
             </div>
             <div className="space-y-4 px-6 py-4">
               {/* 프로필 사진 (웹에서만) */}
