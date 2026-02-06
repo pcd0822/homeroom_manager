@@ -1,0 +1,7 @@
+# Netlify 빌드 설정
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA: 모든 경로를 index.html로 (public/_redirects가 dist에 복사됨)
+# 직접 URL 접근 시 404 방지
