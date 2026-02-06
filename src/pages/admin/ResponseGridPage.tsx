@@ -57,6 +57,7 @@ export function ResponseGridPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
+      <div className="mx-auto max-w-3xl">
       <div className="mb-4 flex items-center gap-4">
         <Link to="/admin" className="text-sm font-medium text-blue-600 hover:underline">
           ← 대시보드
@@ -129,6 +130,7 @@ export function ResponseGridPage() {
           </table>
         </div>
       )}
+      </div>
     </div>
   )
 }

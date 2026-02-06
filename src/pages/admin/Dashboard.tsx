@@ -27,17 +27,18 @@ export function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <header className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">학급 경영 올인원</h1>
-        <p className="mt-1 text-sm text-gray-600">관리자 대시보드</p>
-      </header>
+      <div className="mx-auto max-w-3xl">
+        <header className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">학급 경영 올인원</h1>
+          <p className="mt-1 text-sm text-gray-600">데이터 관리 · 문서 목록</p>
+        </header>
 
-      {loading ? (
-        <p className="text-gray-500">로딩 중...</p>
-      ) : (
-        <div className="space-y-6">
-          <section>
-            <h2 className="mb-2 text-sm font-medium text-gray-700">폴더</h2>
+        {loading ? (
+          <p className="text-gray-500">로딩 중...</p>
+        ) : (
+          <div className="space-y-6">
+            <section>
+              <h2 className="mb-2 text-sm font-medium text-gray-700">폴더</h2>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -98,7 +99,8 @@ export function AdminDashboard() {
             </ul>
           </section>
         </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
