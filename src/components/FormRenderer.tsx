@@ -1,4 +1,4 @@
-import { useForm, FormProvider } from 'react-hook-form'
+import { useForm, FormProvider, useFormContext } from 'react-hook-form'
 import type { FormSchema, FormFieldSchema, FormType } from '@/types'
 import { cn } from '@/lib/utils'
 
@@ -28,6 +28,7 @@ function FieldRenderer({
   name: string
   error?: string
 }) {
+  const { register, watch, setValue } = useFormContext()
   const baseClass = 'block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
 
   switch (field.type) {
@@ -38,56 +39,98 @@ function FieldRenderer({
         <input
           type={field.type}
           id={field.id}
-          name={name}
           placeholder={field.placeholder}
           required={field.required}
           className={cn(baseClass, error && 'border-red-500')}
+          {...register(name)}
         />
       )
     case 'textarea':
       return (
         <textarea
           id={field.id}
-          name={name}
           rows={4}
           placeholder={field.placeholder}
           required={field.required}
           className={cn(baseClass, 'resize-y', error && 'border-red-500')}
+          {...register(name)}
         />
       )
-    case 'radio':
+    case 'radio': {
+      const hasOther = (field.options || []).includes('기타')
+      const selectedRadio = watch(name) as string
       return (
         <div className="space-y-2">
           {(field.options || []).map((opt) => (
-            <label key={opt} className="flex items-center gap-2">
-              <input type="radio" name={name} value={opt} required={field.required} className="rounded border-gray-300" />
+            <label key={opt} className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                value={opt}
+                required={field.required}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                {...register(name)}
+              />
               <span>{opt}</span>
             </label>
           ))}
+          {hasOther && selectedRadio === '기타' && (
+            <div className="mt-2 pl-6">
+              <input
+                type="text"
+                placeholder="직접 입력 (선택)"
+                className={cn(baseClass, 'text-sm')}
+                {...register(name + '_other')}
+              />
+            </div>
+          )}
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
       )
-    case 'checkbox':
+    }
+    case 'checkbox': {
+      const selected = (watch(name) as string[]) || []
+      const hasOther = (field.options || []).includes('기타')
+      const toggle = (opt: string) => {
+        const next = selected.includes(opt) ? selected.filter((x) => x !== opt) : [...selected, opt]
+        setValue(name, next)
+      }
       return (
         <div className="space-y-2">
           {(field.options || []).map((opt) => (
-            <label key={opt} className="flex items-center gap-2">
-              <input type="checkbox" name={name} value={opt} className="rounded border-gray-300" />
+            <label key={opt} className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                value={opt}
+                checked={selected.includes(opt)}
+                onChange={() => toggle(opt)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
               <span>{opt}</span>
             </label>
           ))}
+          {hasOther && selected.includes('기타') && (
+            <div className="mt-2 pl-6">
+              <input
+                type="text"
+                placeholder="기타 직접 입력 (선택)"
+                className={cn(baseClass, 'text-sm')}
+                {...register(name + '_other')}
+              />
+            </div>
+          )}
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
       )
+    }
     default:
       return (
         <input
           type="text"
           id={field.id}
-          name={name}
           placeholder={field.placeholder}
           required={field.required}
           className={cn(baseClass, error && 'border-red-500')}
+          {...register(name)}
         />
       )
   }
@@ -106,9 +149,12 @@ function SurveyForm({
   className?: string
 }) {
   const defaultValues: Record<string, unknown> = {}
+  const hasOtherOption = (f: FormFieldSchema) =>
+    (f.type === 'radio' || f.type === 'checkbox') && (f.options || []).includes('기타')
   schema.fields.forEach((f) => {
     if (f.type === 'checkbox') defaultValues[f.id] = []
     else defaultValues[f.id] = ''
+    if (hasOtherOption(f)) defaultValues[f.id + '_other'] = ''
   })
 
   const methods = useForm({ defaultValues })
@@ -117,8 +163,18 @@ function SurveyForm({
     const normalized: Record<string, unknown> = {}
     schema.fields.forEach((f) => {
       const v = data[f.id]
-      if (f.type === 'checkbox') normalized[f.id] = Array.isArray(v) ? v : (v ? [v] : [])
-      else normalized[f.id] = v
+      const otherText = (data[f.id + '_other'] as string)?.trim() || ''
+      const hasOther = (f.options || []).includes('기타')
+      if (f.type === 'checkbox') {
+        let arr = Array.isArray(v) ? v : (v ? [v] : []) as string[]
+        if (hasOther && arr.includes('기타') && otherText)
+          arr = arr.map((x) => (x === '기타' ? `기타 (${otherText})` : x))
+        normalized[f.id] = arr
+      } else if (f.type === 'radio' && hasOther && v === '기타' && otherText) {
+        normalized[f.id] = `기타 (${otherText})`
+      } else {
+        normalized[f.id] = v
+      }
     })
     onSubmit(normalized)
   })

@@ -95,6 +95,9 @@ function handleRequest(e, method) {
       case 'UPDATE_FORM':
         result = updateForm(params);
         break;
+      case 'DELETE_FORM':
+        result = deleteForm(params.form_id);
+        break;
       case 'CREATE_FOLDER':
         result = createFolder(params);
         break;
@@ -356,6 +359,29 @@ function updateForm(params) {
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][formIdCol]) === String(formId)) {
       if (folder_id !== undefined) sheet.getRange(i + 1, folderIdCol + 1).setValue(folder_id || '');
+      return { success: true };
+    }
+  }
+  return { success: false, error: 'Form not found' };
+}
+
+function deleteForm(formId) {
+  if (!formId) return { success: false, error: 'form_id required' };
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.FORMS);
+  if (!sheet) return { success: false, error: 'Forms sheet not found' };
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var formIdCol = headers.indexOf('form_id');
+  var isActiveCol = headers.indexOf('is_active');
+  if (formIdCol < 0) return { success: false, error: 'Column not found' };
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][formIdCol]) === String(formId)) {
+      if (isActiveCol >= 0) {
+        sheet.getRange(i + 1, isActiveCol + 1).setValue(false);
+      } else {
+        sheet.deleteRow(i + 1);
+      }
       return { success: true };
     }
   }

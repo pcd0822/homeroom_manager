@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getForms, getFolders, createFolder, updateForm } from '@/api/api'
+import { getForms, getFolders, createFolder, updateForm, deleteForm } from '@/api/api'
 import type { Form, Folder } from '@/types'
 import { cn } from '@/lib/utils'
 
@@ -45,6 +45,14 @@ function XIcon({ className }: { className?: string }) {
   )
 }
 
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  )
+}
+
 export function AdminDashboard() {
   const [forms, setForms] = useState<Form[]>([])
   const [folders, setFolders] = useState<Folder[]>([])
@@ -58,6 +66,7 @@ export function AdminDashboard() {
   const [folderModalNewName, setFolderModalNewName] = useState('')
   const [folderModalAdding, setFolderModalAdding] = useState(false)
   const [folderModalUpdating, setFolderModalUpdating] = useState(false)
+  const [deletingFormId, setDeletingFormId] = useState<string | null>(null)
 
   const copyShareLink = (formId: string) => {
     const url = `${window.location.origin}/view/${formId}`
@@ -96,6 +105,17 @@ export function AdminDashboard() {
         }
       })
       .finally(() => setAddingFolder(false))
+  }
+
+  const handleDeleteForm = (form: Form) => {
+    if (!confirm(`"${form.title}" 문서를 삭제할까요?\n삭제된 문서는 목록에서 보이지 않으며, 기존 응답 데이터는 유지됩니다.`)) return
+    setDeletingFormId(form.form_id)
+    deleteForm(form.form_id)
+      .then((res) => {
+        if (res.success) load()
+        else alert(res.error || '삭제에 실패했습니다.')
+      })
+      .finally(() => setDeletingFormId(null))
   }
 
   const handleFolderModalSelect = (folderId: string) => {
@@ -280,11 +300,21 @@ export function AdminDashboard() {
                         <button
                           type="button"
                           onClick={() => setFolderModalForm(form)}
-                          className="ml-auto rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                          className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
                           title="폴더에 넣기"
                           aria-label="폴더에 넣기"
                         >
                           <FolderPlusIcon className="h-5 w-5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteForm(form)}
+                          disabled={deletingFormId === form.form_id}
+                          className="rounded p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                          title="문서 삭제"
+                          aria-label="문서 삭제"
+                        >
+                          <TrashIcon className="h-5 w-5" />
                         </button>
                       </div>
                     </div>

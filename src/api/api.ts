@@ -81,6 +81,10 @@ export function updateForm(params: { form_id: string; folder_id?: string }) {
   return request('UPDATE_FORM', 'POST', params)
 }
 
+export function deleteForm(formId: string) {
+  return request('DELETE_FORM', 'POST', { form_id: formId })
+}
+
 // ----- Folders -----
 export function getFolders() {
   return request<Folder[]>('GET_FOLDERS', 'POST')

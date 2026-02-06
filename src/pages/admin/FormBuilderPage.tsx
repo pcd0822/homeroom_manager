@@ -53,12 +53,13 @@ export function FormBuilderPage() {
   }
 
   /** 선택형 필드: 선택지 추가 */
-  const addOption = (fieldId: string) => {
+  const addOption = (fieldId: string, label?: string) => {
     setFields((prev) =>
       prev.map((f) => {
         if (f.id !== fieldId) return f
         const opts = f.options || []
-        return { ...f, options: [...opts, `선택지 ${opts.length + 1}`] }
+        const newLabel = label ?? `선택지 ${opts.length + 1}`
+        return { ...f, options: [...opts, newLabel] }
       })
     )
   }
@@ -280,13 +281,24 @@ export function FormBuilderPage() {
                       <div className="w-full space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-medium text-gray-600">선택지</span>
-                          <button
-                            type="button"
-                            onClick={() => addOption(field.id)}
-                            className="rounded border border-blue-600 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
-                          >
-                            + 선택지 추가
-                          </button>
+                          <div className="flex gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => addOption(field.id)}
+                              className="rounded border border-blue-600 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
+                            >
+                              + 선택지 추가
+                            </button>
+                            {!(field.options || []).includes('기타') && (
+                              <button
+                                type="button"
+                                onClick={() => addOption(field.id, '기타')}
+                                className="rounded border border-amber-500 px-2 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50"
+                              >
+                                + 기타
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <ul className="space-y-1.5">
                           {(field.options || []).map((opt, idx) => (
