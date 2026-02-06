@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getForms, getFolders, createFolder } from '@/api/api'
+import { getForms, getFolders, createFolder, updateForm } from '@/api/api'
 import type { Form, Folder } from '@/types'
 import { cn } from '@/lib/utils'
 
@@ -28,6 +28,23 @@ function PlusIcon({ className }: { className?: string }) {
   )
 }
 
+function FolderPlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m-3-3h6" />
+    </svg>
+  )
+}
+
+function XIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  )
+}
+
 export function AdminDashboard() {
   const [forms, setForms] = useState<Form[]>([])
   const [folders, setFolders] = useState<Folder[]>([])
@@ -36,6 +53,19 @@ export function AdminDashboard() {
   const [newFolderName, setNewFolderName] = useState('')
   const [addingFolder, setAddingFolder] = useState(false)
   const [showAddFolder, setShowAddFolder] = useState(false)
+  const [copiedFormId, setCopiedFormId] = useState<string | null>(null)
+  const [folderModalForm, setFolderModalForm] = useState<Form | null>(null)
+  const [folderModalNewName, setFolderModalNewName] = useState('')
+  const [folderModalAdding, setFolderModalAdding] = useState(false)
+  const [folderModalUpdating, setFolderModalUpdating] = useState(false)
+
+  const copyShareLink = (formId: string) => {
+    const url = `${window.location.origin}/view/${formId}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedFormId(formId)
+      setTimeout(() => setCopiedFormId(null), 2000)
+    })
+  }
 
   const load = () => {
     setLoading(true)
@@ -68,11 +98,46 @@ export function AdminDashboard() {
       .finally(() => setAddingFolder(false))
   }
 
+  const handleFolderModalSelect = (folderId: string) => {
+    if (!folderModalForm) return
+    setFolderModalUpdating(true)
+    updateForm({ form_id: folderModalForm.form_id, folder_id: folderId || undefined })
+      .then((res) => {
+        if (res.success) {
+          setFolderModalForm(null)
+          load()
+        } else {
+          alert(res.error || '폴더 변경 실패')
+        }
+      })
+      .finally(() => setFolderModalUpdating(false))
+  }
+
+  const handleFolderModalCreate = () => {
+    const name = folderModalNewName.trim()
+    if (!name || !folderModalForm) return
+    setFolderModalAdding(true)
+    createFolder({ name })
+      .then((res) => {
+        if (res.success && res.data) {
+          setFolderModalNewName('')
+          return updateForm({ form_id: folderModalForm.form_id, folder_id: res.data!.folder_id })
+        } else {
+          alert(res.error || '폴더 생성 실패')
+        }
+      })
+      .then((updateRes) => {
+        if (updateRes?.success) {
+          setFolderModalForm(null)
+          load()
+        }
+      })
+      .finally(() => setFolderModalAdding(false))
+  }
+
   const filteredForms = selectedFolderId
     ? forms.filter((f) => f.folder_id === selectedFolderId)
     : forms
-
-  const baseUrl = window.location.origin
 
   return (
     <div className="min-h-full">
@@ -197,7 +262,7 @@ export function AdminDashboard() {
                           </span>
                         </div>
                       </div>
-                      <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+                      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
                         <Link
                           to={`/admin/forms/${form.form_id}/responses`}
                           className="text-sm font-medium text-blue-600 hover:underline"
@@ -205,15 +270,118 @@ export function AdminDashboard() {
                           응답 보기
                         </Link>
                         <span className="text-gray-300">|</span>
-                        <span className="truncate text-xs text-gray-500" title={`${baseUrl}/view/${form.form_id}`}>
-                          공유: .../view/{form.form_id.slice(0, 8)}…
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => copyShareLink(form.form_id)}
+                          className="text-sm font-medium text-blue-600 hover:underline"
+                        >
+                          {copiedFormId === form.form_id ? '복사됨' : '공유하기'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFolderModalForm(form)}
+                          className="ml-auto rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                          title="폴더에 넣기"
+                          aria-label="폴더에 넣기"
+                        >
+                          <FolderPlusIcon className="h-5 w-5" />
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
             </section>
+          </div>
+        )}
+
+        {/* 폴더 선택 모달 */}
+        {folderModalForm && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="folder-modal-title"
+          >
+            <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                <h2 id="folder-modal-title" className="text-lg font-semibold text-gray-900">
+                  폴더에 넣기
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setFolderModalForm(null)}
+                  className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                  aria-label="닫기"
+                >
+                  <XIcon className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="px-6 py-4">
+                <p className="mb-3 text-sm text-gray-600">
+                  <span className="font-medium text-gray-900">{folderModalForm.title}</span> 문서를 넣을 폴더를 선택하세요.
+                </p>
+                <ul className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-gray-200 py-1">
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => handleFolderModalSelect('')}
+                      disabled={folderModalUpdating}
+                      className={cn(
+                        'flex w-full items-center gap-2 px-3 py-2 text-left text-sm',
+                        !folderModalForm.folder_id
+                          ? 'bg-blue-50 font-medium text-blue-700'
+                          : 'text-gray-700 hover:bg-gray-50'
+                      )}
+                    >
+                      폴더 없음
+                    </button>
+                  </li>
+                  {folders.map((f) => (
+                    <li key={f.folder_id}>
+                      <button
+                        type="button"
+                        onClick={() => handleFolderModalSelect(f.folder_id)}
+                        disabled={folderModalUpdating}
+                        className={cn(
+                          'flex w-full items-center gap-2 px-3 py-2 text-left text-sm',
+                          folderModalForm.folder_id === f.folder_id
+                            ? 'bg-blue-50 font-medium text-blue-700'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        )}
+                      >
+                        <FolderIcon className="h-4 w-4 shrink-0" />
+                        {f.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-4 border-t border-gray-100 pt-4">
+                  <p className="mb-2 text-xs font-medium text-gray-500">새 폴더 만들기</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={folderModalNewName}
+                      onChange={(e) => setFolderModalNewName(e.target.value)}
+                      placeholder="폴더 이름"
+                      className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      onKeyDown={(e) => e.key === 'Enter' && handleFolderModalCreate()}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleFolderModalCreate}
+                      disabled={folderModalAdding || !folderModalNewName.trim()}
+                      className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {folderModalAdding ? '만드는 중...' : '만들기'}
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    새 폴더를 만들면 이 문서가 해당 폴더에 들어갑니다.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

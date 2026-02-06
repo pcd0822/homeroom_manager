@@ -92,6 +92,9 @@ function handleRequest(e, method) {
       case 'CREATE_FORM':
         result = createForm(params);
         break;
+      case 'UPDATE_FORM':
+        result = updateForm(params);
+        break;
       case 'CREATE_FOLDER':
         result = createFolder(params);
         break;
@@ -338,6 +341,27 @@ function createFolder(params) {
   return { success: true, data: { folder_id: folderId, name: String(name).trim() } };
 }
 
+function updateForm(params) {
+  var formId = params.form_id;
+  var folder_id = params.folder_id;
+  if (!formId) return { success: false, error: 'form_id required' };
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.FORMS);
+  if (!sheet) return { success: false, error: 'Forms sheet not found' };
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var formIdCol = headers.indexOf('form_id');
+  var folderIdCol = headers.indexOf('folder_id');
+  if (formIdCol < 0 || folderIdCol < 0) return { success: false, error: 'Column not found' };
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][formIdCol]) === String(formId)) {
+      if (folder_id !== undefined) sheet.getRange(i + 1, folderIdCol + 1).setValue(folder_id || '');
+      return { success: true };
+    }
+  }
+  return { success: false, error: 'Form not found' };
+}
+
 function generateAuthCode() {
   var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   var code = '';
@@ -486,12 +510,12 @@ function sendSms(params) {
     };
   }
 
-  // 수신자별 메시지 (템플릿 치환)
+  // 수신자별 메시지 — message(또는 template) 안의 {name}, {phone}을 수신자 정보로 치환
+  var baseText = (template || message || '').toString();
   var textByReceiver = receivers.map(function (r) {
-    var text = message;
-    if (template) {
-      text = template.replace(/\{name\}/g, r.name || '').replace(/\{phone\}/g, r.phone || '');
-    }
+    var text = baseText
+      .replace(/\{name\}/g, (r.name != null ? r.name : '').toString())
+      .replace(/\{phone\}/g, (r.phone != null ? r.phone : '').toString());
     return { to: (r.phone || '').replace(/\D/g, ''), text: text };
   });
 
