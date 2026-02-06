@@ -1,7 +1,25 @@
-import { useEffect, useState } from 'react'
-import { getStudents, addStudent } from '@/api/api'
+import { useEffect, useState, useCallback } from 'react'
+import { getStudents, addStudent, updateStudent } from '@/api/api'
 import type { Student } from '@/types'
 import { cn } from '@/lib/utils'
+
+const PROFILE_PHOTO_KEY = 'homeroom_student_photo_'
+
+function getProfilePhotoUrl(studentId: string): string | null {
+  try {
+    return localStorage.getItem(PROFILE_PHOTO_KEY + studentId)
+  } catch {
+    return null
+  }
+}
+
+function setProfilePhoto(studentId: string, dataUrl: string) {
+  try {
+    localStorage.setItem(PROFILE_PHOTO_KEY + studentId, dataUrl)
+  } catch {
+    // ignore
+  }
+}
 
 function UserGroupIcon({ className }: { className?: string }) {
   return (
@@ -20,18 +38,100 @@ export function StudentsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [issuedAuthCode, setIssuedAuthCode] = useState<string | null>(null)
 
-  const load = () => {
+  const [modalStudent, setModalStudent] = useState<Student | null>(null)
+  const [editForm, setEditForm] = useState({
+    student_id: '',
+    name: '',
+    auth_code: '',
+    phone_student: '',
+    phone_parent: '',
+  })
+  const [editProfileDataUrl, setEditProfileDataUrl] = useState<string | null>(null)
+  const [savingModal, setSavingModal] = useState(false)
+  const [modalError, setModalError] = useState('')
+
+  const [listViewMode, setListViewMode] = useState<'card' | 'row'>('card')
+
+  const load = useCallback(() => {
     setLoading(true)
     getStudents()
       .then((res) => {
         if (res.success && res.data) setStudents(res.data)
       })
       .finally(() => setLoading(false))
-  }
+  }, [])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
+
+  const openModal = (s: Student) => {
+    setModalStudent(s)
+    setEditForm({
+      student_id: s.student_id,
+      name: s.name,
+      auth_code: s.auth_code || '',
+      phone_student: s.phone_student || '',
+      phone_parent: s.phone_parent || '',
+    })
+    setEditProfileDataUrl(getProfilePhotoUrl(s.student_id))
+    setModalError('')
+  }
+
+  const closeModal = () => {
+    setModalStudent(null)
+    setEditProfileDataUrl(null)
+  }
+
+  const handleProfileFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !file.type.startsWith('image/')) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      setEditProfileDataUrl(reader.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleSaveModal = () => {
+    if (!modalStudent) return
+    if (!editForm.student_id.trim() || !editForm.name.trim()) {
+      setModalError('학번과 이름은 필수입니다.')
+      return
+    }
+    setSavingModal(true)
+    setModalError('')
+    const oldId = modalStudent.student_id
+    const newId = editForm.student_id.trim()
+    updateStudent({
+      find_by_student_id: oldId,
+      student_id: newId,
+      name: editForm.name.trim(),
+      auth_code: editForm.auth_code.trim() || undefined,
+      phone_student: editForm.phone_student.trim() || undefined,
+      phone_parent: editForm.phone_parent.trim() || undefined,
+    })
+      .then((res) => {
+        if (res.success) {
+          if (editProfileDataUrl) {
+            setProfilePhoto(newId, editProfileDataUrl)
+            if (oldId !== newId) {
+              try {
+                localStorage.removeItem(PROFILE_PHOTO_KEY + oldId)
+              } catch {
+                // ignore
+              }
+            }
+          }
+          closeModal()
+          load()
+        } else {
+          setModalError(res.error || '저장에 실패했습니다.')
+        }
+      })
+      .catch(() => setModalError('서버 연결에 실패했습니다.'))
+      .finally(() => setSavingModal(false))
+  }
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault()
@@ -73,6 +173,7 @@ export function StudentsPage() {
             <ul className="mt-1 list-inside list-disc space-y-0.5">
               <li><strong>웹에서 등록</strong> → 구글 스프레드시트 &apos;Students&apos; 탭에 바로 저장됩니다.</li>
               <li><strong>시트에 직접 입력</strong> → 같은 시트이므로 웹에서 조회할 수 있습니다. (학번, 이름, auth_code, phone_student, phone_parent 열 순서 유지)</li>
+              <li><strong>프로필 사진</strong> → 웹에서만 보이며 DB에는 저장되지 않습니다.</li>
             </ul>
           </div>
         </header>
@@ -130,37 +231,232 @@ export function StudentsPage() {
             )}
           </section>
 
-          {/* 학생 목록 카드 */}
+          {/* 학생 목록 - 보기 방식 선택 */}
           <section>
-            <h2 className="mb-3 text-sm font-medium text-gray-700">등록된 학생 목록</h2>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-medium text-gray-700">등록된 학생 목록</h2>
+              <div className="flex rounded-lg border border-gray-200 bg-white p-0.5 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setListViewMode('card')}
+                  className={cn(
+                    'rounded-md px-3 py-1.5 text-sm font-medium transition',
+                    listViewMode === 'card'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  )}
+                >
+                  카드처럼 보기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setListViewMode('row')}
+                  className={cn(
+                    'rounded-md px-3 py-1.5 text-sm font-medium transition',
+                    listViewMode === 'row'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  )}
+                >
+                  로우 데이터로 보기
+                </button>
+              </div>
+            </div>
             {loading ? (
               <p className="text-gray-500">로딩 중...</p>
             ) : students.length === 0 ? (
               <div className="rounded-xl border border-gray-200 bg-white py-12 text-center text-gray-500 shadow-sm">
                 등록된 학생이 없습니다. 위 폼에서 등록해 주세요.
               </div>
-            ) : (
+            ) : listViewMode === 'card' ? (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {students.map((s) => (
-                  <div
-                    key={s.student_id}
-                    className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
-                  >
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
-                      <UserGroupIcon className="h-6 w-6" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-gray-900">{s.name}</p>
-                      <p className="text-sm text-gray-500">학번 {s.student_id}</p>
-                      <p className="mt-1 font-mono text-xs text-gray-600">인증코드: {s.auth_code || '-'}</p>
-                    </div>
-                  </div>
-                ))}
+                {students.map((s) => {
+                  const photoUrl = getProfilePhotoUrl(s.student_id)
+                  return (
+                    <button
+                      key={s.student_id}
+                      type="button"
+                      onClick={() => openModal(s)}
+                      className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:shadow focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    >
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-gray-600">
+                        {photoUrl ? (
+                          <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <UserGroupIcon className="h-8 w-8" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-gray-900">{s.name}</p>
+                        <p className="text-sm text-gray-500">학번 {s.student_id}</p>
+                        <p className="mt-1 font-mono text-xs text-gray-600">인증코드: {s.auth_code || '-'}</p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">프로필</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">이름</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">학번</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">인증코드</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">학생 번호</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">부모님 번호</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 bg-white">
+                    {students.map((s) => {
+                      const photoUrl = getProfilePhotoUrl(s.student_id)
+                      return (
+                        <tr key={s.student_id} className="hover:bg-gray-50">
+                          <td className="whitespace-nowrap px-4 py-3">
+                            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gray-100">
+                              {photoUrl ? (
+                                <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+                              ) : (
+                                <UserGroupIcon className="h-5 w-5 text-gray-400" />
+                              )}
+                            </div>
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3">
+                            <button
+                              type="button"
+                              onClick={() => openModal(s)}
+                              className="font-medium text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 rounded"
+                            >
+                              {s.name}
+                            </button>
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">{s.student_id}</td>
+                          <td className="whitespace-nowrap px-4 py-3 font-mono text-sm text-gray-700">{s.auth_code || '-'}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{s.phone_student || '-'}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{s.phone_parent || '-'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </section>
         </div>
       </div>
+
+      {/* 수정 모달 */}
+      {modalStudent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={closeModal}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="border-b border-gray-200 px-6 py-4">
+              <h2 id="modal-title" className="text-lg font-semibold text-gray-900">학생 정보 수정</h2>
+            </div>
+            <div className="space-y-4 px-6 py-4">
+              {/* 프로필 사진 (웹에서만) */}
+              <div>
+                <label className="mb-2 block text-xs font-medium text-gray-600">프로필 사진 (웹에서만 표시)</label>
+                <div className="flex items-center gap-4">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100">
+                    {editProfileDataUrl ? (
+                      <img src={editProfileDataUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <UserGroupIcon className="h-10 w-10 text-gray-400" />
+                    )}
+                  </div>
+                  <label className="cursor-pointer rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    사진 선택
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={handleProfileFile}
+                    />
+                  </label>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">학번</label>
+                <input
+                  type="text"
+                  value={editForm.student_id}
+                  onChange={(e) => setEditForm((f) => ({ ...f, student_id: e.target.value }))}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">이름</label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">인증코드</label>
+                <input
+                  type="text"
+                  value={editForm.auth_code}
+                  onChange={(e) => setEditForm((f) => ({ ...f, auth_code: e.target.value }))}
+                  placeholder="비워두면 기존 유지"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">학생 번호</label>
+                <input
+                  type="tel"
+                  value={editForm.phone_student}
+                  onChange={(e) => setEditForm((f) => ({ ...f, phone_student: e.target.value }))}
+                  placeholder="예: 010-1234-5678"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">부모님 번호</label>
+                <input
+                  type="tel"
+                  value={editForm.phone_parent}
+                  onChange={(e) => setEditForm((f) => ({ ...f, phone_parent: e.target.value }))}
+                  placeholder="예: 010-9876-5432"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+              {modalError && (
+                <p className="rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-800">{modalError}</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
+              <button
+                type="button"
+                onClick={closeModal}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveModal}
+                disabled={savingModal}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {savingModal ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

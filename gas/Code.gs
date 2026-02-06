@@ -97,6 +97,9 @@ function handleRequest(e, method) {
       case 'ADD_STUDENT':
         result = addStudent(params);
         break;
+      case 'UPDATE_STUDENT':
+        result = updateStudent(params);
+        break;
       case 'SEND_SMS':
         result = sendSms(params);
         break;
@@ -337,6 +340,31 @@ function addStudent(params) {
   var authCode = generateAuthCode();
   sheet.appendRow([String(student_id).trim(), String(name).trim(), authCode, '', '']);
   return { success: true, data: { student_id: String(student_id).trim(), name: String(name).trim(), auth_code: authCode } };
+}
+
+function updateStudent(params) {
+  var find_by_student_id = params.find_by_student_id;
+  var student_id = params.student_id != null ? String(params.student_id).trim() : '';
+  var name = params.name != null ? String(params.name).trim() : '';
+  var auth_code = params.auth_code != null ? String(params.auth_code).trim() : '';
+  var phone_student = params.phone_student != null ? String(params.phone_student).trim() : '';
+  var phone_parent = params.phone_parent != null ? String(params.phone_parent).trim() : '';
+  if (!find_by_student_id) return { success: false, error: 'find_by_student_id required' };
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.STUDENTS);
+  if (!sheet) return { success: false, error: 'Students sheet not found' };
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(find_by_student_id)) {
+      sheet.getRange(i + 1, 1).setValue(student_id || data[i][0]);
+      sheet.getRange(i + 1, 2).setValue(name || data[i][1]);
+      sheet.getRange(i + 1, 3).setValue(auth_code || data[i][2]);
+      sheet.getRange(i + 1, 4).setValue(phone_student);
+      sheet.getRange(i + 1, 5).setValue(phone_parent);
+      return { success: true };
+    }
+  }
+  return { success: false, error: '학생을 찾을 수 없습니다.' };
 }
 
 /**
