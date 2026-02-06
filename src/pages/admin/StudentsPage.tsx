@@ -2,7 +2,11 @@ import { useEffect, useState, useCallback } from 'react'
 import { getStudents, addStudent, updateStudent, deleteStudent, getClassInfo, saveClassInfo } from '@/api/api'
 import type { Student } from '@/types'
 import { cn, formatPhoneKorean } from '@/lib/utils'
-import { printRosterAsPdf } from '@/lib/rosterPdf'
+import {
+  printRosterAsPdf,
+  ROSTER_PRINT_COLUMNS,
+  type RosterPrintColumnId,
+} from '@/lib/rosterPdf'
 
 const PROFILE_PHOTO_KEY = 'homeroom_student_photo_'
 const ROSTER_META_KEY = 'homeroom_roster_meta'
@@ -88,6 +92,13 @@ export function StudentsPage() {
 
   const [listViewMode, setListViewMode] = useState<'card' | 'row'>('card')
   const [registerLinkCopied, setRegisterLinkCopied] = useState(false)
+  const [rosterPrintColumns, setRosterPrintColumns] = useState<Record<RosterPrintColumnId, boolean>>(() => {
+    const init = {} as Record<RosterPrintColumnId, boolean>
+    ROSTER_PRINT_COLUMNS.forEach((c) => {
+      init[c.id] = true
+    })
+    return init
+  })
 
   const registerUrl = typeof window !== 'undefined' ? `${window.location.origin}/register` : ''
 
@@ -425,13 +436,34 @@ export function StudentsPage() {
               <h2 className="text-sm font-medium text-gray-700">등록된 학생 목록</h2>
               <div className="flex items-center gap-2">
                 {listViewMode === 'row' && students.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => printRosterAsPdf(students, rosterMeta)}
-                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-                  >
-                    명렬표 PDF 저장
-                  </button>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <span className="w-full text-xs font-medium text-gray-500 sm:w-auto">인쇄 시 포함할 항목:</span>
+                    {ROSTER_PRINT_COLUMNS.map((col) => (
+                      <label key={col.id} className="flex cursor-pointer items-center gap-1.5 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={rosterPrintColumns[col.id]}
+                          onChange={(e) =>
+                            setRosterPrintColumns((prev) => ({ ...prev, [col.id]: e.target.checked }))
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        {col.label}
+                      </label>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        printRosterAsPdf(students, {
+                          ...rosterMeta,
+                          columns: ROSTER_PRINT_COLUMNS.filter((c) => rosterPrintColumns[c.id]).map((c) => c.id),
+                        })
+                      }
+                      className="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                    >
+                      명렬표 PDF 저장
+                    </button>
+                  </div>
                 )}
                 <div className="flex rounded-lg border border-gray-200 bg-white p-0.5 shadow-sm">
                 <button

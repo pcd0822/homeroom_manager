@@ -1,30 +1,76 @@
 import type { Student } from '@/types'
 
+/** 인쇄 시 선택 가능한 열 (번호 제외) */
+export type RosterPrintColumnId =
+  | 'name'
+  | 'student_id'
+  | 'auth_code'
+  | 'phone_student'
+  | 'phone_parent'
+  | 'email'
+  | 'note'
+
+export const ROSTER_PRINT_COLUMNS: { id: RosterPrintColumnId; label: string }[] = [
+  { id: 'name', label: '이름' },
+  { id: 'student_id', label: '학번' },
+  { id: 'auth_code', label: '인증코드' },
+  { id: 'phone_student', label: '학생 번호' },
+  { id: 'phone_parent', label: '부모님 번호' },
+  { id: 'email', label: '이메일' },
+  { id: 'note', label: '비고' },
+]
+
 /**
  * 명렬표를 HTML로 렌더링한 뒤 브라우저 인쇄 대화상자를 띄움.
- * 인쇄 시 "PDF로 저장"을 선택하면 한글이 깨지지 않은 PDF 저장 가능.
+ * columns에 포함된 열만 인쇄. 인쇄 시 "PDF로 저장" 선택 시 한글 깨짐 없음.
  */
 export function printRosterAsPdf(
   students: Student[],
-  options: { grade: string; classNum: string; teacherName: string }
+  options: {
+    grade: string
+    classNum: string
+    teacherName: string
+    columns: RosterPrintColumnId[]
+  }
 ) {
-  const { grade, classNum, teacherName } = options
+  const { grade, classNum, teacherName, columns } = options
   const title = `${grade}학년 ${classNum}반 학생 명렬표`
 
+  const headers = ['번호', ...ROSTER_PRINT_COLUMNS.filter((c) => columns.includes(c.id)).map((c) => c.label)]
+
+  const getCell = (s: Student, id: RosterPrintColumnId): string => {
+    switch (id) {
+      case 'name':
+        return String(s.name ?? '')
+      case 'student_id':
+        return String(s.student_id ?? '')
+      case 'auth_code':
+        return String(s.auth_code ?? '')
+      case 'phone_student':
+        return String(s.phone_student ?? '')
+      case 'phone_parent':
+        return String(s.phone_parent ?? '')
+      case 'email':
+        return String(s.email ?? '')
+      case 'note':
+        return ''
+      default:
+        return ''
+    }
+  }
+
+  const visibleCols = ROSTER_PRINT_COLUMNS.filter((c) => columns.includes(c.id))
   const rows = students
     .map(
       (s, i) => `
     <tr>
       <td>${i + 1}</td>
-      <td>${escapeHtml(String(s.name ?? ''))}</td>
-      <td>${escapeHtml(String(s.student_id ?? ''))}</td>
-      <td>${escapeHtml(String(s.auth_code ?? ''))}</td>
-      <td>${escapeHtml(String(s.phone_student ?? ''))}</td>
-      <td>${escapeHtml(String(s.phone_parent ?? ''))}</td>
-      <td></td>
+      ${visibleCols.map((c) => `<td>${escapeHtml(getCell(s, c.id))}</td>`).join('\n      ')}
     </tr>`
     )
     .join('')
+
+  const thCells = headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('\n        ')
 
   const html = `<!DOCTYPE html>
 <html lang="ko">
@@ -69,13 +115,7 @@ export function printRosterAsPdf(
   <table>
     <thead>
       <tr>
-        <th>번호</th>
-        <th>이름</th>
-        <th>학번</th>
-        <th>인증코드</th>
-        <th>학생 번호</th>
-        <th>부모님 번호</th>
-        <th>비고</th>
+        ${thCells}
       </tr>
     </thead>
     <tbody>${rows}</tbody>
