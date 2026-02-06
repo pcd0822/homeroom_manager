@@ -2,6 +2,10 @@
 [build]
   command = "npm run build"
   publish = "dist"
+  functions = "netlify/functions"
 
 # SPA: 모든 경로를 index.html로 (public/_redirects가 dist에 복사됨)
 # 직접 URL 접근 시 404 방지
+
+# 가정통신문 챗봇용 OpenAI API 키 (Netlify 대시보드 → Site settings → Environment variables)
+# OPENAI_API_KEY = sk-...

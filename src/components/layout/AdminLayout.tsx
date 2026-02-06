@@ -98,12 +98,26 @@ export function AdminLayout() {
               <SmsIcon className="h-5 w-5 shrink-0" />
               문자발송하기
             </NavLink>
+            <NavLink
+              to="/admin/students"
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                )
+              }
+            >
+              <UserGroupIcon className="h-5 w-5 shrink-0" />
+              학생관리
+            </NavLink>
           </nav>
         )}
       </aside>
 
-      {/* 메인 영역 */}
-      <main className="min-w-0 flex-1">
+      {/* 메인 영역 - 사이드바와 여백 */}
+      <main className="min-w-0 flex-1 pl-6 pr-6 pt-6 pb-8">
         <Outlet />
       </main>
     </div>
@@ -147,6 +161,14 @@ function SmsIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+    </svg>
+  )
+}
+
+function UserGroupIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
     </svg>
   )
 }

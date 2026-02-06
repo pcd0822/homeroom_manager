@@ -91,6 +91,12 @@ function handleRequest(e, method) {
       case 'CREATE_FORM':
         result = createForm(params);
         break;
+      case 'CREATE_FOLDER':
+        result = createFolder(params);
+        break;
+      case 'ADD_STUDENT':
+        result = addStudent(params);
+        break;
       case 'SEND_SMS':
         result = sendSms(params);
         break;
@@ -294,6 +300,43 @@ function createForm(params) {
   var createdAt = new Date().toISOString();
   sheet.appendRow([formId, folder_id || '', title, type, schema, true, createdAt]);
   return { success: true, data: { form_id: formId, created_at: createdAt } };
+}
+
+function createFolder(params) {
+  var name = params.name;
+  if (!name || String(name).trim() === '') return { success: false, error: 'name required' };
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.FOLDERS);
+  if (!sheet) return { success: false, error: 'Folders sheet not found' };
+  var folderId = generateId();
+  sheet.appendRow([folderId, String(name).trim()]);
+  return { success: true, data: { folder_id: folderId, name: String(name).trim() } };
+}
+
+function generateAuthCode() {
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var code = '';
+  for (var i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+  return code;
+}
+
+function addStudent(params) {
+  var student_id = params.student_id, name = params.name;
+  if (!student_id || String(student_id).trim() === '') return { success: false, error: 'student_id required' };
+  if (!name || String(name).trim() === '') return { success: false, error: 'name required' };
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.STUDENTS);
+  if (!sheet) return { success: false, error: 'Students sheet not found' };
+  var data = sheet.getDataRange().getValues();
+  var sidCol = 0;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][sidCol]) === String(student_id).trim()) {
+      return { success: false, error: '이미 등록된 학번입니다.' };
+    }
+  }
+  var authCode = generateAuthCode();
+  sheet.appendRow([String(student_id).trim(), String(name).trim(), authCode, '', '']);
+  return { success: true, data: { student_id: String(student_id).trim(), name: String(name).trim(), auth_code: authCode } };
 }
 
 /**

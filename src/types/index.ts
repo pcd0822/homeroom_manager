@@ -15,6 +15,8 @@ export interface FormFieldSchema {
 
 export interface FormSchema {
   fields: FormFieldSchema[]
+  /** Notice 타입일 때 본문(설명) 텍스트 */
+  body?: string
 }
 
 export interface Form {

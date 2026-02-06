@@ -26,7 +26,7 @@ export function FormView() {
           title: parsed.title,
           type: parsed.type as 'survey' | 'notice',
           schema: parsed.schema,
-          noticeBody: parsed.type === 'notice' ? (parsed.schema as unknown as { body?: string })?.body : undefined,
+          noticeBody: parsed.type === 'notice' ? parsed.schema?.body : undefined,
         })
       } else {
         setErrorMessage(res.error || '폼을 불러올 수 없습니다.')

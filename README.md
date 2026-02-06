@@ -48,9 +48,16 @@ VITE_GAS_API_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 
 ## 라우트
 
-- `/admin` — 관리자 대시보드 (폴더별 문서, 공유 링크)
+- `/admin` — 관리자 대시보드 (폴더/문서 카드, +폴더로 폴더 생성)
+- `/admin/forms/new` — 새 문서 만들기 (폼 빌더 + 가정통신문 챗봇)
 - `/admin/forms/:formId/responses` — 해당 문서 응답 그리드
+- `/admin/sms` — 문자 발송 (학생/학부모 번호 선택)
+- `/admin/students` — 학생관리 (학번·이름 등록, 인증코드 발급)
 - `/view/:formId` — 학생용 폼 보기/제출 (인증 후 Survey 또는 Notice 렌더링)
+
+## Netlify 환경 변수 (가정통신문 챗봇)
+
+- **OPENAI_API_KEY** — OpenAI API 키 (Netlify 대시보드 → Site settings → Environment variables). 새 문서 만들기 페이지 오른쪽 챗봇에서 사용합니다.
 
 ## 라이선스
 

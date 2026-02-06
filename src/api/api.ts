@@ -69,6 +69,10 @@ export function getFolders() {
   return request<Folder[]>('GET_FOLDERS', 'POST')
 }
 
+export function createFolder(params: { name: string }) {
+  return request<{ folder_id: string; name: string }>('CREATE_FOLDER', 'POST', params)
+}
+
 // ----- Responses -----
 export function getResponses(formId: string) {
   return request<ResponseRow[]>('GET_RESPONSES', 'POST', { form_id: formId })
@@ -97,6 +101,10 @@ export function deleteResponse(responseId: string) {
 // ----- Students & Auth -----
 export function getStudents() {
   return request<Student[]>('GET_STUDENTS', 'POST')
+}
+
+export function addStudent(params: { student_id: string; name: string }) {
+  return request<{ student_id: string; name: string; auth_code: string }>('ADD_STUDENT', 'POST', params)
 }
 
 export function getNonResponders(formId: string) {
