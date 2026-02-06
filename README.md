@@ -54,6 +54,7 @@ VITE_GAS_API_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 
 ## "Failed to fetch" / 서버 연결 실패 시
 
+- 프론트는 GAS에 **Content-Type: text/plain**으로 POST합니다. (GAS가 OPTIONS를 처리하지 않아 CORS preflight를 피하기 위함. GAS는 본문을 그대로 JSON으로 파싱합니다.)
 1. **GAS 배포 확인**: 스크립트 편집기에서 "배포" → "웹 앱으로 배포"가 되어 있고, URL이 복사된 값과 같은지 확인
 2. **VITE_GAS_API_URL**:  
    - 로컬: `.env`에 `VITE_GAS_API_URL=실제_GAS_웹앱_URL`  

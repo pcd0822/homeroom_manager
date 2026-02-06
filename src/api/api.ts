@@ -30,9 +30,11 @@ async function request<T = unknown>(
     }
   }
 
+  // Content-Type을 text/plain으로 보내야 CORS preflight(OPTIONS)가 발생하지 않음.
+  // GAS는 OPTIONS를 처리하지 않으므로, application/json이면 브라우저에서 요청이 막힘.
   const options: RequestInit = {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
   }
   if (method === 'POST') {
     options.body = JSON.stringify({ action, ...payload })
