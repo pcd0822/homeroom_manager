@@ -47,6 +47,28 @@ VITE_GAS_API_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 4. 배포 → 웹 앱으로 배포 (실행 사용자: 본인, 액세스: 모든 사용자)
 5. 배포된 URL을 프론트엔드 `VITE_GAS_API_URL`에 설정
 
+### 4. 문자 발송 설정 (선택)
+
+웹에서 **문자 발송** 버튼을 눌렀을 때 실제로 문자가 가려면 **솔라피(SOLAPI)** 계정과 GAS 설정이 필요합니다.
+
+1. **솔라피 가입 및 발신번호 등록**
+   - [솔라피 콘솔](https://console.solapi.com) 가입
+   - [발신번호 관리](https://console.solapi.com/senderids)에서 발신번호 사전 등록 (인증 필요)
+   - [API Key 관리](https://console.solapi.com/credentials)에서 **API Key**와 **API Secret** 발급
+   - 잔액 충전 (문자 1건당 소량 차감)
+
+2. **GAS Script Property 설정**
+   - 스크립트 편집기 → 프로젝트 설정(톱니바퀴) → **스크립트 속성**에서 아래 3개 추가:
+
+   | 속성 이름         | 값 예시        | 설명                    |
+   |------------------|----------------|-------------------------|
+   | `SOLAPI_API_KEY` | NCSAYU7Y...     | 솔라피 API Key          |
+   | `SOLAPI_API_SECRET` | 비밀키 문자열 | 솔라피 API Secret       |
+   | `SOLAPI_SENDER`  | 01012345678     | 사전 등록한 발신번호    |
+
+3. **미설정 시 동작**
+   - 위 3가지 중 하나라도 없으면 **실제 발송은 하지 않고**, "문자 발송 설정이 없습니다…" 라는 에러 메시지만 반환합니다. SmsLogs 시트에는 `config_missing` 상태로 기록됩니다.
+
 ## 데이터 저장·조회 (웹 ↔ 구글 시트)
 
 - **웹에서 등록/작성** → 웹앱이 GAS API를 호출하고, GAS가 구글 스프레드시트에 저장합니다. (학생 등록, 폼 생성, 폴더 생성, 응답 제출 등 모두 동일)

@@ -453,35 +453,112 @@ function saveClassInfo(params) {
 }
 
 /**
- * SMS 발송 (CoolSMS 등 외부 API 연동)
- * API Key는 Script Property에 COOLSMS_API_KEY, COOLSMS_SECRET 등으로 저장한다고 가정
+ * SMS 발송 — SOLAPI(솔라피) 연동
+ * 실제 발송을 하려면 Script Property에 아래 3가지를 반드시 설정하세요.
+ *   SOLAPI_API_KEY    : 솔라피 콘솔에서 발급한 API Key
+ *   SOLAPI_API_SECRET : 솔라피 콘솔에서 발급한 API Secret
+ *   SOLAPI_SENDER     : 사전 등록된 발신번호 (예: 01012345678)
+ * 미설정 시 발송 없이 로그만 기록하며, 에러 메시지로 설정 안내를 반환합니다.
  */
 function sendSms(params) {
   var receivers = params.receivers || []; // [{ phone: '010...', name: '홍길동' }]
   var message = params.message || '';
-  var template = params.template; // 예: "{name} 학생, 제출해 주세요."
+  var template = params.template;
   if (!receivers.length || (!message && !template)) {
     return { success: false, error: 'receivers and (message or template) required' };
   }
-  // 템플릿 치환
-  var finalMessages = receivers.map(function (r) {
-    if (template) {
-      return template.replace(/\{name\}/g, r.name || '').replace(/\{phone\}/g, r.phone || '');
-    }
-    return message;
-  });
-  // 실제 발송은 외부 API 호출 (CoolSMS 예시 - Mockup)
-  // var apiKey = PropertiesService.getScriptProperties().getProperty('COOLSMS_API_KEY');
-  // var secret = PropertiesService.getScriptProperties().getProperty('COOLSMS_SECRET');
-  // for (var i = 0; i < receivers.length; i++) {
-  //   UrlFetchApp.fetch('https://api.coolsms.co.kr/...', { method: 'post', payload: { ... } });
-  // }
+  var props = PropertiesService.getScriptProperties();
+  var apiKey = props.getProperty('SOLAPI_API_KEY');
+  var apiSecret = props.getProperty('SOLAPI_API_SECRET');
+  var senderPhone = (props.getProperty('SOLAPI_SENDER') || '').replace(/\D/g, '');
   var logId = generateId();
   var sentAt = new Date().toISOString();
   var ss = getSpreadsheet();
   var logSheet = ss.getSheetByName(SHEETS.SMS_LOGS);
-  if (logSheet) {
-    logSheet.appendRow([logId, sentAt, receivers.length, message || template, 'sent']);
+
+  if (!apiKey || !apiSecret || !senderPhone) {
+    if (logSheet) {
+      logSheet.appendRow([logId, sentAt, receivers.length, message || template || '', 'config_missing']);
+    }
+    return {
+      success: false,
+      error: '문자 발송 설정이 없습니다. GAS 스크립트 속성에 SOLAPI_API_KEY, SOLAPI_API_SECRET, SOLAPI_SENDER(발신번호)를 설정한 뒤 다시 시도해 주세요. (솔라피 콘솔: console.solapi.com)',
+    };
   }
-  return { success: true, data: { log_id: logId, sent_at: sentAt, receiver_count: receivers.length } };
+
+  // 수신자별 메시지 (템플릿 치환)
+  var textByReceiver = receivers.map(function (r) {
+    var text = message;
+    if (template) {
+      text = template.replace(/\{name\}/g, r.name || '').replace(/\{phone\}/g, r.phone || '');
+    }
+    return { to: (r.phone || '').replace(/\D/g, ''), text: text };
+  });
+
+  var authHeader = buildSolapiAuthHeader(apiKey, apiSecret);
+  var payload = {
+    messages: textByReceiver.map(function (m) {
+      return {
+        to: m.to,
+        from: senderPhone,
+        text: m.text,
+      };
+    }),
+  };
+
+  try {
+    var response = UrlFetchApp.fetch('https://api.solapi.com/messages/v4/send-many/detail', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: {
+        Authorization: authHeader,
+        'Content-Type': 'application/json',
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+    });
+    var code = response.getResponseCode();
+    var body = JSON.parse(response.getContentText() || '{}');
+
+    if (logSheet) {
+      var status = code === 200 ? 'sent' : 'api_error';
+      logSheet.appendRow([logId, sentAt, receivers.length, message || template || '', status]);
+    }
+
+    if (code !== 200) {
+      var errMsg = (body.errorMessage || body.message || body.error) || '발송 요청 실패';
+      return { success: false, error: 'SOLAPI: ' + errMsg };
+    }
+
+    var count = (body.groupInfo && body.groupInfo.count && body.groupInfo.count.sentSuccess) != null
+      ? body.groupInfo.count.sentSuccess
+      : receivers.length;
+    return { success: true, data: { log_id: logId, sent_at: sentAt, receiver_count: count } };
+  } catch (e) {
+    if (logSheet) {
+      logSheet.appendRow([logId, sentAt, receivers.length, message || template || '', 'error']);
+    }
+    return { success: false, error: '문자 발송 중 오류: ' + (e.message || String(e)) };
+  }
+}
+
+/**
+ * SOLAPI HMAC-SHA256 인증 헤더 생성
+ * @see https://developers.solapi.com/references/authentication/api-key
+ */
+function buildSolapiAuthHeader(apiKey, apiSecret) {
+  var dateTime = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  var salt = Array.apply(null, Array(16))
+    .map(function () {
+      return ('0' + Math.floor(Math.random() * 256).toString(16)).slice(-2);
+    })
+    .join('');
+  var data = dateTime + salt;
+  var signatureBytes = Utilities.computeHmacSha256Signature(data, apiSecret);
+  var signature = signatureBytes
+    .map(function (b) {
+      return ('0' + ((b < 0 ? b + 256 : b) & 0xff).toString(16)).slice(-2);
+    })
+    .join('');
+  return 'HMAC-SHA256 apiKey=' + apiKey + ', date=' + dateTime + ', salt=' + salt + ', signature=' + signature;
 }
