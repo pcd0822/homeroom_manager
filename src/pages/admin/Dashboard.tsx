@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { getForms, getFolders, createFolder, updateForm, deleteForm } from '@/api/api'
 import type { Form, Folder } from '@/types'
 import { cn } from '@/lib/utils'
+import { FormEditSlidePanel } from '@/components/FormEditSlidePanel'
 
 function FolderIcon({ className }: { className?: string }) {
   return (
@@ -53,6 +54,14 @@ function TrashIcon({ className }: { className?: string }) {
   )
 }
 
+function PencilIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+    </svg>
+  )
+}
+
 export function AdminDashboard() {
   const [forms, setForms] = useState<Form[]>([])
   const [folders, setFolders] = useState<Folder[]>([])
@@ -67,6 +76,7 @@ export function AdminDashboard() {
   const [folderModalAdding, setFolderModalAdding] = useState(false)
   const [folderModalUpdating, setFolderModalUpdating] = useState(false)
   const [deletingFormId, setDeletingFormId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<Form | null>(null)
 
   const copyShareLink = (formId: string) => {
     const url = `${window.location.origin}/view/${formId}`
@@ -282,40 +292,53 @@ export function AdminDashboard() {
                           </span>
                         </div>
                       </div>
-                      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
-                        <Link
-                          to={`/admin/forms/${form.form_id}/responses`}
-                          className="text-sm font-medium text-blue-600 hover:underline"
-                        >
-                          응답 보기
-                        </Link>
-                        <span className="text-gray-300">|</span>
-                        <button
-                          type="button"
-                          onClick={() => copyShareLink(form.form_id)}
-                          className="text-sm font-medium text-blue-600 hover:underline"
-                        >
-                          {copiedFormId === form.form_id ? '복사됨' : '공유하기'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setFolderModalForm(form)}
-                          className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-                          title="폴더에 넣기"
-                          aria-label="폴더에 넣기"
-                        >
-                          <FolderPlusIcon className="h-5 w-5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteForm(form)}
-                          disabled={deletingFormId === form.form_id}
-                          className="rounded p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                          title="문서 삭제"
-                          aria-label="문서 삭제"
-                        >
-                          <TrashIcon className="h-5 w-5" />
-                        </button>
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            to={`/admin/forms/${form.form_id}/responses`}
+                            className="text-sm font-medium text-blue-600 hover:underline"
+                          >
+                            응답 보기
+                          </Link>
+                          <span className="text-gray-300">|</span>
+                          <button
+                            type="button"
+                            onClick={() => copyShareLink(form.form_id)}
+                            className="text-sm font-medium text-blue-600 hover:underline"
+                          >
+                            {copiedFormId === form.form_id ? '복사됨' : '공유하기'}
+                          </button>
+                        </div>
+                        <div className="ml-auto flex items-center gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setEditForm(form)}
+                            className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 hover:text-blue-600"
+                            title="문서 수정"
+                            aria-label="문서 수정"
+                          >
+                            <PencilIcon className="h-5 w-5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFolderModalForm(form)}
+                            className="rounded-lg p-2 text-amber-600 transition hover:bg-amber-50 hover:text-amber-700"
+                            title="폴더에 넣기"
+                            aria-label="폴더에 넣기"
+                          >
+                            <FolderPlusIcon className="h-5 w-5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteForm(form)}
+                            disabled={deletingFormId === form.form_id}
+                            className="rounded-lg p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                            title="문서 삭제"
+                            aria-label="문서 삭제"
+                          >
+                            <TrashIcon className="h-5 w-5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -413,6 +436,25 @@ export function AdminDashboard() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* 문서 수정 슬라이드 패널 */}
+        {editForm && (
+          <>
+            <div
+              className="fixed inset-0 z-40 bg-black/30 transition-opacity"
+              onClick={() => setEditForm(null)}
+              aria-hidden="true"
+            />
+            <div className="fixed inset-y-0 right-0 z-50 animate-slide-in-right">
+              <FormEditSlidePanel
+                form={editForm}
+                folders={folders}
+                onClose={() => setEditForm(null)}
+                onSaved={load}
+              />
+            </div>
+          </>
         )}
       </div>
     </div>

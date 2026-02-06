@@ -347,6 +347,9 @@ function createFolder(params) {
 function updateForm(params) {
   var formId = params.form_id;
   var folder_id = params.folder_id;
+  var title = params.title;
+  var type = params.type;
+  var schema = params.schema;
   if (!formId) return { success: false, error: 'form_id required' };
   var ss = getSpreadsheet();
   var sheet = ss.getSheetByName(SHEETS.FORMS);
@@ -355,10 +358,20 @@ function updateForm(params) {
   var headers = data[0].map(String);
   var formIdCol = headers.indexOf('form_id');
   var folderIdCol = headers.indexOf('folder_id');
-  if (formIdCol < 0 || folderIdCol < 0) return { success: false, error: 'Column not found' };
+  var titleCol = headers.indexOf('title');
+  var typeCol = headers.indexOf('type');
+  var schemaCol = headers.indexOf('schema');
+  if (formIdCol < 0) return { success: false, error: 'Column not found' };
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][formIdCol]) === String(formId)) {
-      if (folder_id !== undefined) sheet.getRange(i + 1, folderIdCol + 1).setValue(folder_id || '');
+      var row = i + 1;
+      if (folder_id !== undefined && folderIdCol >= 0) sheet.getRange(row, folderIdCol + 1).setValue(folder_id || '');
+      if (title !== undefined && titleCol >= 0) sheet.getRange(row, titleCol + 1).setValue(String(title).trim());
+      if (type !== undefined && typeCol >= 0) sheet.getRange(row, typeCol + 1).setValue(type || 'notice');
+      if (schema !== undefined && schemaCol >= 0) {
+        var schemaStr = typeof schema === 'string' ? schema : JSON.stringify(schema || {});
+        sheet.getRange(row, schemaCol + 1).setValue(schemaStr);
+      }
       return { success: true };
     }
   }

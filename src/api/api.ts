@@ -77,7 +77,13 @@ export function createForm(params: {
   return request<{ form_id: string; created_at: string }>('CREATE_FORM', 'POST', params)
 }
 
-export function updateForm(params: { form_id: string; folder_id?: string }) {
+export function updateForm(params: {
+  form_id: string
+  folder_id?: string
+  title?: string
+  type?: 'survey' | 'notice'
+  schema?: FormSchema | string
+}) {
   return request('UPDATE_FORM', 'POST', params)
 }
 
