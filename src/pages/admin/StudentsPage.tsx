@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
-import { getStudents, addStudent, updateStudent } from '@/api/api'
+import { getStudents, addStudent, updateStudent, deleteStudent, getClassInfo, saveClassInfo } from '@/api/api'
 import type { Student } from '@/types'
 import { cn, formatPhoneKorean } from '@/lib/utils'
-import { downloadRosterPdf } from '@/lib/rosterPdf'
+import { printRosterAsPdf } from '@/lib/rosterPdf'
 
 const PROFILE_PHOTO_KEY = 'homeroom_student_photo_'
 const ROSTER_META_KEY = 'homeroom_roster_meta'
@@ -79,8 +79,11 @@ export function StudentsPage() {
     email: '',
   })
   const [rosterMeta, setRosterMetaState] = useState(getRosterMeta)
+  const [savingRosterMeta, setSavingRosterMeta] = useState(false)
+  const [rosterMetaMessage, setRosterMetaMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [editProfileDataUrl, setEditProfileDataUrl] = useState<string | null>(null)
   const [savingModal, setSavingModal] = useState(false)
+  const [deletingStudent, setDeletingStudent] = useState(false)
   const [modalError, setModalError] = useState('')
 
   const [listViewMode, setListViewMode] = useState<'card' | 'row'>('card')
@@ -108,6 +111,58 @@ export function StudentsPage() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    getClassInfo().then((res) => {
+      if (res.success && res.data && (res.data.grade || res.data.class || res.data.teacher_name)) {
+        setRosterMetaState({
+          grade: res.data.grade ?? '',
+          classNum: res.data.class ?? '',
+          teacherName: res.data.teacher_name ?? '',
+        })
+        setRosterMeta(res.data.grade ?? '', res.data.class ?? '', res.data.teacher_name ?? '')
+      }
+    })
+  }, [])
+
+  const handleSaveRosterMeta = () => {
+    setSavingRosterMeta(true)
+    setRosterMetaMessage(null)
+    saveClassInfo(rosterMeta)
+      .then((res) => {
+        if (res.success) {
+          setRosterMetaMessage({ type: 'success', text: '명렬표 정보가 저장되었습니다.' })
+          setRosterMeta(rosterMeta.grade, rosterMeta.classNum, rosterMeta.teacherName)
+        } else {
+          setRosterMetaMessage({ type: 'error', text: res.error || '저장에 실패했습니다.' })
+        }
+      })
+      .catch(() => setRosterMetaMessage({ type: 'error', text: '서버 연결에 실패했습니다.' }))
+      .finally(() => setSavingRosterMeta(false))
+  }
+
+  const handleDeleteStudent = () => {
+    if (!modalStudent) return
+    if (!window.confirm(`정말 ${modalStudent.name}(학번 ${modalStudent.student_id})님을 삭제할까요?`)) return
+    setDeletingStudent(true)
+    setModalError('')
+    deleteStudent(String(modalStudent.student_id))
+      .then((res) => {
+        if (res.success) {
+          try {
+            localStorage.removeItem(PROFILE_PHOTO_KEY + String(modalStudent.student_id))
+          } catch {
+            // ignore
+          }
+          closeModal()
+          load()
+        } else {
+          setModalError(res.error || '삭제에 실패했습니다.')
+        }
+      })
+      .catch(() => setModalError('서버 연결에 실패했습니다.'))
+      .finally(() => setDeletingStudent(false))
+  }
 
   const openModal = (s: Student) => {
     setModalStudent(s)
@@ -259,7 +314,25 @@ export function StudentsPage() {
                   className="w-32 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                 />
               </div>
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={handleSaveRosterMeta}
+                  disabled={savingRosterMeta}
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {savingRosterMeta ? '저장 중...' : '저장'}
+                </button>
+              </div>
             </div>
+            {rosterMetaMessage && (
+              <p className={cn(
+                'mt-2 text-sm',
+                rosterMetaMessage.type === 'success' ? 'text-green-600' : 'text-red-600'
+              )}>
+                {rosterMetaMessage.text}
+              </p>
+            )}
           </section>
           {/* 학생 자가등록 링크 */}
           <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -354,7 +427,7 @@ export function StudentsPage() {
                 {listViewMode === 'row' && students.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => downloadRosterPdf(students, rosterMeta)}
+                    onClick={() => printRosterAsPdf(students, rosterMeta)}
                     className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
                   >
                     명렬표 PDF 저장
@@ -579,22 +652,32 @@ export function StudentsPage() {
                 <p className="rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-800">{modalError}</p>
               )}
             </div>
-            <div className="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
+            <div className="flex justify-between gap-2 border-t border-gray-200 px-6 py-4">
               <button
                 type="button"
-                onClick={closeModal}
-                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                onClick={handleDeleteStudent}
+                disabled={deletingStudent}
+                className="rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
               >
-                취소
+                {deletingStudent ? '삭제 중...' : '삭제'}
               </button>
-              <button
-                type="button"
-                onClick={handleSaveModal}
-                disabled={savingModal}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                {savingModal ? '저장 중...' : '저장'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveModal}
+                  disabled={savingModal}
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {savingModal ? '저장 중...' : '저장'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

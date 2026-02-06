@@ -21,7 +21,8 @@ var SHEETS = {
   RESPONSES: 'Responses',
   FOLDERS: 'Folders',
   STUDENTS: 'Students',
-  SMS_LOGS: 'SmsLogs'
+  SMS_LOGS: 'SmsLogs',
+  CLASS: 'Class'
 };
 
 /**
@@ -99,6 +100,15 @@ function handleRequest(e, method) {
         break;
       case 'UPDATE_STUDENT':
         result = updateStudent(params);
+        break;
+      case 'DELETE_STUDENT':
+        result = deleteStudent(params.student_id);
+        break;
+      case 'GET_CLASS_INFO':
+        result = getClassInfo();
+        break;
+      case 'SAVE_CLASS_INFO':
+        result = saveClassInfo(params);
         break;
       case 'SEND_SMS':
         result = sendSms(params);
@@ -382,6 +392,64 @@ function updateStudent(params) {
     }
   }
   return { success: false, error: '학생을 찾을 수 없습니다.' };
+}
+
+function deleteStudent(studentId) {
+  if (!studentId) return { success: false, error: 'student_id required' };
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.STUDENTS);
+  if (!sheet) return { success: false, error: 'Students sheet not found' };
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]) === String(studentId)) {
+      sheet.deleteRow(i + 1);
+      return { success: true };
+    }
+  }
+  return { success: false, error: '학생을 찾을 수 없습니다.' };
+}
+
+function getOrCreateClassSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.CLASS);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.CLASS);
+    sheet.getRange(1, 1, 1, 3).setValues([['grade', 'class', 'teacher_name']]);
+    sheet.getRange(2, 1, 2, 3).setValues([['', '', '']]);
+  }
+  return sheet;
+}
+
+function getClassInfo() {
+  var sheet = getOrCreateClassSheet();
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) {
+    return { success: true, data: { grade: '', class: '', teacher_name: '' } };
+  }
+  var row = data[1];
+  return {
+    success: true,
+    data: {
+      grade: String(row[0] != null ? row[0] : ''),
+      class: String(row[1] != null ? row[1] : ''),
+      teacher_name: String(row[2] != null ? row[2] : '')
+    }
+  };
+}
+
+function saveClassInfo(params) {
+  var grade = params.grade != null ? String(params.grade).trim() : '';
+  var classNum = params.class != null ? String(params.class).trim() : (params.classNum != null ? String(params.classNum).trim() : '');
+  var teacherName = params.teacher_name != null ? String(params.teacher_name).trim() : (params.teacherName != null ? String(params.teacherName).trim() : '');
+  var sheet = getOrCreateClassSheet();
+  if (sheet.getLastRow() < 2) {
+    sheet.appendRow([grade, classNum, teacherName]);
+  } else {
+    sheet.getRange(2, 1).setValue(grade);
+    sheet.getRange(2, 2).setValue(classNum);
+    sheet.getRange(2, 3).setValue(teacherName);
+  }
+  return { success: true, data: { grade: grade, class: classNum, teacher_name: teacherName } };
 }
 
 /**

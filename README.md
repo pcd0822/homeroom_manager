@@ -37,6 +37,7 @@ VITE_GAS_API_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 - **Folders:** folder_id, name
 - **Students:** student_id, name, auth_code, phone_student, phone_parent, e-mail
 - **SmsLogs:** log_id, sent_at, receiver_count, message_content, status
+- **Class:** grade, class, teacher_name (명렬표 정보 1행, 없으면 GAS가 자동 생성)
 
 ### 3. GAS 배포
 

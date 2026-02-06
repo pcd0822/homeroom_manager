@@ -138,6 +138,22 @@ export function updateStudent(params: {
   return request('UPDATE_STUDENT', 'POST', params)
 }
 
+export function deleteStudent(studentId: string) {
+  return request('DELETE_STUDENT', 'POST', { student_id: studentId })
+}
+
+export function getClassInfo() {
+  return request<{ grade: string; class: string; teacher_name: string }>('GET_CLASS_INFO', 'POST')
+}
+
+export function saveClassInfo(params: { grade: string; classNum: string; teacherName: string }) {
+  return request<{ grade: string; class: string; teacher_name: string }>('SAVE_CLASS_INFO', 'POST', {
+    grade: params.grade,
+    class: params.classNum,
+    teacher_name: params.teacherName,
+  })
+}
+
 export function getNonResponders(formId: string) {
   return request<Student[]>('GET_NON_RESPONDERS', 'POST', { form_id: formId })
 }
