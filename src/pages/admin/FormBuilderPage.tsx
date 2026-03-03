@@ -24,6 +24,9 @@ export function FormBuilderPage() {
   const [folderId, setFolderId] = useState('')
   const [description, setDescription] = useState('')
   const [fields, setFields] = useState<FormFieldSchema[]>([])
+  const [consentEnabled, setConsentEnabled] = useState(false)
+  const [consentTitle, setConsentTitle] = useState('')
+  const [consentBody, setConsentBody] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -129,6 +132,13 @@ export function FormBuilderPage() {
     const schema: FormSchema = {
       fields: formType === 'survey' ? fields : [],
       body: description.trim() || undefined,
+      consent:
+        formType === 'notice' && consentEnabled && consentTitle.trim()
+          ? {
+              title: consentTitle.trim(),
+              body: consentBody.trim(),
+            }
+          : undefined,
     }
     createForm({
       folder_id: folderId || undefined,
@@ -228,6 +238,43 @@ export function FormBuilderPage() {
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                 />
               </div>
+              {formType === 'notice' && (
+                <div className="mt-2 space-y-2 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                  <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={consentEnabled}
+                      onChange={(e) => setConsentEnabled(e.target.checked)}
+                      className="h-4 w-4 text-blue-600"
+                    />
+                    가정통신문 하단에 동의서 작성 영역 추가
+                  </label>
+                  {consentEnabled && (
+                    <div className="space-y-2 pl-5">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">동의서 제목</label>
+                        <input
+                          type="text"
+                          value={consentTitle}
+                          onChange={(e) => setConsentTitle(e.target.value)}
+                          placeholder="예: 개인정보 수집·이용 동의"
+                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">동의서 본문</label>
+                        <textarea
+                          value={consentBody}
+                          onChange={(e) => setConsentBody(e.target.value)}
+                          rows={4}
+                          placeholder="동의서 내용을 입력하세요."
+                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-xs"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

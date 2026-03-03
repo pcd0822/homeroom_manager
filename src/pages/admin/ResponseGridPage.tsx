@@ -89,6 +89,40 @@ function printResponsesAsPdf(
   win.document.close()
 }
 
+function downloadResponsesAsXlsx(
+  title: string,
+  columns: { key: string; label: string }[],
+  rows: Record<string, unknown>[]
+) {
+  const safeTitle = title || '문서'
+  const header = columns.map((c) => c.label).join('\t')
+  const lines = rows.map((row) =>
+    columns
+      .map((col) => {
+        const val = row[col.key]
+        if (col.key === 'submitted_at' && val) {
+          return new Date(String(val)).toLocaleString('ko-KR')
+        }
+        if (Array.isArray(val)) {
+          return (val as string[]).join(', ')
+        }
+        return String(val ?? '')
+      })
+      .join('\t')
+  )
+  const tsv = [header, ...lines].join('\n')
+  const blob = new Blob(['\uFEFF' + tsv], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8;',
+  })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `${safeTitle}_응답.xlsx`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(a.href)
+}
+
 /** 응답 데이터 그리드 — 수정/삭제 지원 */
 export function ResponseGridPage() {
   const { formId } = useParams<{ formId: string }>()
@@ -99,6 +133,8 @@ export function ResponseGridPage() {
   const [editAnswer, setEditAnswer] = useState<Record<string, unknown>>({})
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [detailRow, setDetailRow] = useState<Record<string, unknown> | null>(null)
+  const [studentSortOrder, setStudentSortOrder] = useState<'asc' | 'desc'>('asc')
 
   const loadResponses = useCallback(() => {
     if (!formId) return
@@ -128,6 +164,7 @@ export function ResponseGridPage() {
   const parsed = form ? parseFormSchema(form) : null
   const schema = parsed?.schema as FormSchema | null
   const fields = schema?.fields || []
+  const isSurvey = (form?.type as 'survey' | 'notice' | undefined) === 'survey'
 
   // answer_data JSON 파싱하여 컬럼 구성
   const rows: Record<string, unknown>[] = responses.map((r) => {
@@ -144,6 +181,18 @@ export function ResponseGridPage() {
       submitted_at: r.submitted_at,
       ...data,
     } as Record<string, unknown>
+  })
+
+  const sortedRows = [...rows].sort((a, b) => {
+    const aId = String(a.student_id ?? '')
+    const bId = String(b.student_id ?? '')
+    const aNum = parseInt(aId, 10)
+    const bNum = parseInt(bId, 10)
+    const toNum = (num: number) => (isNaN(num) ? Number.MAX_SAFE_INTEGER : num)
+    const diff = toNum(aNum) - toNum(bNum)
+    if (diff !== 0) return studentSortOrder === 'asc' ? diff : -diff
+    const strCmp = aId.localeCompare(bId, 'ko')
+    return studentSortOrder === 'asc' ? strCmp : -strCmp
   })
 
   const columns = [
@@ -200,13 +249,63 @@ export function ResponseGridPage() {
           </h1>
         </div>
         {!loading && (
-          <button
-            type="button"
-            onClick={() => printResponsesAsPdf(form?.title ?? '문서', columns, rows)}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-          >
-            PDF 인쇄
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {isSurvey && (
+              <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                <span className="font-medium">정렬:</span>
+                <button
+                  type="button"
+                  onClick={() => setStudentSortOrder('asc')}
+                  className={`rounded-md border px-2 py-1 text-xs font-medium ${
+                    studentSortOrder === 'asc'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  오름차순
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStudentSortOrder('desc')}
+                  className={`rounded-md border px-2 py-1 text-xs font-medium ${
+                    studentSortOrder === 'desc'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  내림차순
+                </button>
+              </div>
+            )}
+            <div className="relative">
+              <button
+                type="button"
+                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                onClick={(e) => {
+                  const menu = e.currentTarget.nextElementSibling as HTMLDivElement | null
+                  if (menu) menu.classList.toggle('hidden')
+                }}
+              >
+                다운로드
+              </button>
+              <div className="absolute right-0 z-10 mt-1 hidden w-40 rounded-md border border-gray-200 bg-white text-xs shadow-lg">
+                <button
+                  type="button"
+                  className="block w-full px-3 py-1.5 text-left hover:bg-gray-50"
+                  onClick={() => printResponsesAsPdf(form?.title ?? '문서', columns, sortedRows)}
+                >
+                  PDF로 저장
+                </button>
+                <button
+                  type="button"
+                  className="block w-full px-3 py-1.5 text-left hover:bg-gray-50"
+                  onClick={() => downloadResponsesAsXlsx(form?.title ?? '문서', columns, sortedRows)}
+                >
+                  엑셀(xlsx)
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
@@ -236,15 +335,35 @@ export function ResponseGridPage() {
                   </td>
                 </tr>
               ) : (
-                rows.map((row) => (
+                sortedRows.map((row) => (
                   <tr key={String(row.response_id)} className="hover:bg-gray-50">
-                    {columns.map((col) => (
-                      <td key={col.key} className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                        {col.key === 'submitted_at' && row[col.key]
-                          ? new Date(String(row[col.key])).toLocaleString('ko-KR')
-                          : String(row[col.key] ?? '')}
-                      </td>
-                    ))}
+                    {columns.map((col) => {
+                      const val = row[col.key]
+                      let display = ''
+                      if (col.key === 'submitted_at' && val) {
+                        display = new Date(String(val)).toLocaleString('ko-KR')
+                      } else if (Array.isArray(val)) {
+                        display = (val as string[]).join(', ')
+                      } else {
+                        display = String(val ?? '')
+                      }
+                      const isStudentCell = isSurvey && col.key === 'student_id' && row[col.key]
+                      return (
+                        <td key={col.key} className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
+                          {isStudentCell ? (
+                            <button
+                              type="button"
+                              className="text-blue-600 hover:underline"
+                              onClick={() => setDetailRow(row)}
+                            >
+                              {display}
+                            </button>
+                          ) : (
+                            display
+                          )}
+                        </td>
+                      )
+                    })}
                     <td className="px-4 py-3 text-right text-sm">
                       <button
                         type="button"
@@ -344,6 +463,58 @@ export function ResponseGridPage() {
                 >
                   {saving ? '저장 중...' : '저장'}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 학생 개별 응답 보기 (설문 전용) */}
+        {isSurvey && detailRow && schema?.fields && (
+          <div
+            className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="detail-response-title"
+          >
+            <div className="w-full max-w-xl rounded-xl border border-gray-200 bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                <h2 id="detail-response-title" className="text-lg font-semibold text-gray-900">
+                  학생 응답 — {String(detailRow.student_name)} (학번 {String(detailRow.student_id)})
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setDetailRow(null)}
+                  className="rounded p-2 text-gray-500 hover:bg-gray-100"
+                  aria-label="닫기"
+                >
+                  <span className="text-xl leading-none">×</span>
+                </button>
+              </div>
+              <div className="max-h-[70vh] overflow-y-auto px-4 py-4">
+                <div className="mb-4 text-xs text-gray-500">
+                  제출일시:{' '}
+                  {detailRow.submitted_at
+                    ? new Date(String(detailRow.submitted_at)).toLocaleString('ko-KR')
+                    : '-'}
+                </div>
+                <div className="space-y-4">
+                  {schema.fields.map((f: FormFieldSchema) => {
+                    const raw = detailRow[f.id]
+                    let display: string
+                    if (Array.isArray(raw)) {
+                      display = (raw as string[]).join(', ')
+                    } else {
+                      display = String(raw ?? '')
+                    }
+                    if (!display) display = '-'
+                    return (
+                      <div key={f.id} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                        <div className="text-sm font-medium text-gray-800">{f.label}</div>
+                        <div className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{display}</div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             </div>
           </div>

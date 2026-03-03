@@ -211,12 +211,14 @@ function SurveyForm({
 function NoticeForm({
   noticeTitle,
   noticeBody,
+  schema,
   onSubmit,
   isSubmitting,
   className,
 }: {
   noticeTitle?: string
   noticeBody?: string
+  schema?: FormSchema | null
   onSubmit: (values: Record<string, unknown>) => void
   isSubmitting?: boolean
   className?: string
@@ -233,6 +235,14 @@ function NoticeForm({
           className="prose prose-sm max-w-none text-gray-700"
           dangerouslySetInnerHTML={{ __html: noticeBody }}
         />
+      )}
+      {schema?.consent && (
+        <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <div className="text-sm font-semibold text-gray-900">{schema.consent.title}</div>
+          <div className="prose prose-sm max-w-none text-gray-700">
+            <p className="whitespace-pre-wrap">{schema.consent.body}</p>
+          </div>
+        </div>
       )}
       <button
         type="button"
@@ -260,6 +270,7 @@ export function FormRenderer({
       <NoticeForm
         noticeTitle={noticeTitle}
         noticeBody={noticeBody}
+        schema={schema}
         onSubmit={onSubmit}
         isSubmitting={isSubmitting}
         className={className}

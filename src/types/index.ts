@@ -17,6 +17,11 @@ export interface FormSchema {
   fields: FormFieldSchema[]
   /** Notice 타입일 때 본문(설명) 텍스트 */
   body?: string
+  /** Notice 타입일 때 동의서 블록 (선택) */
+  consent?: {
+    title: string
+    body: string
+  }
 }
 
 export interface Form {
