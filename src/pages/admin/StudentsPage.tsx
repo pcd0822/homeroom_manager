@@ -223,7 +223,36 @@ export function StudentsPage() {
     if (!file || !file.type.startsWith('image/')) return
     const reader = new FileReader()
     reader.onload = () => {
-      setEditProfileDataUrl(reader.result as string)
+      const base = reader.result as string
+      const img = new Image()
+      img.onload = () => {
+        try {
+          const maxSize = 256
+          let width = img.width
+          let height = img.height
+          if (width > height && width > maxSize) {
+            height = (height * maxSize) / width
+            width = maxSize
+          } else if (height > maxSize) {
+            width = (width * maxSize) / height
+            height = maxSize
+          }
+          const canvas = document.createElement('canvas')
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            setEditProfileDataUrl(base)
+            return
+          }
+          ctx.drawImage(img, 0, 0, width, height)
+          const compressed = canvas.toDataURL('image/jpeg', 0.8)
+          setEditProfileDataUrl(compressed)
+        } catch {
+          setEditProfileDataUrl(base)
+        }
+      }
+      img.src = base
     }
     reader.readAsDataURL(file)
   }
