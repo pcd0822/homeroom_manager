@@ -60,6 +60,7 @@ export interface Student {
   phone_student: string
   phone_parent: string
   email?: string
+  photo_data?: string
 }
 
 export interface SmsLog {

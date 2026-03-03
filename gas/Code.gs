@@ -214,6 +214,11 @@ function getStudents() {
   var sheet = ss.getSheetByName(SHEETS.STUDENTS);
   if (!sheet) return { success: false, error: 'Students sheet not found' };
   var headers = getSheetHeaders(sheet);
+  // photo_data 헤더가 없고 열이 7개 이상이면 7번째 열을 photo_data로 사용
+  if (headers.indexOf('photo_data') < 0 && sheet.getLastColumn() >= 7) {
+    sheet.getRange(1, 7).setValue('photo_data');
+    headers = getSheetHeaders(sheet);
+  }
   var data = sheetToObjects(sheet, headers);
   // 시트에서 숫자로 읽힌 값(학번, 전화번호 등)을 문자열로 통일해 반환
   data = data.map(function (row) {
@@ -224,7 +229,8 @@ function getStudents() {
       auth_code: String(row.auth_code != null ? row.auth_code : ''),
       phone_student: String(row.phone_student != null ? row.phone_student : ''),
       phone_parent: String(row.phone_parent != null ? row.phone_parent : ''),
-      email: String(emailVal)
+      email: String(emailVal),
+      photo_data: row.photo_data != null ? String(row.photo_data) : ''
     };
   });
   return { success: true, data: data };
@@ -438,6 +444,7 @@ function updateStudent(params) {
   var phone_student = params.phone_student != null ? String(params.phone_student).trim() : '';
   var phone_parent = params.phone_parent != null ? String(params.phone_parent).trim() : '';
   var email = params.email != null ? String(params.email).trim() : '';
+  var photo_data = params.photo_data != null ? String(params.photo_data) : '';
   if (!find_by_student_id) return { success: false, error: 'find_by_student_id required' };
   var ss = getSpreadsheet();
   var sheet = ss.getSheetByName(SHEETS.STUDENTS);
@@ -451,6 +458,9 @@ function updateStudent(params) {
       sheet.getRange(i + 1, 4).setNumberFormat('@').setValue(phone_student);
       sheet.getRange(i + 1, 5).setNumberFormat('@').setValue(phone_parent);
       sheet.getRange(i + 1, 6).setValue(email);
+      if (photo_data) {
+        sheet.getRange(i + 1, 7).setValue(photo_data);
+      }
       return { success: true };
     }
   }

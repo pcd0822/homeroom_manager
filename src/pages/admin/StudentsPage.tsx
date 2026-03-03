@@ -209,7 +209,9 @@ export function StudentsPage() {
       phone_parent: String(s.phone_parent ?? ''),
       email: String(s.email ?? ''),
     })
-    setEditProfileDataUrl(getProfilePhotoUrl(String(s.student_id)))
+    setEditProfileDataUrl(
+      (s.photo_data && s.photo_data.length > 0) ? s.photo_data : getProfilePhotoUrl(String(s.student_id))
+    )
     setModalError('')
   }
 
@@ -257,19 +259,10 @@ export function StudentsPage() {
       phone_student: phoneStudentRaw ? formatPhoneKorean(phoneStudentRaw) : undefined,
       phone_parent: phoneParentRaw ? formatPhoneKorean(phoneParentRaw) : undefined,
       email: emailRaw || undefined,
+      photo_data: editProfileDataUrl || undefined,
     })
       .then((res) => {
         if (res.success) {
-          if (editProfileDataUrl) {
-            setProfilePhoto(newId, editProfileDataUrl)
-            if (oldId !== newId) {
-              try {
-                localStorage.removeItem(PROFILE_PHOTO_KEY + oldId)
-              } catch {
-                // ignore
-              }
-            }
-          }
           closeModal()
           load()
         } else {
@@ -632,7 +625,10 @@ export function StudentsPage() {
             ) : listViewMode === 'card' ? (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {sortedStudents.map((s) => {
-                  const photoUrl = getProfilePhotoUrl(String(s.student_id))
+                  const photoUrl =
+                    (s.photo_data && s.photo_data.length > 0)
+                      ? s.photo_data
+                      : getProfilePhotoUrl(String(s.student_id))
                   return (
                     <button
                       key={s.student_id}
@@ -672,7 +668,10 @@ export function StudentsPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
                     {sortedStudents.map((s) => {
-                      const photoUrl = getProfilePhotoUrl(String(s.student_id))
+                      const photoUrl =
+                        (s.photo_data && s.photo_data.length > 0)
+                          ? s.photo_data
+                          : getProfilePhotoUrl(String(s.student_id))
                       return (
                         <tr key={s.student_id} className="hover:bg-gray-50">
                           <td className="whitespace-nowrap px-4 py-3">
