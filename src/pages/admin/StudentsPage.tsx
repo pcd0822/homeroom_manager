@@ -99,6 +99,9 @@ export function StudentsPage() {
     })
     return init
   })
+  const [studentSortOrder, setStudentSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [searchField, setSearchField] = useState<'id' | 'name'>('id')
+  const [searchQuery, setSearchQuery] = useState('')
 
   const registerUrl = typeof window !== 'undefined' ? `${window.location.origin}/register` : ''
 
@@ -109,6 +112,27 @@ export function StudentsPage() {
       setTimeout(() => setRegisterLinkCopied(false), 2000)
     })
   }
+
+  const filteredStudents = students.filter((s) => {
+    const q = searchQuery.trim()
+    if (!q) return true
+    if (searchField === 'id') {
+      return String(s.student_id ?? '').includes(q)
+    }
+    return String(s.name ?? '').includes(q)
+  })
+
+  const sortedStudents = [...filteredStudents].sort((a, b) => {
+    const aId = String(a.student_id ?? '')
+    const bId = String(b.student_id ?? '')
+    const aNum = parseInt(aId, 10)
+    const bNum = parseInt(bId, 10)
+    const toKey = (id: string, num: number) => (isNaN(num) ? Number.MAX_SAFE_INTEGER : num)
+    const diff = toKey(aId, aNum) - toKey(bId, bNum)
+    if (diff !== 0) return studentSortOrder === 'asc' ? diff : -diff
+    const strCmp = aId.localeCompare(bId, 'ko')
+    return studentSortOrder === 'asc' ? strCmp : -strCmp
+  })
 
   const load = useCallback(() => {
     setLoading(true)
@@ -433,9 +457,40 @@ export function StudentsPage() {
           {/* 학생 목록 - 보기 방식 선택 */}
           <section>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-medium text-gray-700">등록된 학생 목록</h2>
-              <div className="flex items-center gap-2">
-                {listViewMode === 'row' && students.length > 0 && (
+              <div className="space-y-1">
+                <h2 className="text-sm font-medium text-gray-700">등록된 학생 목록</h2>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                  <span className="font-medium">검색:</span>
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="radio"
+                      checked={searchField === 'id'}
+                      onChange={() => setSearchField('id')}
+                      className="h-3 w-3 text-blue-600"
+                    />
+                    학번
+                  </label>
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="radio"
+                      checked={searchField === 'name'}
+                      onChange={() => setSearchField('name')}
+                      className="h-3 w-3 text-blue-600"
+                    />
+                    이름
+                  </label>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="검색어 입력"
+                    className="h-7 w-40 rounded-md border border-gray-300 px-2 text-xs"
+                  />
+                  <span className="text-[11px] text-gray-400">(학번 기준 정렬)</span>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {listViewMode === 'row' && sortedStudents.length > 0 && (
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                     <span className="w-full text-xs font-medium text-gray-500 sm:w-auto">인쇄 시 포함할 항목:</span>
                     {ROSTER_PRINT_COLUMNS.map((col) => (
@@ -451,18 +506,88 @@ export function StudentsPage() {
                         {col.label}
                       </label>
                     ))}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        printRosterAsPdf(students, {
-                          ...rosterMeta,
-                          columns: ROSTER_PRINT_COLUMNS.filter((c) => rosterPrintColumns[c.id]).map((c) => c.id),
-                        })
-                      }
-                      className="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-                    >
-                      명렬표 PDF 저장
-                    </button>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs font-medium text-gray-500">정렬:</span>
+                      <button
+                        type="button"
+                        onClick={() => setStudentSortOrder('asc')}
+                        className={cn(
+                          'rounded-md border px-2 py-1 text-xs font-medium',
+                          studentSortOrder === 'asc'
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+                        )}
+                      >
+                        오름차순
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStudentSortOrder('desc')}
+                        className={cn(
+                          'rounded-md border px-2 py-1 text-xs font-medium',
+                          studentSortOrder === 'desc'
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+                        )}
+                      >
+                        내림차순
+                      </button>
+                      <div className="relative ml-2">
+                        <button
+                          type="button"
+                          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                          onClick={(e) => {
+                            const menu = (e.currentTarget.nextSibling as HTMLDivElement | null)
+                            if (menu) menu.classList.toggle('hidden')
+                          }}
+                        >
+                          다운로드
+                        </button>
+                        <div className="absolute right-0 z-10 mt-1 hidden w-32 rounded-md border border-gray-200 bg-white text-xs shadow-lg">
+                          <button
+                            type="button"
+                            className="block w-full px-3 py-1.5 text-left hover:bg-gray-50"
+                            onClick={() => {
+                              const menu = document.activeElement as HTMLElement | null
+                              printRosterAsPdf(sortedStudents, {
+                                ...rosterMeta,
+                                columns: ROSTER_PRINT_COLUMNS.filter((c) => rosterPrintColumns[c.id]).map((c) => c.id),
+                              })
+                            }}
+                          >
+                            PDF로 저장
+                          </button>
+                          <button
+                            type="button"
+                            className="block w-full px-3 py-1.5 text-left hover:bg-gray-50"
+                            onClick={() => {
+                              const headers = ['학번', '이름', '인증코드', '학생 번호', '부모님 번호', '이메일']
+                              const rows = sortedStudents.map((s) => [
+                                String(s.student_id ?? ''),
+                                String(s.name ?? ''),
+                                String(s.auth_code ?? ''),
+                                String(s.phone_student ?? ''),
+                                String(s.phone_parent ?? ''),
+                                String(s.email ?? ''),
+                              ])
+                              const csv = [headers.join('\t'), ...rows.map((r) => r.join('\t'))].join('\n')
+                              const blob = new Blob(['\uFEFF' + csv], {
+                                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8;',
+                              })
+                              const a = document.createElement('a')
+                              a.href = URL.createObjectURL(blob)
+                              a.download = `${rosterMeta.grade || ''}${rosterMeta.classNum || ''}_학생목록.xlsx`
+                              document.body.appendChild(a)
+                              a.click()
+                              document.body.removeChild(a)
+                              URL.revokeObjectURL(a.href)
+                            }}
+                          >
+                            엑셀(xlsx)
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
                 <div className="flex rounded-lg border border-gray-200 bg-white p-0.5 shadow-sm">
@@ -495,13 +620,13 @@ export function StudentsPage() {
             </div>
             {loading ? (
               <p className="text-gray-500">로딩 중...</p>
-            ) : students.length === 0 ? (
+            ) : sortedStudents.length === 0 ? (
               <div className="rounded-xl border border-gray-200 bg-white py-12 text-center text-gray-500 shadow-sm">
                 등록된 학생이 없습니다. 위 폼에서 등록해 주세요.
               </div>
             ) : listViewMode === 'card' ? (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {students.map((s) => {
+                {sortedStudents.map((s) => {
                   const photoUrl = getProfilePhotoUrl(String(s.student_id))
                   return (
                     <button
@@ -541,7 +666,7 @@ export function StudentsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
-                    {students.map((s) => {
+                    {sortedStudents.map((s) => {
                       const photoUrl = getProfilePhotoUrl(String(s.student_id))
                       return (
                         <tr key={s.student_id} className="hover:bg-gray-50">
