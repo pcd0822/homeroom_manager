@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useForm, FormProvider, useFormContext } from 'react-hook-form'
 import type { FormSchema, FormFieldSchema, FormType } from '@/types'
 import { cn } from '@/lib/utils'
@@ -226,8 +227,8 @@ function NoticeForm({
   const [selectedConsentOptions, setSelectedConsentOptions] = useState<string[]>([])
 
   const toggleConsentOption = (opt: string) => {
-    setSelectedConsentOptions((prev) =>
-      prev.includes(opt) ? prev.filter((v) => v !== opt) : [...prev, opt]
+    setSelectedConsentOptions((prev: string[]) =>
+      prev.includes(opt) ? prev.filter((v: string) => v !== opt) : [...prev, opt]
     )
   }
 
