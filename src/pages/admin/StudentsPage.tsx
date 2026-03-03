@@ -127,8 +127,8 @@ export function StudentsPage() {
     const bId = String(b.student_id ?? '')
     const aNum = parseInt(aId, 10)
     const bNum = parseInt(bId, 10)
-    const toKey = (id: string, num: number) => (isNaN(num) ? Number.MAX_SAFE_INTEGER : num)
-    const diff = toKey(aId, aNum) - toKey(bId, bNum)
+    const toKey = (num: number) => (isNaN(num) ? Number.MAX_SAFE_INTEGER : num)
+    const diff = toKey(aNum) - toKey(bNum)
     if (diff !== 0) return studentSortOrder === 'asc' ? diff : -diff
     const strCmp = aId.localeCompare(bId, 'ko')
     return studentSortOrder === 'asc' ? strCmp : -strCmp
@@ -548,7 +548,6 @@ export function StudentsPage() {
                             type="button"
                             className="block w-full px-3 py-1.5 text-left hover:bg-gray-50"
                             onClick={() => {
-                              const menu = document.activeElement as HTMLElement | null
                               printRosterAsPdf(sortedStudents, {
                                 ...rosterMeta,
                                 columns: ROSTER_PRINT_COLUMNS.filter((c) => rosterPrintColumns[c.id]).map((c) => c.id),
