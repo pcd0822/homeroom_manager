@@ -245,6 +245,9 @@ export function StudentsPage() {
             setEditProfileDataUrl(base)
             return
           }
+          // 투명 배경을 흰색으로 채우기
+          ctx.fillStyle = '#ffffff'
+          ctx.fillRect(0, 0, width, height)
           ctx.drawImage(img, 0, 0, width, height)
           const compressed = canvas.toDataURL('image/jpeg', 0.8)
           setEditProfileDataUrl(compressed)
