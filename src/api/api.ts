@@ -148,6 +148,7 @@ export function updateStudent(params: {
   phone_student?: string
   phone_parent?: string
   email?: string
+  photo_data?: string
 }) {
   return request('UPDATE_STUDENT', 'POST', params)
 }
