@@ -166,28 +166,29 @@ function downloadResponsesAsXlsx(
   rows: Record<string, unknown>[]
 ) {
   const safeTitle = title || '문서'
-  const header = columns.map((c) => c.label).join('\t')
+  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
+  const header = columns.map((c) => escape(c.label)).join(',')
   const lines = rows.map((row) =>
     columns
       .map((col) => {
         const val = row[col.key]
         if (col.key === 'submitted_at' && val) {
-          return new Date(String(val)).toLocaleString('ko-KR')
+          return escape(new Date(String(val)).toLocaleString('ko-KR'))
         }
         if (Array.isArray(val)) {
-          return (val as string[]).join(', ')
+          return escape((val as string[]).join(', '))
         }
-        return String(val ?? '')
+        return escape(String(val ?? ''))
       })
-      .join('\t')
+      .join(',')
   )
-  const tsv = [header, ...lines].join('\n')
-  const blob = new Blob(['\uFEFF' + tsv], {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8;',
+  const csv = [header, ...lines].join('\n')
+  const blob = new Blob(['\uFEFF' + csv], {
+    type: 'text/csv;charset=utf-8;',
   })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = `${safeTitle}_응답.xlsx`
+  a.download = `${safeTitle}_응답.csv`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
@@ -372,7 +373,7 @@ export function ResponseGridPage() {
                   className="block w-full px-3 py-1.5 text-left hover:bg-gray-50"
                   onClick={() => downloadResponsesAsXlsx(form?.title ?? '문서', columns, sortedRows)}
                 >
-                  엑셀(xlsx)
+                  엑셀(csv)
                 </button>
               </div>
             </div>

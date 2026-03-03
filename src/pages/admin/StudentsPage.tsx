@@ -569,20 +569,26 @@ export function StudentsPage() {
                                 String(s.phone_parent ?? ''),
                                 String(s.email ?? ''),
                               ])
-                              const csv = [headers.join('\t'), ...rows.map((r) => r.join('\t'))].join('\n')
+                              const escape = (v: string) =>
+                                `"${v.replace(/"/g, '""')}"`
+                              const lines = [
+                                headers.map(escape).join(','),
+                                ...rows.map((r) => r.map(escape).join(',')),
+                              ]
+                              const csv = lines.join('\n')
                               const blob = new Blob(['\uFEFF' + csv], {
-                                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8;',
+                                type: 'text/csv;charset=utf-8;',
                               })
                               const a = document.createElement('a')
                               a.href = URL.createObjectURL(blob)
-                              a.download = `${rosterMeta.grade || ''}${rosterMeta.classNum || ''}_학생목록.xlsx`
+                              a.download = `${rosterMeta.grade || ''}${rosterMeta.classNum || ''}_학생목록.csv`
                               document.body.appendChild(a)
                               a.click()
                               document.body.removeChild(a)
                               URL.revokeObjectURL(a.href)
                             }}
                           >
-                            엑셀(xlsx)
+                            엑셀(csv)
                           </button>
                         </div>
                       </div>
