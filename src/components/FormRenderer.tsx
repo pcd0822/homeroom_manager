@@ -223,8 +223,19 @@ function NoticeForm({
   isSubmitting?: boolean
   className?: string
 }) {
+  const [selectedConsentOptions, setSelectedConsentOptions] = useState<string[]>([])
+
+  const toggleConsentOption = (opt: string) => {
+    setSelectedConsentOptions((prev) =>
+      prev.includes(opt) ? prev.filter((v) => v !== opt) : [...prev, opt]
+    )
+  }
+
   const handleConfirm = () => {
-    onSubmit({ checked: true })
+    onSubmit({
+      checked: true,
+      consentSelections: selectedConsentOptions,
+    })
   }
 
   return (
@@ -239,9 +250,22 @@ function NoticeForm({
       {schema?.consent && (
         <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
           <div className="text-sm font-semibold text-gray-900">{schema.consent.title}</div>
-          <div className="prose prose-sm max-w-none text-gray-700">
-            <p className="whitespace-pre-wrap">{schema.consent.body}</p>
-          </div>
+          <p className="whitespace-pre-wrap text-sm text-gray-700">{schema.consent.body}</p>
+          {schema.consent.options && schema.consent.options.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {schema.consent.options.map((opt) => (
+                <label key={opt} className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
+                  <input
+                    type="checkbox"
+                    checked={selectedConsentOptions.includes(opt)}
+                    onChange={() => toggleConsentOption(opt)}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>{opt}</span>
+                </label>
+              ))}
+            </div>
+          )}
         </div>
       )}
       <button

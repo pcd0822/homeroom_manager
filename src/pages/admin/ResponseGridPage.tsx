@@ -89,6 +89,77 @@ function printResponsesAsPdf(
   win.document.close()
 }
 
+function printSingleResponseAsPdf(
+  formTitle: string,
+  schema: FormSchema | null,
+  row: Record<string, unknown>
+) {
+  if (!schema) return
+  const studentName = String(row.student_name ?? '')
+  const studentId = String(row.student_id ?? '')
+  const submittedAt = row.submitted_at
+    ? new Date(String(row.submitted_at)).toLocaleString('ko-KR')
+    : ''
+  const docTitle = `${formTitle} — ${studentName} (${studentId}) 설문 응답`
+
+  const blocks = schema.fields
+    .map((f) => {
+      const raw = row[f.id]
+      let answer = ''
+      if (Array.isArray(raw)) {
+        answer = (raw as string[]).join(', ')
+      } else {
+        answer = String(raw ?? '')
+      }
+      if (!answer) answer = '-'
+      return `
+      <div class="q-block">
+        <div class="q-label">${escapeHtml(f.label)}</div>
+        <div class="q-answer">${escapeHtml(answer)}</div>
+      </div>`
+    })
+    .join('\n')
+
+  const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>${escapeHtml(docTitle)}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <style>
+    body { font-family: 'Pretendard', sans-serif; padding: 20px; font-size: 12px; color: #111; }
+    h1 { font-size: 18px; margin: 0 0 8px 0; }
+    .meta { font-size: 11px; color: #4b5563; margin-bottom: 16px; }
+    .q-block { border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
+    .q-label { font-size: 13px; font-weight: 600; color: #111827; margin-bottom: 4px; }
+    .q-answer { font-size: 12px; color: #374151; white-space: pre-wrap; }
+    @media print { body { padding: 12px; } }
+    .no-print { display: none !important; }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(docTitle)}</h1>
+  <div class="meta">
+    학번 ${escapeHtml(studentId)} · ${escapeHtml(studentName)}<br/>
+    제출일시: ${escapeHtml(submittedAt)}
+  </div>
+  ${blocks}
+  <p class="no-print" style="margin-top: 20px; font-size: 11px; color: #6b7280;">
+    인쇄 대화상자에서 「대상: PDF로 저장」을 선택하면 PDF로 저장할 수 있습니다.
+  </p>
+  <script>window.onload = function() { window.print(); };</script>
+</body>
+</html>`
+
+  const win = window.open('', '_blank')
+  if (!win) {
+    alert('팝업이 차단되었을 수 있습니다. 팝업을 허용한 뒤 다시 시도해 주세요.')
+    return
+  }
+  win.document.write(html)
+  win.document.close()
+}
+
 function downloadResponsesAsXlsx(
   title: string,
   columns: { key: string; label: string }[],
@@ -496,6 +567,17 @@ export function ResponseGridPage() {
                   {detailRow.submitted_at
                     ? new Date(String(detailRow.submitted_at)).toLocaleString('ko-KR')
                     : '-'}
+                </div>
+                <div className="mb-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      printSingleResponseAsPdf(form?.title ?? '문서', schema, detailRow)
+                    }
+                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                  >
+                    PDF로 저장
+                  </button>
                 </div>
                 <div className="space-y-4">
                   {schema.fields.map((f: FormFieldSchema) => {

@@ -21,6 +21,7 @@ export interface FormSchema {
   consent?: {
     title: string
     body: string
+    options?: string[]
   }
 }
 
