@@ -253,8 +253,8 @@ export function RecordStudentDashboardPage() {
 
       {/* 인쇄용 A3 영역 (배율 50%) */}
       <div className="record-dashboard-print rounded-xl border border-gray-200 bg-gray-50 p-4 print:border-0 print:bg-white print:p-2">
-        {/* 프로필: 사진, 학번, 이름, 희망진로 */}
-        <div className="mb-4 flex items-center gap-4 border-b border-gray-200 pb-4">
+        {/* 프로필: 화면용 (인쇄 시 숨김) */}
+        <div className="mb-4 flex items-center gap-4 border-b border-gray-200 pb-4 print:hidden">
           <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-gray-200 bg-gray-100">
             {student?.photo_data ? (
               <img src={student.photo_data} alt={profile.name} className="h-full w-full object-cover" />
@@ -283,8 +283,27 @@ export function RecordStudentDashboardPage() {
 
         {/* 3단 레이아웃 */}
         <div className="grid grid-cols-1 gap-4 print:grid-cols-3 lg:grid-cols-3">
-          {/* 1단: 교과이수현황 + 창의적 체험활동 + 행발 */}
+          {/* 1단: 프로필(인쇄용) + 교과이수현황 + 창의적 체험활동 + 행발 */}
           <div className="flex flex-col gap-3">
+            {/* 프로필: 인쇄 시 첫 번째 단 상단에 포함 */}
+            <div className="hidden border-b border-gray-200 pb-3 print:block">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-100">
+                  {student?.photo_data ? (
+                    <img src={student.photo_data} alt={profile.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-gray-400">
+                      {profile.name.charAt(0) || '?'}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">학번 {profile.student_id}</p>
+                  <p className="text-sm font-bold text-gray-900">{profile.name}</p>
+                  <p className="text-xs text-gray-600">희망진로: {hopeCareer}</p>
+                </div>
+              </div>
+            </div>
             {gyosuRows.length > 0 && (
               <SectionCard title="교과이수현황">
                 <table className="w-full table-auto border-collapse text-xs">
