@@ -199,6 +199,11 @@ export function getRecordByStudent(studentId: string) {
   return request<RecordByStudent>('GET_RECORD_BY_STUDENT', 'POST', { student_id: studentId })
 }
 
+/** record 시트에 기록이 있는 학번 목록(중복 제거) */
+export function getRecordUpdatedStudentIds() {
+  return request<{ student_ids: string[] }>('GET_RECORD_UPDATED_IDS', 'POST')
+}
+
 export function getRecordSummaryEvaluation(studentId: string) {
   return request<{ summary_evaluation: string }>('GET_RECORD_SUMMARY_EVALUATION', 'POST', {
     student_id: studentId,

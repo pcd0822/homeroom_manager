@@ -141,7 +141,7 @@ function handleRequest(e, method) {
         result = sendSms(params);
         break;
       case 'GET_RECORD_BY_STUDENT':
-        result = getRecordByStudent(params.student_id);
+        result = getRecordByStudent(params.student_id, params);
         break;
       case 'GET_RECORD_SUMMARY_EVALUATION':
         result = getRecordSummaryEvaluation(params.student_id);
@@ -151,6 +151,9 @@ function handleRequest(e, method) {
         break;
       case 'ENSURE_RECORD_SHEET':
         result = ensureRecordSheet();
+        break;
+      case 'GET_RECORD_UPDATED_IDS':
+        result = getRecordUpdatedIds();
         break;
       default:
         result.error = 'Unknown action: ' + action;
@@ -741,6 +744,36 @@ function ensureRecordSheet() {
   return { success: true };
 }
 
+/** record 시트에 기록이 있는 학번 목록(중복 제거) — 카드에 Updated 표시용 */
+function getRecordUpdatedIds() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.RECORD) || getSheetByNameIgnoreCase(ss, SHEETS.RECORD);
+  if (!sheet) {
+    return { success: true, data: { student_ids: [] } };
+  }
+  var data = sheet.getDataRange().getValues();
+  if (!data || data.length < 2) {
+    return { success: true, data: { student_ids: [] } };
+  }
+  var headers = data[0].map(function (h) { return String(h).trim(); });
+  var sidCol = findCol(headers, '학번', 0);
+  var seen = {};
+  var ids = [];
+  for (var i = 1; i < data.length; i++) {
+    var v = data[i][sidCol];
+    if (v === undefined || v === null || String(v).trim() === '') continue;
+    var sid = String(v).trim();
+    var key = sid;
+    var num = parseInt(sid, 10);
+    if (!isNaN(num)) key = 'n' + num;
+    if (!seen[key]) {
+      seen[key] = true;
+      ids.push(sid);
+    }
+  }
+  return { success: true, data: { student_ids: ids } };
+}
+
 /** 두 값이 같은 학번으로 간주되는지 (문자열·숫자·앞뒤공백·앞자리 0 무시) */
 function isSameStudentId(a, b) {
   var sa = String(a != null ? a : '').trim();
@@ -749,10 +782,26 @@ function isSameStudentId(a, b) {
   var na = parseInt(sa, 10);
   var nb = parseInt(sb, 10);
   if (!isNaN(na) && !isNaN(nb) && na === nb) return true;
+  if (sa.length > 0 && sb.length > 0 && sa.replace(/^0+/, '') === sb.replace(/^0+/, '')) return true;
   return false;
 }
 
-function getRecordByStudent(studentId) {
+/** 헤더 배열에서 열 이름으로 열 인덱스 찾기 (먼저 정확 일치, 없으면 포함) */
+function findCol(headers, name, fallbackIdx) {
+  var n = String(name).trim();
+  for (var i = 0; i < headers.length; i++) {
+    var h = String(headers[i] || '').trim();
+    if (h === n) return i;
+  }
+  for (var j = 0; j < headers.length; j++) {
+    var h2 = String(headers[j] || '').trim();
+    if (h2.indexOf(n) >= 0) return j;
+  }
+  return (fallbackIdx >= 0 && fallbackIdx < headers.length) ? fallbackIdx : 0;
+}
+
+function getRecordByStudent(studentId, params) {
+  params = params || {};
   if (!studentId) return { success: false, error: 'student_id required' };
   var ss = getSpreadsheet();
   var sheet = ss.getSheetByName(SHEETS.RECORD) || getSheetByNameIgnoreCase(ss, SHEETS.RECORD);
@@ -765,35 +814,33 @@ function getRecordByStudent(studentId) {
   }
   var rawHeaders = data[0].map(String);
   var headers = rawHeaders.map(function (h) { return String(h).trim(); });
-  function col(name, fallback) {
-    var i = headers.indexOf(name);
-    return i >= 0 ? i : (fallback >= 0 && fallback < headers.length ? fallback : -1);
-  }
-  var sidCol = col('학번', 0);
-  var nameCol = col('이름', 1);
-  var hopeCol = col('희망진로', 2);
-  var yearCol = col('학년', 3);
-  var areaCol = col('영역', 4);
-  var summaryCol = col('기록내용 요약', 5);
-  var individualCol = col('개별/단체', 6);
-  var academicCol = col('학업역량', 7);
-  var careerCol = col('진로역량', 8);
-  var communityCol = col('공동체역량', 9);
-  var detailCol = col('세부역량', 10);
-  var linkCol = -1;
+  var sidCol = findCol(headers, '학번', 0);
+  var nameCol = findCol(headers, '이름', 1);
+  var hopeCol = findCol(headers, '희망진로', 2);
+  var yearCol = findCol(headers, '학년', 3);
+  var areaCol = findCol(headers, '영역', 4);
+  var summaryCol = findCol(headers, '기록내용 요약', 5);
+  var individualCol = findCol(headers, '개별/단체', 6);
+  var academicCol = findCol(headers, '학업역량', 7);
+  var careerCol = findCol(headers, '진로역량', 8);
+  var communityCol = findCol(headers, '공동체역량', 9);
+  var detailCol = findCol(headers, '세부역량', 10);
+  var linkCol = 11;
   for (var c = 0; c < headers.length; c++) {
     if (headers[c].indexOf('연속적') >= 0 && headers[c].indexOf('셀') >= 0) { linkCol = c; break; }
   }
-  if (linkCol < 0) linkCol = 11;
-  var bookCol = col('읽은 책', 12);
-  var evalCol = col('평가', 13);
+  var bookCol = findCol(headers, '읽은 책', 12);
+  var evalCol = findCol(headers, '평가', 13);
 
   var sidStr = String(studentId).trim();
   var rows = [];
   var profile = { student_id: sidStr, name: '', hope_career: '' };
+  // 기록별로 학번·이름이 행마다 반복 입력된 구조: 같은 학번인 모든 행을 한 학생의 기록으로 모음 (중복 제거하지 않음)
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    if (!isSameStudentId(row[sidCol], studentId)) continue;
+    var cellVal = row[sidCol];
+    if (cellVal !== undefined && cellVal !== null && String(cellVal).trim() === '') continue;
+    if (!isSameStudentId(cellVal, studentId)) continue;
     if (profile.name === '' && nameCol >= 0) profile.name = String(row[nameCol] || '').trim();
     if (profile.hope_career === '' && hopeCol >= 0) profile.hope_career = String(row[hopeCol] || '').trim();
     var obj = {
@@ -851,15 +898,25 @@ function getRecordByStudent(studentId) {
     }
   }
 
-  return {
-    success: true,
-    data: {
-      profile: profile,
-      rows: rows,
-      summary_evaluation: summaryEval,
-      cell_ref_map: cellRefMap
-    }
+  var payload = {
+    profile: profile,
+    rows: rows,
+    summary_evaluation: summaryEval,
+    cell_ref_map: cellRefMap
   };
+  if (rows.length === 0 && data.length > 1) {
+    var samples = [];
+    for (var s = 1; s < Math.min(6, data.length); s++) {
+      samples.push(String(data[s][sidCol] != null ? data[s][sidCol] : '').trim());
+    }
+    payload._debug = {
+      requested_student_id: sidStr,
+      record_sheet_rows: data.length - 1,
+      sid_column_index: sidCol,
+      sample_ids_from_sheet: samples
+    };
+  }
+  return { success: true, data: payload };
 }
 
 function getRecordSummaryEvaluation(studentId) {

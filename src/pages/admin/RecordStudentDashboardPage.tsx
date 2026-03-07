@@ -204,6 +204,16 @@ export function RecordStudentDashboardPage() {
           </div>
         </div>
 
+        {rows.length === 0 && record?._debug && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 print:hidden">
+            <p className="font-medium">record 시트에 이 학번과 일치하는 기록이 없습니다.</p>
+            <p className="mt-1 text-amber-700">
+              요청한 학번: <strong>{record._debug.requested_student_id}</strong> · 시트 데이터 행 수: {record._debug.record_sheet_rows}행 · 학번 열(#{record._debug.sid_column_index + 1}) 샘플: {record._debug.sample_ids_from_sheet.join(', ') || '(비어 있음)'}
+            </p>
+            <p className="mt-1 text-xs">Students 시트의 학번과 record 시트의 학번(첫 번째 열) 형식이 같은지 확인해 주세요. (예: 10101 vs &quot;10101&quot;, 앞자리 0 유무)</p>
+          </div>
+        )}
+
         {/* 3단 레이아웃 */}
         <div className="grid grid-cols-1 gap-4 print:grid-cols-3 lg:grid-cols-3">
           {/* 1단: 창의적 체험활동 + 행발 */}

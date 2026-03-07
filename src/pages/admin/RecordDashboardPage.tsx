@@ -1,8 +1,20 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getStudents, ensureRecordSheet } from '@/api/api'
+import { getStudents, ensureRecordSheet, getRecordUpdatedStudentIds } from '@/api/api'
 import type { Student } from '@/types'
 import { cn } from '@/lib/utils'
+
+/** 두 학번이 같은 사람으로 간주되는지 (문자열·숫자·앞자리 0 무시) */
+function isSameStudentId(a: string, b: string): boolean {
+  const sa = String(a ?? '').trim()
+  const sb = String(b ?? '').trim()
+  if (sa === sb) return true
+  const na = parseInt(sa, 10)
+  const nb = parseInt(sb, 10)
+  if (!Number.isNaN(na) && !Number.isNaN(nb) && na === nb) return true
+  if (sa.length > 0 && sb.length > 0 && sa.replace(/^0+/, '') === sb.replace(/^0+/, '')) return true
+  return false
+}
 
 function ChartBarIcon({ className }: { className?: string }) {
   return (
@@ -14,6 +26,7 @@ function ChartBarIcon({ className }: { className?: string }) {
 
 export function RecordDashboardPage() {
   const [students, setStudents] = useState<Student[]>([])
+  const [recordUpdatedIds, setRecordUpdatedIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -21,10 +34,11 @@ export function RecordDashboardPage() {
     setLoading(true)
     setError(null)
     ensureRecordSheet().catch(() => { /* 무시: 시트는 스프레드시트 메뉴에서도 생성 가능 */ })
-    getStudents()
-      .then((res) => {
-        if (res.success && res.data) setStudents(res.data)
-        else setError(res.error || '학생 목록을 불러올 수 없습니다.')
+    Promise.all([getStudents(), getRecordUpdatedStudentIds()])
+      .then(([studentsRes, idsRes]) => {
+        if (studentsRes.success && studentsRes.data) setStudents(studentsRes.data)
+        else setError(studentsRes.error || '학생 목록을 불러올 수 없습니다.')
+        if (idsRes.success && idsRes.data?.student_ids) setRecordUpdatedIds(idsRes.data.student_ids)
       })
       .finally(() => setLoading(false))
   }, [])
@@ -84,7 +98,12 @@ export function RecordDashboardPage() {
               )}
             </div>
             <span className="text-xs font-medium text-gray-500">{s.student_id}</span>
-            <span className="mt-0.5 text-sm font-semibold text-gray-900">{s.name}</span>
+            <span className="mt-0.5 flex items-center gap-1.5">
+              <span className="text-sm font-semibold text-gray-900">{s.name}</span>
+              {recordUpdatedIds.some((id) => isSameStudentId(id, s.student_id)) && (
+                <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-700">Updated</span>
+              )}
+            </span>
           </Link>
           ))}
       </div>

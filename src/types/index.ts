@@ -103,4 +103,11 @@ export interface RecordByStudent {
   rows: RecordRow[]
   summary_evaluation: string
   cell_ref_map: Record<string, string>
+  /** 기록이 0건일 때 원인 파악용 (시트 행 수, 시트 학번 열 샘플) */
+  _debug?: {
+    requested_student_id: string
+    record_sheet_rows: number
+    sid_column_index: number
+    sample_ids_from_sheet: string[]
+  }
 }
