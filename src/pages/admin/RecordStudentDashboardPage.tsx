@@ -23,7 +23,6 @@ function parseFeedbackSections(text: string): Array<{ title: string; icon: strin
   let lastStyle = 'border-gray-200 bg-gray-50'
 
   while ((match = regex.exec(text)) !== null) {
-    const fullMatch = match[0]
     const titleInBlock = match[1].trim()
     const blockStart = match.index
     if (blockStart > lastIndex) {
