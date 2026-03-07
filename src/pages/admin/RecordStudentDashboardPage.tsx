@@ -283,8 +283,27 @@ export function RecordStudentDashboardPage() {
 
         {/* 3단 레이아웃 */}
         <div className="grid grid-cols-1 gap-4 print:grid-cols-3 lg:grid-cols-3">
-          {/* 1단: 창의적 체험활동 + 행발 */}
+          {/* 1단: 교과이수현황 + 창의적 체험활동 + 행발 */}
           <div className="flex flex-col gap-3">
+            {gyosuRows.length > 0 && (
+              <SectionCard title="교과이수현황">
+                <table className="w-full table-auto border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-300 bg-gray-100 text-left">
+                      <th className="p-1.5">기록내용</th>
+                      <th className="w-16 p-1.5 text-center">역량</th>
+                      <th className="w-24 p-1.5">해시태그</th>
+                      <th className="min-w-[120px] max-w-[200px] p-1.5 text-[11px]">평가</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {gyosuRows.map((row, i) => (
+                      <RecordTableRow key={i} row={row} />
+                    ))}
+                  </tbody>
+                </table>
+              </SectionCard>
+            )}
             <SectionCard title="창의적 체험활동">
               {gradeOrder.length === 0 ? (
                 <p className="text-xs text-gray-500">기록 없음</p>
@@ -336,27 +355,8 @@ export function RecordStudentDashboardPage() {
             </SectionCard>
           </div>
 
-          {/* 2단: 교과이수현황 + 교과세특 */}
+          {/* 2단: 교과세특 */}
           <div className="flex flex-col gap-3">
-            {gyosuRows.length > 0 && (
-              <SectionCard title="교과이수현황">
-                <table className="w-full table-auto border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-gray-300 bg-gray-100 text-left">
-                      <th className="p-1.5">기록내용</th>
-                      <th className="w-16 p-1.5 text-center">역량</th>
-                      <th className="w-24 p-1.5">해시태그</th>
-                      <th className="min-w-[120px] max-w-[200px] p-1.5 text-[11px]">평가</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {gyosuRows.map((row, i) => (
-                      <RecordTableRow key={i} row={row} />
-                    ))}
-                  </tbody>
-                </table>
-              </SectionCard>
-            )}
             <SectionCard title="교과세특">
               {gyosuSpecialRows.length === 0 ? (
                 <p className="text-xs text-gray-500">기록 없음</p>
