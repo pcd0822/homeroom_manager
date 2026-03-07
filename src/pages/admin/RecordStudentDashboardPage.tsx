@@ -6,6 +6,13 @@ import { cn } from '@/lib/utils'
 
 const CREATIVE_AREAS = ['자율활동', '동아리활동', '진로활동']
 
+/** 시트의 역량 열 값이 TRUE/체크로 간주되는지 여부 (TRUE, true, 1만 체크, FALSE/빈값은 미체크) */
+function isCompetencyChecked(value: unknown): boolean {
+  if (value === true || value === 1) return true
+  const s = String(value ?? '').trim().toUpperCase()
+  return s === 'TRUE' || s === '1' || s === 'O' || s === 'Y'
+}
+
 function ArrowLeftIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -23,9 +30,9 @@ function PrinterIcon({ className }: { className?: string }) {
 }
 
 function RecordTableRow({ row }: { row: RecordRow }) {
-  const hasAcademic = (row.academic || '').trim() !== ''
-  const hasCareer = (row.career || '').trim() !== ''
-  const hasCommunity = (row.community || '').trim() !== ''
+  const hasAcademic = isCompetencyChecked(row.academic)
+  const hasCareer = isCompetencyChecked(row.career)
+  const hasCommunity = isCompetencyChecked(row.community)
   const tags: string[] = []
   if (row.detail_competency) tags.push(`#${row.detail_competency}`)
   if (row.individual_group) tags.push(`#${row.individual_group}`)
@@ -144,9 +151,9 @@ export function RecordStudentDashboardPage() {
   const linkRows = rows.filter((r) => (r.link_cell || '').trim() !== '')
   const cellRefMap = record?.cell_ref_map ?? {}
 
-  const academicCount = rows.filter((r) => (r.academic || '').trim() !== '').length
-  const careerCount = rows.filter((r) => (r.career || '').trim() !== '').length
-  const communityCount = rows.filter((r) => (r.community || '').trim() !== '').length
+  const academicCount = rows.filter((r) => isCompetencyChecked(r.academic)).length
+  const careerCount = rows.filter((r) => isCompetencyChecked(r.career)).length
+  const communityCount = rows.filter((r) => isCompetencyChecked(r.community)).length
   const total = academicCount + careerCount + communityCount
   const academicPct = total > 0 ? Math.round((academicCount / total) * 100) : 0
   const careerPct = total > 0 ? Math.round((careerCount / total) * 100) : 0

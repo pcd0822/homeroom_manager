@@ -31,6 +31,22 @@ var SHEETS = {
 var RECORD_HEADERS = ['학번', '이름', '희망진로', '학년', '영역', '기록내용 요약', '개별/단체', '학업역량', '진로역량', '공동체역량', '세부역량', '연속적 활동(셀주소 입력)', '읽은 책', '평가'];
 
 /**
+ * 스프레드시트를 열 때 메뉴에 "생기부" 항목 추가
+ */
+function onOpen() {
+  try {
+    var ui = SpreadsheetApp.getUi();
+    if (ui) {
+      ui.createMenu('생기부')
+        .addItem('record / RecordSummary 시트 생성', 'createRecordSheets')
+        .addToUi();
+    }
+  } catch (e) {
+    // 스크립트 편집기 등에서는 getUi()가 없을 수 있음
+  }
+}
+
+/**
  * doGet: GET 요청 처리 (CORS 헤더 포함)
  */
 function doGet(e) {
@@ -654,6 +670,39 @@ function buildSolapiAuthHeader(apiKey, apiSecret) {
 }
 
 // ----- 생기부 record 시트 -----
+/**
+ * 스크립트 편집기 또는 스프레드시트 메뉴에서 실행하여
+ * 'record' 시트와 'RecordSummary' 시트를 수동으로 생성합니다.
+ * (웹앱에서 생기부 분석 대시보드를 열어도 자동 생성됩니다.)
+ */
+function createRecordSheets() {
+  var ss = getSpreadsheet();
+  var created = [];
+  var sheet = ss.getSheetByName(SHEETS.RECORD);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.RECORD);
+    sheet.getRange(1, 1, 1, RECORD_HEADERS.length).setValues([RECORD_HEADERS]);
+    created.push(SHEETS.RECORD);
+  }
+  sheet = ss.getSheetByName(SHEETS.RECORD_SUMMARY);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.RECORD_SUMMARY);
+    sheet.getRange(1, 1, 1, 2).setValues([['student_id', 'summary_evaluation']]);
+    created.push(SHEETS.RECORD_SUMMARY);
+  }
+  if (created.length > 0) {
+    Logger.log('생성된 시트: ' + created.join(', '));
+    if (typeof SpreadsheetApp.getUi !== 'undefined') {
+      try {
+        SpreadsheetApp.getUi().alert('생기부 시트 생성 완료', '다음 시트가 생성되었습니다:\n' + created.join(', '), SpreadsheetApp.getUi().ButtonSet.OK);
+      } catch (e) {}
+    }
+  } else {
+    Logger.log('record, RecordSummary 시트가 이미 존재합니다.');
+  }
+  return created;
+}
+
 function getOrCreateRecordSheet() {
   var ss = getSpreadsheet();
   var sheet = ss.getSheetByName(SHEETS.RECORD);
