@@ -25,9 +25,9 @@
   animation: slide-in-right 0.3s ease-out forwards;
 }
 
-/* 생기부 대시보드 A3 인쇄, 배율 50%: 메뉴 숨김, 기록 단위로 페이지 구분 */
+/* 생기부 대시보드 A3 가로 인쇄, 배율 50%: 메뉴 숨김, 기록 단위로 페이지 구분 */
 @page {
-  size: A3;
+  size: A3 landscape;
   margin: 10mm;
 }
 
