@@ -85,6 +85,20 @@ export function AdminLayout() {
               데이터 관리하기
             </NavLink>
             <NavLink
+              to="/admin/record-dashboard"
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                )
+              }
+            >
+              <ChartBarIcon className="h-5 w-5 shrink-0" />
+              생기부 분석 대시보드
+            </NavLink>
+            <NavLink
               to="/admin/sms"
               className={({ isActive }) =>
                 cn(
@@ -111,20 +125,6 @@ export function AdminLayout() {
             >
               <UserGroupIcon className="h-5 w-5 shrink-0" />
               학생관리
-            </NavLink>
-            <NavLink
-              to="/admin/record-dashboard"
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-100'
-                )
-              }
-            >
-              <ChartBarIcon className="h-5 w-5 shrink-0" />
-              생기부 분석 대시보드
             </NavLink>
           </nav>
         )}

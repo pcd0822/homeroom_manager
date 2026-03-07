@@ -73,7 +73,7 @@ function handleRequest(e, method) {
         return jsonResponse(result);
       }
     }
-    var action = params.action || (e && e.parameter && e.parameter.action);
+    var action = (params.action || (e && e.parameter && e.parameter.action) || '').toString().trim();
     if (!action) {
       result.error = 'Missing action';
       return jsonResponse(result);

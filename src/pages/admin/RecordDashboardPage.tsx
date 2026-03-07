@@ -20,9 +20,7 @@ export function RecordDashboardPage() {
   useEffect(() => {
     setLoading(true)
     setError(null)
-    ensureRecordSheet().then((res) => {
-      if (!res.success) setError(res.error || 'record 시트 초기화 실패')
-    })
+    ensureRecordSheet().catch(() => { /* 무시: 시트는 스프레드시트 메뉴에서도 생성 가능 */ })
     getStudents()
       .then((res) => {
         if (res.success && res.data) setStudents(res.data)
@@ -54,7 +52,16 @@ export function RecordDashboardPage() {
         </div>
       )}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {students.map((s) => (
+        {[...students]
+          .sort((a, b) => {
+            const aId = String(a.student_id ?? '')
+            const bId = String(b.student_id ?? '')
+            const aNum = parseInt(aId, 10)
+            const bNum = parseInt(bId, 10)
+            if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) return aNum - bNum
+            return aId.localeCompare(bId, 'ko')
+          })
+          .map((s) => (
           <Link
             key={s.student_id}
             to={`/admin/record-dashboard/${encodeURIComponent(s.student_id)}`}
@@ -79,7 +86,7 @@ export function RecordDashboardPage() {
             <span className="text-xs font-medium text-gray-500">{s.student_id}</span>
             <span className="mt-0.5 text-sm font-semibold text-gray-900">{s.name}</span>
           </Link>
-        ))}
+          ))}
       </div>
       {students.length === 0 && !loading && (
         <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-8 text-center text-gray-600">
