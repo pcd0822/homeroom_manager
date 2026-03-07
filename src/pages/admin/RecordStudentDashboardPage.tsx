@@ -6,6 +6,48 @@ import { cn } from '@/lib/utils'
 
 const CREATIVE_AREAS = ['자율활동', '동아리활동', '진로활동']
 
+const FEEDBACK_SECTIONS: Array<{ key: string; icon: string; style: string }> = [
+  { key: '종합적 평가', icon: '📋', style: 'border-blue-200 bg-blue-50/80' },
+  { key: '보완 방향', icon: '📈', style: 'border-amber-200 bg-amber-50/80' },
+  { key: '구체적 활동 예시', icon: '💡', style: 'border-emerald-200 bg-emerald-50/80' },
+  { key: '응원의 말', icon: '💪', style: 'border-rose-200 bg-rose-50/80' },
+]
+
+function parseFeedbackSections(text: string): Array<{ title: string; icon: string; content: string; style: string }> {
+  const sections: Array<{ title: string; icon: string; content: string; style: string }> = []
+  const regex = /【([^】]+)】\s*\n?/g
+  let match: RegExpExecArray | null
+  let lastIndex = 0
+  let lastTitle = ''
+  let lastIcon = '📌'
+  let lastStyle = 'border-gray-200 bg-gray-50'
+
+  while ((match = regex.exec(text)) !== null) {
+    const fullMatch = match[0]
+    const titleInBlock = match[1].trim()
+    const blockStart = match.index
+    if (blockStart > lastIndex) {
+      const content = text.slice(lastIndex, blockStart).trim()
+      if (content) sections.push({ title: lastTitle || '보완점', icon: lastIcon, content, style: lastStyle })
+    }
+    const config = FEEDBACK_SECTIONS.find((s) => titleInBlock.startsWith(s.key)) ?? {
+      key: titleInBlock,
+      icon: '📌',
+      style: 'border-gray-200 bg-gray-50',
+    }
+    lastTitle = titleInBlock
+    lastIcon = config.icon
+    lastStyle = config.style
+    lastIndex = regex.lastIndex
+  }
+  const tail = text.slice(lastIndex).trim()
+  if (tail) sections.push({ title: lastTitle || '보완점', icon: lastIcon, content: tail, style: lastStyle })
+  if (sections.length === 0 && text.trim()) {
+    sections.push({ title: '보완점', icon: '📌', content: text.trim(), style: 'border-gray-200 bg-gray-50' })
+  }
+  return sections
+}
+
 /** 시트의 역량 열 값이 TRUE/체크로 간주되는지 여부 (TRUE, true, 1만 체크, FALSE/빈값은 미체크) */
 function isCompetencyChecked(value: unknown): boolean {
   if (value === true || value === 1) return true
@@ -47,7 +89,7 @@ function RecordTableRow({ row }: { row: RecordRow }) {
       <td className="max-w-[120px] p-2 text-xs text-gray-600">
         {tags.length ? tags.join(' ') : '-'}
       </td>
-      <td className="max-w-[100px] whitespace-pre-wrap p-2 text-xs text-gray-600">{row.evaluation || '-'}</td>
+      <td className="min-w-[120px] max-w-[200px] whitespace-pre-wrap p-2 text-[11px] leading-snug text-gray-600">{row.evaluation || '-'}</td>
     </tr>
   )
 }
@@ -69,6 +111,8 @@ export function RecordStudentDashboardPage() {
   const [savingSummary, setSavingSummary] = useState(false)
   const [feedbackText, setFeedbackText] = useState('')
   const [loadingFeedback, setLoadingFeedback] = useState(false)
+  const [linkSummaries, setLinkSummaries] = useState<Array<{ from_summary: string; to_summary: string }> | null>(null)
+  const [loadingLinkSummaries, setLoadingLinkSummaries] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(() => {
@@ -83,6 +127,7 @@ export function RecordStudentDashboardPage() {
         if (recordRes.success && recordRes.data) {
           setRecord(recordRes.data)
           setSummaryEvaluation(recordRes.data.summary_evaluation || '')
+          setLinkSummaries(null)
         }
       })
       .finally(() => setLoading(false))
@@ -118,6 +163,29 @@ export function RecordStudentDashboardPage() {
       })
       .catch(() => setFeedbackText('보완점 분석 요청에 실패했습니다.'))
       .finally(() => setLoadingFeedback(false))
+  }
+
+  const handleFetchLinkSummaries = () => {
+    const linkRows_ = rows.filter((r) => (r.link_cell || '').trim() !== '')
+    const cellRefMap_ = record?.cell_ref_map ?? {}
+    if (linkRows_.length === 0) return
+    const pairs = linkRows_.map((row) => ({
+      from_text: row.record_summary || '',
+      to_text: cellRefMap_[row.link_cell] ?? '',
+    }))
+    setLoadingLinkSummaries(true)
+    fetch('/.netlify/functions/record-link-summarize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pairs }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.summaries && Array.isArray(data.summaries)) setLinkSummaries(data.summaries)
+        else if (data.error) setLinkSummaries(pairs.map((p) => ({ from_summary: p.from_text.slice(0, 80) + '…', to_summary: p.to_text.slice(0, 80) + '…' })))
+      })
+      .catch(() => setLinkSummaries(null))
+      .finally(() => setLoadingLinkSummaries(false))
   }
 
   if (!studentId || loading) {
@@ -232,7 +300,7 @@ export function RecordStudentDashboardPage() {
                             <th className="p-1.5">기록내용</th>
                             <th className="w-16 p-1.5 text-center">역량</th>
                             <th className="w-24 p-1.5">해시태그</th>
-                            <th className="w-20 p-1.5">평가</th>
+                            <th className="min-w-[120px] max-w-[200px] p-1.5 text-[11px]">평가</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -256,7 +324,7 @@ export function RecordStudentDashboardPage() {
                       <th className="p-1.5">기록내용</th>
                       <th className="w-16 p-1.5 text-center">역량</th>
                       <th className="w-24 p-1.5">해시태그</th>
-                      <th className="w-20 p-1.5">평가</th>
+                      <th className="min-w-[120px] max-w-[200px] p-1.5 text-[11px]">평가</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -279,7 +347,7 @@ export function RecordStudentDashboardPage() {
                       <th className="p-1.5">기록내용</th>
                       <th className="w-16 p-1.5 text-center">역량</th>
                       <th className="w-24 p-1.5">해시태그</th>
-                      <th className="w-20 p-1.5">평가</th>
+                      <th className="min-w-[120px] max-w-[200px] p-1.5 text-[11px]">평가</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -300,7 +368,7 @@ export function RecordStudentDashboardPage() {
                       <th className="p-1.5">기록내용</th>
                       <th className="w-16 p-1.5 text-center">역량</th>
                       <th className="w-24 p-1.5">해시태그</th>
-                      <th className="w-20 p-1.5">평가</th>
+                      <th className="min-w-[120px] max-w-[200px] p-1.5 text-[11px]">평가</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -349,18 +417,47 @@ export function RecordStudentDashboardPage() {
               {linkRows.length === 0 ? (
                 <p className="text-xs text-gray-500">연결된 기록 없음</p>
               ) : (
-                <ul className="space-y-2 text-xs">
-                  {linkRows.map((row, i) => {
-                    const refSummary = cellRefMap[row.link_cell] ?? '(참조 없음)'
-                    return (
-                      <li key={i} className="rounded border border-gray-200 bg-gray-50 p-2">
-                        <p className="font-medium text-gray-700">→ {row.link_cell}</p>
-                        <p className="mt-0.5 text-gray-600">이 기록: {row.record_summary || '-'}</p>
-                        <p className="mt-0.5 text-gray-500">참조 내용: {refSummary}</p>
-                      </li>
-                    )
-                  })}
-                </ul>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleFetchLinkSummaries}
+                    disabled={loadingLinkSummaries}
+                    className="mb-2 rounded bg-slate-600 px-2 py-1 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+                  >
+                    {loadingLinkSummaries ? '요약 생성 중...' : 'AI 요약으로 보기'}
+                  </button>
+                  <ul className="space-y-3 text-xs">
+                    {linkRows.map((row, i) => {
+                      const refSummary = cellRefMap[row.link_cell] ?? '(참조 없음)'
+                      const fromLabel = '연결된 기록'
+                      const toLabel = '참조된 기록'
+                      const fromText = linkSummaries && linkSummaries[i]?.from_summary
+                        ? linkSummaries[i].from_summary
+                        : (row.record_summary || '-').slice(0, 120) + ((row.record_summary || '').length > 120 ? '…' : '')
+                      const toText = linkSummaries && linkSummaries[i]?.to_summary
+                        ? linkSummaries[i].to_summary
+                        : (refSummary === '(참조 없음)' ? refSummary : refSummary.slice(0, 120) + (refSummary.length > 120 ? '…' : ''))
+                      return (
+                        <li key={i} className="rounded border border-gray-200 bg-gray-50 p-2">
+                          <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                            연결 관계 (셀 {row.link_cell} 참조)
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="min-w-0 flex-1 rounded border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700">
+                              <span className="text-gray-500">{fromLabel}: </span>
+                              {fromText}
+                            </div>
+                            <span className="shrink-0 text-gray-400" aria-hidden>→</span>
+                            <div className="min-w-0 flex-1 rounded border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700">
+                              <span className="text-gray-500">{toLabel}: </span>
+                              {toText}
+                            </div>
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </>
               )}
             </SectionCard>
 
@@ -374,8 +471,22 @@ export function RecordStudentDashboardPage() {
                 {loadingFeedback ? '분석 중...' : '평가 기반 보완점 생성'}
               </button>
               {feedbackText && (
-                <div className="whitespace-pre-wrap rounded border border-gray-200 bg-gray-50 p-2 text-xs text-gray-700">
-                  {feedbackText}
+                <div className="space-y-2">
+                  {parseFeedbackSections(feedbackText).map((section, idx) => (
+                    <div
+                      key={idx}
+                      className={cn(
+                        'rounded-lg border p-2.5 text-[11px] leading-relaxed',
+                        section.style
+                      )}
+                    >
+                      <p className="mb-1 flex items-center gap-1.5 font-semibold text-gray-800">
+                        <span className="text-base" aria-hidden>{section.icon}</span>
+                        {section.title}
+                      </p>
+                      <div className="whitespace-pre-wrap text-gray-700">{section.content}</div>
+                    </div>
+                  ))}
                 </div>
               )}
             </SectionCard>
