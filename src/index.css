@@ -25,10 +25,10 @@
   animation: slide-in-right 0.3s ease-out forwards;
 }
 
-/* 생기부 대시보드 B4 가로 인쇄: 메뉴 숨김, 한 장에 맞춤, 기록 단위로 페이지 구분 */
+/* 생기부 대시보드 A3 인쇄, 배율 50%: 메뉴 숨김, 기록 단위로 페이지 구분 */
 @page {
-  size: 364mm 257mm; /* B4 landscape (가로) */
-  margin: 12mm;
+  size: A3;
+  margin: 10mm;
 }
 
 @media print {
@@ -38,12 +38,14 @@
     -webkit-print-color-adjust: exact;
   }
 
+  /* A3 용지, 배율 50%로 축소 출력 */
   .record-dashboard-print {
     width: 100%;
     max-width: none;
     min-height: auto;
     box-sizing: border-box;
     padding: 0;
+    zoom: 0.5;
   }
 
   /* 기록 단위로 잘리지 않도록: 섹션·테이블·학년 블록은 한 묶음으로 유지 */

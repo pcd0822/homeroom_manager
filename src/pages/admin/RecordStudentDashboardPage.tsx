@@ -247,11 +247,11 @@ export function RecordStudentDashboardPage() {
           className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
           <PrinterIcon className="h-4 w-4" />
-          출력 (B4)
+          출력 (A3, 50%)
         </button>
       </div>
 
-      {/* 인쇄용 B4 영역 */}
+      {/* 인쇄용 A3 영역 (배율 50%) */}
       <div className="record-dashboard-print rounded-xl border border-gray-200 bg-gray-50 p-4 print:border-0 print:bg-white print:p-2">
         {/* 프로필: 사진, 학번, 이름, 희망진로 */}
         <div className="mb-4 flex items-center gap-4 border-b border-gray-200 pb-4">
