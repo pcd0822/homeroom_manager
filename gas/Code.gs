@@ -22,8 +22,13 @@ var SHEETS = {
   FOLDERS: 'Folders',
   STUDENTS: 'Students',
   SMS_LOGS: 'SmsLogs',
-  CLASS: 'Class'
+  CLASS: 'Class',
+  RECORD: 'record',
+  RECORD_SUMMARY: 'RecordSummary'
 };
+
+// 생기부 record 시트 헤더 (순서 유지)
+var RECORD_HEADERS = ['학번', '이름', '희망진로', '학년', '영역', '기록내용 요약', '개별/단체', '학업역량', '진로역량', '공동체역량', '세부역량', '연속적 활동(셀주소 입력)', '읽은 책', '평가'];
 
 /**
  * doGet: GET 요청 처리 (CORS 헤더 포함)
@@ -118,6 +123,18 @@ function handleRequest(e, method) {
         break;
       case 'SEND_SMS':
         result = sendSms(params);
+        break;
+      case 'GET_RECORD_BY_STUDENT':
+        result = getRecordByStudent(params.student_id);
+        break;
+      case 'GET_RECORD_SUMMARY_EVALUATION':
+        result = getRecordSummaryEvaluation(params.student_id);
+        break;
+      case 'UPDATE_RECORD_SUMMARY_EVALUATION':
+        result = updateRecordSummaryEvaluation(params.student_id, params.summary_evaluation);
+        break;
+      case 'ENSURE_RECORD_SHEET':
+        result = ensureRecordSheet();
         break;
       default:
         result.error = 'Unknown action: ' + action;
@@ -634,4 +651,163 @@ function buildSolapiAuthHeader(apiKey, apiSecret) {
     })
     .join('');
   return 'HMAC-SHA256 apiKey=' + apiKey + ', date=' + dateTime + ', salt=' + salt + ', signature=' + signature;
+}
+
+// ----- 생기부 record 시트 -----
+function getOrCreateRecordSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.RECORD);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.RECORD);
+    sheet.getRange(1, 1, 1, RECORD_HEADERS.length).setValues([RECORD_HEADERS]);
+  }
+  return sheet;
+}
+
+function getOrCreateRecordSummarySheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.RECORD_SUMMARY);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.RECORD_SUMMARY);
+    sheet.getRange(1, 1, 1, 2).setValues([['student_id', 'summary_evaluation']]);
+  }
+  return sheet;
+}
+
+function ensureRecordSheet() {
+  getOrCreateRecordSheet();
+  getOrCreateRecordSummarySheet();
+  return { success: true };
+}
+
+function getRecordByStudent(studentId) {
+  if (!studentId) return { success: false, error: 'student_id required' };
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.RECORD);
+  if (!sheet) {
+    sheet = getOrCreateRecordSheet();
+  }
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var sidCol = headers.indexOf('학번');
+  var nameCol = headers.indexOf('이름');
+  var hopeCol = headers.indexOf('희망진로');
+  var yearCol = headers.indexOf('학년');
+  var areaCol = headers.indexOf('영역');
+  var summaryCol = headers.indexOf('기록내용 요약');
+  var individualCol = headers.indexOf('개별/단체');
+  var academicCol = headers.indexOf('학업역량');
+  var careerCol = headers.indexOf('진로역량');
+  var communityCol = headers.indexOf('공동체역량');
+  var detailCol = headers.indexOf('세부역량');
+  var linkCol = headers.indexOf('연속적 활동(셀주소 입력)');
+  var bookCol = headers.indexOf('읽은 책');
+  var evalCol = headers.indexOf('평가');
+
+  var sidStr = String(studentId).trim();
+  var rows = [];
+  var profile = { student_id: sidStr, name: '', hope_career: '' };
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (String(row[sidCol] || '').trim() !== sidStr) continue;
+    if (profile.name === '' && nameCol >= 0) profile.name = String(row[nameCol] || '').trim();
+    if (profile.hope_career === '' && hopeCol >= 0) profile.hope_career = String(row[hopeCol] || '').trim();
+    var obj = {
+      student_id: String(row[sidCol] || '').trim(),
+      name: nameCol >= 0 ? String(row[nameCol] || '').trim() : '',
+      hope_career: hopeCol >= 0 ? String(row[hopeCol] || '').trim() : '',
+      grade: yearCol >= 0 ? String(row[yearCol] || '').trim() : '',
+      area: areaCol >= 0 ? String(row[areaCol] || '').trim() : '',
+      record_summary: summaryCol >= 0 ? String(row[summaryCol] || '').trim() : '',
+      individual_group: individualCol >= 0 ? String(row[individualCol] || '').trim() : '',
+      academic: academicCol >= 0 ? String(row[academicCol] || '').trim() : '',
+      career: careerCol >= 0 ? String(row[careerCol] || '').trim() : '',
+      community: communityCol >= 0 ? String(row[communityCol] || '').trim() : '',
+      detail_competency: detailCol >= 0 ? String(row[detailCol] || '').trim() : '',
+      link_cell: linkCol >= 0 ? String(row[linkCol] || '').trim() : '',
+      books: bookCol >= 0 ? String(row[bookCol] || '').trim() : '',
+      evaluation: evalCol >= 0 ? String(row[evalCol] || '').trim() : '',
+      _rowIndex: i + 1
+    };
+    rows.push(obj);
+  }
+
+  var cellRefMap = {};
+  for (var j = 0; j < rows.length; j++) {
+    var r = rows[j];
+    var ref = (r.link_cell || '').trim();
+    if (!ref) continue;
+    try {
+      var range = sheet.getRange(ref);
+      if (range) {
+        var refRowIndex = range.getRow();
+        var refRow = refRowIndex <= data.length ? data[refRowIndex - 1] : [];
+        var refSummary = summaryCol >= 0 && refRow[summaryCol] != null ? String(refRow[summaryCol]).trim() : '';
+        cellRefMap[ref] = refSummary;
+      }
+    } catch (e) {
+      cellRefMap[ref] = '(참조 오류)';
+    }
+  }
+
+  var summaryEval = '';
+  var sumSheet = ss.getSheetByName(SHEETS.RECORD_SUMMARY);
+  if (sumSheet) {
+    var sumData = sumSheet.getDataRange().getValues();
+    var sumHeaders = sumData[0].map(String);
+    var sumSidCol = sumHeaders.indexOf('student_id');
+    var sumEvalCol = sumHeaders.indexOf('summary_evaluation');
+    if (sumSidCol >= 0 && sumEvalCol >= 0) {
+      for (var k = 1; k < sumData.length; k++) {
+        if (String(sumData[k][sumSidCol] || '').trim() === sidStr) {
+          summaryEval = String(sumData[k][sumEvalCol] || '').trim();
+          break;
+        }
+      }
+    }
+  }
+
+  return {
+    success: true,
+    data: {
+      profile: profile,
+      rows: rows,
+      summary_evaluation: summaryEval,
+      cell_ref_map: cellRefMap
+    }
+  };
+}
+
+function getRecordSummaryEvaluation(studentId) {
+  if (!studentId) return { success: false, error: 'student_id required' };
+  var sheet = getOrCreateRecordSummarySheet();
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var sidCol = headers.indexOf('student_id');
+  var evalCol = headers.indexOf('summary_evaluation');
+  var sidStr = String(studentId).trim();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][sidCol] || '').trim() === sidStr) {
+      return { success: true, data: { summary_evaluation: String(data[i][evalCol] || '').trim() } };
+    }
+  }
+  return { success: true, data: { summary_evaluation: '' } };
+}
+
+function updateRecordSummaryEvaluation(studentId, summaryEvaluation) {
+  if (!studentId) return { success: false, error: 'student_id required' };
+  var sheet = getOrCreateRecordSummarySheet();
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var sidCol = headers.indexOf('student_id');
+  var evalCol = headers.indexOf('summary_evaluation');
+  var sidStr = String(studentId).trim();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][sidCol] || '').trim() === sidStr) {
+      sheet.getRange(i + 1, evalCol + 1).setValue(summaryEvaluation != null ? String(summaryEvaluation) : '');
+      return { success: true };
+    }
+  }
+  sheet.appendRow([sidStr, summaryEvaluation != null ? String(summaryEvaluation) : '']);
+  return { success: true };
 }

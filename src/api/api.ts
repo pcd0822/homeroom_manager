@@ -11,6 +11,7 @@ import type {
   Folder,
   Student,
   FormSchema,
+  RecordByStudent,
 } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_GAS_API_URL || 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
@@ -187,6 +188,28 @@ export function sendSms(params: {
   template?: string
 }) {
   return request<{ log_id: string; sent_at: string; receiver_count: number }>('SEND_SMS', 'POST', params)
+}
+
+// ----- 생기부 record -----
+export function ensureRecordSheet() {
+  return request('ENSURE_RECORD_SHEET', 'POST')
+}
+
+export function getRecordByStudent(studentId: string) {
+  return request<RecordByStudent>('GET_RECORD_BY_STUDENT', 'POST', { student_id: studentId })
+}
+
+export function getRecordSummaryEvaluation(studentId: string) {
+  return request<{ summary_evaluation: string }>('GET_RECORD_SUMMARY_EVALUATION', 'POST', {
+    student_id: studentId,
+  })
+}
+
+export function updateRecordSummaryEvaluation(studentId: string, summaryEvaluation: string) {
+  return request('UPDATE_RECORD_SUMMARY_EVALUATION', 'POST', {
+    student_id: studentId,
+    summary_evaluation: summaryEvaluation,
+  })
 }
 
 // ----- Helper: Form with parsed schema -----

@@ -77,3 +77,30 @@ export interface ApiResponse<T = unknown> {
   data?: T
   error?: string
 }
+
+/** 생기부 record 시트 한 행 */
+export interface RecordRow {
+  student_id: string
+  name: string
+  hope_career: string
+  grade: string
+  area: string
+  record_summary: string
+  individual_group: string
+  academic: string
+  career: string
+  community: string
+  detail_competency: string
+  link_cell: string
+  books: string
+  evaluation: string
+  _rowIndex?: number
+}
+
+/** 생기부 학생별 조회 결과 */
+export interface RecordByStudent {
+  profile: { student_id: string; name: string; hope_career: string }
+  rows: RecordRow[]
+  summary_evaluation: string
+  cell_ref_map: Record<string, string>
+}
