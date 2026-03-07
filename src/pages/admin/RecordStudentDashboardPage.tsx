@@ -291,7 +291,7 @@ export function RecordStudentDashboardPage() {
               ) : (
                 <div className="space-y-3">
                   {gradeOrder.map((grade) => (
-                    <div key={grade}>
+                    <div key={grade} className="print-grade-block">
                       <p className="mb-1 text-xs font-medium text-gray-600">{grade}</p>
                       <table className="w-full table-auto border-collapse text-xs">
                         <thead>

@@ -23,7 +23,7 @@ export function AdminLayout() {
       {/* 좌측 메뉴바 */}
       <aside
         className={cn(
-          'flex shrink-0 flex-col border-r border-gray-200 bg-white transition-[width] duration-200 ease-out',
+          'flex shrink-0 flex-col border-r border-gray-200 bg-white transition-[width] duration-200 ease-out print:hidden',
           open ? 'w-52' : 'w-14'
         )}
       >
@@ -130,8 +130,8 @@ export function AdminLayout() {
         )}
       </aside>
 
-      {/* 메인 영역 - 사이드바와 여백 */}
-      <main className="min-w-0 flex-1 pl-6 pr-6 pt-6 pb-8">
+      {/* 메인 영역 - 사이드바와 여백 (인쇄 시 패딩 제거) */}
+      <main className="min-w-0 flex-1 pl-6 pr-6 pt-6 pb-8 print:min-w-0 print:p-0">
         <Outlet />
       </main>
     </div>
