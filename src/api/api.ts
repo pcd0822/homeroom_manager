@@ -217,6 +217,21 @@ export function updateRecordSummaryEvaluation(studentId: string, summaryEvaluati
   })
 }
 
+// ----- 청소구역 배정 -----
+export function saveCleaningAssignment(assignments: Record<string, Array<{ student_id: string; name: string }>>) {
+  return request<{ run_id: string; saved_at: string }>('SAVE_CLEANING_ASSIGNMENT', 'POST', {
+    assignments,
+  })
+}
+
+export function getCleaningAssignment() {
+  return request<{
+    run_id: string | null
+    saved_at: string | null
+    assignments: Record<string, Array<{ student_id: string; name: string }>>
+  }>('GET_CLEANING_ASSIGNMENT', 'POST')
+}
+
 // ----- Helper: Form with parsed schema -----
 export function parseFormSchema(form: Form): FormWithParsedSchema {
   let schema: FormSchema | null = null

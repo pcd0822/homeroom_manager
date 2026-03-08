@@ -126,6 +126,20 @@ export function AdminLayout() {
               <UserGroupIcon className="h-5 w-5 shrink-0" />
               학생관리
             </NavLink>
+            <NavLink
+              to="/admin/cleaning-zones"
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                )
+              }
+            >
+              <BroomIcon className="h-5 w-5 shrink-0" />
+              청소구역 관리
+            </NavLink>
           </nav>
         )}
       </aside>
@@ -191,6 +205,15 @@ function ChartBarIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  )
+}
+
+function BroomIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 6v14M4 6l4 4m8 0l4-4m-4 4V4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 10l2 2 4-4" />
     </svg>
   )
 }

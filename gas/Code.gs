@@ -24,7 +24,8 @@ var SHEETS = {
   SMS_LOGS: 'SmsLogs',
   CLASS: 'Class',
   RECORD: 'record',
-  RECORD_SUMMARY: 'RecordSummary'
+  RECORD_SUMMARY: 'RecordSummary',
+  CLEANING_ASSIGNMENTS: 'CleaningAssignments'
 };
 
 // 생기부 record 시트 헤더 (순서 유지)
@@ -154,6 +155,12 @@ function handleRequest(e, method) {
         break;
       case 'GET_RECORD_UPDATED_IDS':
         result = getRecordUpdatedIds();
+        break;
+      case 'SAVE_CLEANING_ASSIGNMENT':
+        result = saveCleaningAssignment(params.assignments);
+        break;
+      case 'GET_CLEANING_ASSIGNMENT':
+        result = getCleaningAssignment();
         break;
       default:
         result.error = 'Unknown action: ' + action;
@@ -951,4 +958,90 @@ function updateRecordSummaryEvaluation(studentId, summaryEvaluation) {
   }
   sheet.appendRow([sidStr, summaryEvaluation != null ? String(summaryEvaluation) : '']);
   return { success: true };
+}
+
+// ----- 청소구역 배정 시트 -----
+var CLEANING_HEADERS = ['run_id', 'saved_at', 'zone_name', 'student_id', 'student_name'];
+
+function getOrCreateCleaningAssignmentsSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.CLEANING_ASSIGNMENTS);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.CLEANING_ASSIGNMENTS);
+    sheet.getRange(1, 1, 1, CLEANING_HEADERS.length).setValues([CLEANING_HEADERS]);
+  }
+  return sheet;
+}
+
+function saveCleaningAssignment(assignments) {
+  if (!assignments || typeof assignments !== 'object') {
+    return { success: false, error: 'assignments required' };
+  }
+  var sheet = getOrCreateCleaningAssignmentsSheet();
+  var runId = new Date().toISOString();
+  var savedAt = runId;
+  var rows = [];
+  for (var zoneName in assignments) {
+    if (!Object.prototype.hasOwnProperty.call(assignments, zoneName)) continue;
+    var list = assignments[zoneName];
+    if (!Array.isArray(list)) continue;
+    for (var i = 0; i < list.length; i++) {
+      var s = list[i];
+      rows.push([
+        runId,
+        savedAt,
+        String(zoneName),
+        String(s && s.student_id != null ? s.student_id : ''),
+        String(s && s.name != null ? s.name : '')
+      ]);
+    }
+  }
+  if (rows.length > 0) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, sheet.getLastRow() + rows.length, CLEANING_HEADERS.length).setValues(rows);
+  }
+  return { success: true, data: { run_id: runId, saved_at: savedAt } };
+}
+
+function getCleaningAssignment() {
+  var sheet = getSpreadsheet().getSheetByName(SHEETS.CLEANING_ASSIGNMENTS);
+  if (!sheet || sheet.getLastRow() < 2) {
+    return { success: true, data: { run_id: null, saved_at: null, assignments: {} } };
+  }
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var runIdCol = headers.indexOf('run_id');
+  var savedAtCol = headers.indexOf('saved_at');
+  var zoneCol = headers.indexOf('zone_name');
+  var sidCol = headers.indexOf('student_id');
+  var nameCol = headers.indexOf('student_name');
+  if (runIdCol < 0 || zoneCol < 0 || sidCol < 0) {
+    return { success: true, data: { run_id: null, saved_at: null, assignments: {} } };
+  }
+  var lastRunId = null;
+  var lastSavedAt = null;
+  for (var i = data.length - 1; i >= 1; i--) {
+    var rid = data[i][runIdCol];
+    if (rid != null && String(rid).trim() !== '') {
+      lastRunId = String(rid).trim();
+      lastSavedAt = savedAtCol >= 0 && data[i][savedAtCol] != null ? String(data[i][savedAtCol]).trim() : lastRunId;
+      break;
+    }
+  }
+  if (!lastRunId) {
+    return { success: true, data: { run_id: null, saved_at: null, assignments: {} } };
+  }
+  var assignments = {};
+  for (var j = 1; j < data.length; j++) {
+    if (String(data[j][runIdCol] || '').trim() !== lastRunId) continue;
+    var zn = String(data[j][zoneCol] || '').trim();
+    if (!assignments[zn]) assignments[zn] = [];
+    assignments[zn].push({
+      student_id: String(data[j][sidCol] || '').trim(),
+      name: nameCol >= 0 ? String(data[j][nameCol] || '').trim() : ''
+    });
+  }
+  return {
+    success: true,
+    data: { run_id: lastRunId, saved_at: lastSavedAt, assignments: assignments }
+  };
 }
