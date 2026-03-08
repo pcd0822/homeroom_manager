@@ -998,11 +998,9 @@ function saveCleaningAssignment(assignments) {
     }
   }
   if (rows.length > 0) {
-    // 1행은 헤더용. 데이터는 2행부터 추가. 범위 행 수 = rows.length 로 정확히 맞춤.
-    var lastRow = sheet.getLastRow();
-    var startRow = lastRow + 1;
-    var endRow = startRow + rows.length - 1;
-    sheet.getRange(startRow, 1, endRow, CLEANING_HEADERS.length).setValues(rows);
+    // getRange(row, column, numRows, numColumns) — 3번째 인자는 끝 행이 아니라 행 개수.
+    var startRow = sheet.getLastRow() + 1;
+    sheet.getRange(startRow, 1, rows.length, CLEANING_HEADERS.length).setValues(rows);
   }
   return { success: true, data: { run_id: runId, saved_at: savedAt } };
 }
