@@ -961,6 +961,7 @@ function updateRecordSummaryEvaluation(studentId, summaryEvaluation) {
 }
 
 // ----- 청소구역 배정 시트 -----
+// 1행: 헤더(run_id, saved_at, zone_name, student_id, student_name). 2행~: 데이터.
 var CLEANING_HEADERS = ['run_id', 'saved_at', 'zone_name', 'student_id', 'student_name'];
 
 function getOrCreateCleaningAssignmentsSheet() {
@@ -997,7 +998,11 @@ function saveCleaningAssignment(assignments) {
     }
   }
   if (rows.length > 0) {
-    sheet.getRange(sheet.getLastRow() + 1, 1, sheet.getLastRow() + rows.length, CLEANING_HEADERS.length).setValues(rows);
+    // 1행은 헤더용. 데이터는 2행부터 추가. 범위 행 수 = rows.length 로 정확히 맞춤.
+    var lastRow = sheet.getLastRow();
+    var startRow = lastRow + 1;
+    var endRow = startRow + rows.length - 1;
+    sheet.getRange(startRow, 1, endRow, CLEANING_HEADERS.length).setValues(rows);
   }
   return { success: true, data: { run_id: runId, saved_at: savedAt } };
 }
