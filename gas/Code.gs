@@ -162,6 +162,9 @@ function handleRequest(e, method) {
       case 'GET_CLEANING_ASSIGNMENT':
         result = getCleaningAssignment();
         break;
+      case 'GET_CLEANING_ASSIGNMENT_COUNTS':
+        result = getCleaningAssignmentCounts();
+        break;
       default:
         result.error = 'Unknown action: ' + action;
     }
@@ -1047,4 +1050,30 @@ function getCleaningAssignment() {
     success: true,
     data: { run_id: lastRunId, saved_at: lastSavedAt, assignments: assignments }
   };
+}
+
+/** 시트 전체에서 학번별 청소 배정 누적 횟수 반환. (1행 헤더 제외) */
+function getCleaningAssignmentCounts() {
+  var sheet = getSpreadsheet().getSheetByName(SHEETS.CLEANING_ASSIGNMENTS);
+  var counts = {};
+  if (!sheet || sheet.getLastRow() < 2) {
+    return { success: true, data: counts };
+  }
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var sidCol = -1;
+  for (var h = 0; h < headers.length; h++) {
+    if (headers[h].toLowerCase().indexOf('student_id') !== -1 || headers[h].trim() === 'student_id') {
+      sidCol = h;
+      break;
+    }
+  }
+  if (sidCol < 0) sidCol = 3;
+  for (var i = 1; i < data.length; i++) {
+    var sid = String(data[i][sidCol] != null ? data[i][sidCol] : '').trim();
+    if (sid === '') continue;
+    var key = sid;
+    counts[key] = (counts[key] || 0) + 1;
+  }
+  return { success: true, data: counts };
 }

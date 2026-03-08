@@ -232,6 +232,11 @@ export function getCleaningAssignment() {
   }>('GET_CLEANING_ASSIGNMENT', 'POST')
 }
 
+/** 학번별 청소 배정 누적 횟수 */
+export function getCleaningAssignmentCounts() {
+  return request<Record<string, number>>('GET_CLEANING_ASSIGNMENT_COUNTS', 'POST')
+}
+
 // ----- Helper: Form with parsed schema -----
 export function parseFormSchema(form: Form): FormWithParsedSchema {
   let schema: FormSchema | null = null

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { getStudents, saveCleaningAssignment, getCleaningAssignment } from '@/api/api'
+import { getStudents, saveCleaningAssignment, getCleaningAssignment, getCleaningAssignmentCounts } from '@/api/api'
 import type { Student } from '@/types'
 import { cn } from '@/lib/utils'
 import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
@@ -55,14 +55,15 @@ export function CleaningZonesPage() {
   const [zones, setZones] = useState<Zone[]>([])
   const [assignStatus, setAssignStatus] = useState<Record<string, AssignStatus>>({})
   const [assignmentResult, setAssignmentResult] = useState<Record<string, Student[]>>({})
+  const [cleaningCounts, setCleaningCounts] = useState<Record<string, number>>({})
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(() => {
     setLoading(true)
-    Promise.all([getStudents(), getCleaningAssignment()])
-      .then(([studentsRes, assignRes]) => {
+    Promise.all([getStudents(), getCleaningAssignment(), getCleaningAssignmentCounts()])
+      .then(([studentsRes, assignRes, countsRes]) => {
         if (studentsRes.success && studentsRes.data) {
           setStudents(studentsRes.data)
           setAssignStatus((prev) => {
@@ -72,6 +73,9 @@ export function CleaningZonesPage() {
             })
             return next
           })
+        }
+        if (countsRes.success && countsRes.data) {
+          setCleaningCounts(countsRes.data)
         }
         if (assignRes.success && assignRes.data?.assignments && Object.keys(assignRes.data.assignments).length > 0) {
           const map: Record<string, Student[]> = {}
@@ -154,8 +158,10 @@ export function CleaningZonesPage() {
     })
     saveCleaningAssignment(toSave)
       .then((res) => {
-        if (res.success && res.data) setSavedAt(res.data.saved_at)
-        else if (!res.success) alert(res.error || '저장에 실패했습니다.')
+        if (res.success && res.data) {
+          setSavedAt(res.data.saved_at)
+          getCleaningAssignmentCounts().then((r) => r.success && r.data && setCleaningCounts(r.data))
+        } else if (!res.success) alert(res.error || '저장에 실패했습니다.')
       })
       .finally(() => setSaving(false))
   }, [zones, students, assignStatus])
@@ -232,7 +238,7 @@ export function CleaningZonesPage() {
       <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="mb-2 text-sm font-semibold text-gray-800">배정 대상·제외 선택</h2>
         <p className="mb-3 text-xs text-gray-500">
-          배정 대상에 포함된 학생만 랜덤 배정됩니다. 제외할 학생은 배정 제외로 선택하세요.
+          배정 대상에 포함된 학생만 랜덤 배정됩니다. 청소 누적 횟수를 참고해 배정 제외할 학생을 선택하세요.
         </p>
         <div className="mb-3 flex gap-2">
           <button
@@ -256,36 +262,50 @@ export function CleaningZonesPage() {
               <tr className="border-b border-gray-200 text-left">
                 <th className="p-2 font-medium text-gray-700">학번</th>
                 <th className="p-2 font-medium text-gray-700">이름</th>
+                <th className="w-24 p-2 font-medium text-gray-700">청소 누적</th>
                 <th className="w-40 p-2 font-medium text-gray-700">구분</th>
               </tr>
             </thead>
             <tbody>
-              {students.map((s) => (
-                <tr key={s.student_id} className="border-b border-gray-100">
-                  <td className="p-2 text-gray-600">{s.student_id}</td>
-                  <td className="p-2 font-medium text-gray-900">{s.name}</td>
-                  <td className="p-2">
-                    <select
-                      value={assignStatus[s.student_id] ?? 'in'}
-                      onChange={(e) =>
-                        setAssignStatus((prev) => ({
-                          ...prev,
-                          [s.student_id]: e.target.value as AssignStatus,
-                        }))
-                      }
-                      className={cn(
-                        'rounded border px-2 py-1 text-xs',
-                        assignStatus[s.student_id] === 'in'
-                          ? 'border-blue-200 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 bg-gray-50 text-gray-600'
-                      )}
-                    >
-                      <option value="in">배정 대상</option>
-                      <option value="out">배정 제외</option>
-                    </select>
-                  </td>
-                </tr>
-              ))}
+              {students.map((s) => {
+                const count = cleaningCounts[s.student_id] ?? 0
+                return (
+                  <tr key={s.student_id} className="border-b border-gray-100">
+                    <td className="p-2 text-gray-600">{s.student_id}</td>
+                    <td className="p-2 font-medium text-gray-900">{s.name}</td>
+                    <td className="p-2">
+                      <span
+                        className={cn(
+                          'inline-flex items-center rounded px-2 py-0.5 text-xs font-medium',
+                          count >= 3 ? 'bg-amber-100 text-amber-800' : count >= 1 ? 'bg-gray-100 text-gray-700' : 'bg-gray-50 text-gray-500'
+                        )}
+                      >
+                        {count}회
+                      </span>
+                    </td>
+                    <td className="p-2">
+                      <select
+                        value={assignStatus[s.student_id] ?? 'in'}
+                        onChange={(e) =>
+                          setAssignStatus((prev) => ({
+                            ...prev,
+                            [s.student_id]: e.target.value as AssignStatus,
+                          }))
+                        }
+                        className={cn(
+                          'rounded border px-2 py-1 text-xs',
+                          assignStatus[s.student_id] === 'in'
+                            ? 'border-blue-200 bg-blue-50 text-blue-700'
+                            : 'border-gray-200 bg-gray-50 text-gray-600'
+                        )}
+                      >
+                        <option value="in">배정 대상</option>
+                        <option value="out">배정 제외</option>
+                      </select>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -302,6 +322,9 @@ export function CleaningZonesPage() {
           >
             랜덤 배정
           </button>
+          <span className="text-xs text-gray-500">
+            청소 누적 횟수: 위 표에서 확인 후 배정 제외로 조정 가능
+          </span>
           <button
             type="button"
             onClick={runRandomAssign}
