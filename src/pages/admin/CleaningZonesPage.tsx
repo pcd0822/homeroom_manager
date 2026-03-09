@@ -56,6 +56,12 @@ export function CleaningZonesPage() {
   const [assignStatus, setAssignStatus] = useState<Record<string, AssignStatus>>({})
   const [assignmentResult, setAssignmentResult] = useState<Record<string, Student[]>>({})
   const [cleaningCounts, setCleaningCounts] = useState<Record<string, number>>({})
+  const [manualOpen, setManualOpen] = useState(false)
+  const [manualMap, setManualMap] = useState<Record<string, string>>({})
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [helperByWeek, setHelperByWeek] = useState<Record<string, string>>({})
+  const WEEK_KEYS = ['1주차', '2주차', '3주차', '4주차']
+  const POOL_ID = '__pool__'
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -165,6 +171,85 @@ export function CleaningZonesPage() {
       })
       .finally(() => setSaving(false))
   }, [zones, students, assignStatus])
+
+  const openManualAssign = () => {
+    const map: Record<string, string> = {}
+    const poolIds = students
+      .filter((s) => assignStatus[s.student_id] === 'in')
+      .map((s) => s.student_id)
+
+    poolIds.forEach((sid) => {
+      map[sid] = POOL_ID
+    })
+
+    // 기존 자동 배정 결과를 기반으로 초기화
+    Object.entries(assignmentResult).forEach(([zoneName, list]) => {
+      const zone = zones.find((z) => z.name.trim() === zoneName)
+      if (!zone) return
+      list.forEach((s) => {
+        if (assignStatus[s.student_id] === 'in') {
+          map[s.student_id] = zone.id
+        }
+      })
+    })
+
+    setManualMap(map)
+    setManualOpen(true)
+  }
+
+  const closeManualAssign = () => {
+    setManualOpen(false)
+    setDraggingId(null)
+  }
+
+  const handleDropTo = (targetId: string) => {
+    if (!draggingId) return
+    setManualMap((prev) => ({
+      ...prev,
+      [draggingId]: targetId,
+    }))
+    setDraggingId(null)
+  }
+
+  const saveManualAssign = () => {
+    const result: Record<string, Student[]> = {}
+
+    zones.forEach((z) => {
+      const zoneName = z.name.trim()
+      if (!zoneName) return
+      result[zoneName] = []
+    })
+
+    Object.entries(manualMap).forEach(([sid, zoneId]) => {
+      if (zoneId === POOL_ID) return
+      const zone = zones.find((z) => z.id === zoneId)
+      if (!zone) return
+      const zoneName = zone.name.trim()
+      if (!zoneName) return
+      if (!result[zoneName]) result[zoneName] = []
+      const stu = students.find((s) => s.student_id === sid)
+      if (stu) result[zoneName].push(stu)
+    })
+
+    setAssignmentResult(result)
+    setSaving(true)
+    const toSave: Record<string, Array<{ student_id: string; name: string }>> = {}
+    Object.entries(result).forEach(([zone, list]) => {
+      toSave[zone] = list.map((s) => ({ student_id: s.student_id, name: s.name }))
+    })
+    saveCleaningAssignment(toSave)
+      .then((res) => {
+        if (res.success && res.data) {
+          setSavedAt(res.data.saved_at)
+          getCleaningAssignmentCounts().then((r) => r.success && r.data && setCleaningCounts(r.data))
+        } else if (!res.success) alert(res.error || '저장에 실패했습니다.')
+      })
+      .finally(() => {
+        setSaving(false)
+        setManualOpen(false)
+        setDraggingId(null)
+      })
+  }
 
   const totalCapacity = zones.reduce((s, z) => s + (z.capacity > 0 ? z.capacity : 0), 0)
   const includedCount = students.filter((s) => assignStatus[s.student_id] === 'in').length
@@ -311,7 +396,7 @@ export function CleaningZonesPage() {
         </div>
       </section>
 
-      {/* 3. 랜덤 배정 / 재배정 */}
+      {/* 3. 랜덤 배정 / 재배정 / 수동 배정 */}
       <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -322,9 +407,6 @@ export function CleaningZonesPage() {
           >
             랜덤 배정
           </button>
-          <span className="text-xs text-gray-500">
-            청소 누적 횟수: 위 표에서 확인 후 배정 제외로 조정 가능
-          </span>
           <button
             type="button"
             onClick={runRandomAssign}
@@ -333,6 +415,17 @@ export function CleaningZonesPage() {
           >
             재배정
           </button>
+          <button
+            type="button"
+            onClick={openManualAssign}
+            disabled={saving}
+            className="rounded-md border border-emerald-600 bg-white px-4 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+          >
+            수동 배정
+          </button>
+          <span className="text-xs text-gray-500">
+            청소 누적 횟수: 위 표를 참고해 배정 제외 또는 수동 배정을 조정하세요.
+          </span>
           {saving && <span className="text-sm text-gray-500">저장 중…</span>}
           {savedAt && !saving && (
             <span className="text-xs text-gray-500">
@@ -396,6 +489,179 @@ export function CleaningZonesPage() {
             ))}
           </div>
         </section>
+      )}
+      {/* 5. 주차별 칠판·교탁 정리 도우미 */}
+      <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-2 text-sm font-semibold text-gray-800">주차별 칠판·교탁 정리 도우미</h2>
+        <p className="mb-3 text-xs text-gray-500">
+          주차별로 칠판·교탁 정리를 도와줄 학생을 선택하세요. (등록된 학생 학번 기준)
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {WEEK_KEYS.map((week) => (
+            <div key={week} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <p className="mb-2 text-xs font-semibold text-gray-800">{week}</p>
+              <select
+                value={helperByWeek[week] ?? ''}
+                onChange={(e) =>
+                  setHelperByWeek((prev) => ({
+                    ...prev,
+                    [week]: e.target.value,
+                  }))
+                }
+                className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs"
+              >
+                <option value="">선택 안 함</option>
+                {students.map((s) => {
+                  const count = cleaningCounts[s.student_id] ?? 0
+                  return (
+                    <option key={s.student_id} value={s.student_id}>
+                      {s.student_id} {s.name} {count > 0 ? `(${count}회)` : ''}
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {manualOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
+          <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+              <h2 className="text-sm font-semibold text-gray-800">수동 배정</h2>
+              <button
+                type="button"
+                onClick={closeManualAssign}
+                className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100"
+              >
+                닫기
+              </button>
+            </div>
+            <div className="flex flex-col gap-4 px-4 py-4">
+              <p className="text-xs text-gray-500">
+                학생 카드를 드래그하여 청소구역으로 이동해 배정하세요. (배정 대상 학생만 표시됩니다)
+              </p>
+              <div className="grid gap-4 md:grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)]">
+                <div className="flex flex-col">
+                  <h3 className="mb-2 text-xs font-semibold text-gray-700">배정 대기 학생</h3>
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => handleDropTo(POOL_ID)}
+                    className="min-h-[140px] rounded-lg border border-dashed border-gray-300 bg-gray-50 p-2"
+                  >
+                    <div className="flex flex-col gap-2">
+                      {students
+                        .filter(
+                          (s) =>
+                            assignStatus[s.student_id] === 'in' &&
+                            (manualMap[s.student_id] ?? POOL_ID) === POOL_ID
+                        )
+                        .map((s) => (
+                          <div
+                            key={s.student_id}
+                            draggable
+                            onDragStart={() => setDraggingId(s.student_id)}
+                            onDragEnd={() => setDraggingId(null)}
+                            className="cursor-move"
+                          >
+                            <StudentAssignmentCard
+                              studentId={s.student_id}
+                              name={s.name}
+                              photoData={s.photo_data}
+                            />
+                          </div>
+                        ))}
+                      {students.filter(
+                        (s) =>
+                          assignStatus[s.student_id] === 'in' &&
+                          (manualMap[s.student_id] ?? POOL_ID) === POOL_ID
+                      ).length === 0 && (
+                        <p className="text-xs text-gray-400">배정 대기 학생이 없습니다.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h3 className="text-xs font-semibold text-gray-700">청소구역</h3>
+                    <button
+                      type="button"
+                      onClick={addZone}
+                      className="inline-flex items-center rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                    >
+                      <PlusIcon className="mr-1 h-3 w-3" />
+                      구역 추가
+                    </button>
+                  </div>
+                  <div className="grid max-h-[360px] gap-3 overflow-y-auto md:grid-cols-2">
+                    {zones.filter((z) => z.name.trim()).length === 0 ? (
+                      <p className="text-xs text-gray-400">먼저 청소구역 이름을 입력해 주세요.</p>
+                    ) : (
+                      zones
+                        .filter((z) => z.name.trim())
+                        .map((z) => {
+                          const zoneStudents = students.filter(
+                            (s) =>
+                              assignStatus[s.student_id] === 'in' &&
+                              manualMap[s.student_id] === z.id
+                          )
+                          return (
+                            <div
+                              key={z.id}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={() => handleDropTo(z.id)}
+                              className="flex flex-col rounded-lg border border-gray-200 bg-gray-50 p-2"
+                            >
+                              <p className="mb-1 text-xs font-semibold text-gray-800">{z.name}</p>
+                              <div className="flex flex-col gap-2">
+                                {zoneStudents.length === 0 ? (
+                                  <p className="text-xs text-gray-400">드래그하여 학생을 추가하세요.</p>
+                                ) : (
+                                  zoneStudents.map((s) => (
+                                    <div
+                                      key={s.student_id}
+                                      draggable
+                                      onDragStart={() => setDraggingId(s.student_id)}
+                                      onDragEnd={() => setDraggingId(null)}
+                                      className="cursor-move"
+                                    >
+                                      <StudentAssignmentCard
+                                        studentId={s.student_id}
+                                        name={s.name}
+                                        photoData={s.photo_data}
+                                      />
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2 flex justify-end gap-2 border-t border-gray-200 pt-3">
+                <button
+                  type="button"
+                  onClick={closeManualAssign}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={saveManualAssign}
+                  disabled={saving}
+                  className="rounded-md bg-slate-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+                >
+                  수동 배정 저장
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
