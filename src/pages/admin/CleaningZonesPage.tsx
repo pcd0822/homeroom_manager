@@ -59,8 +59,7 @@ export function CleaningZonesPage() {
   const [manualOpen, setManualOpen] = useState(false)
   const [manualMap, setManualMap] = useState<Record<string, string>>({})
   const [draggingId, setDraggingId] = useState<string | null>(null)
-  const [helperByWeek, setHelperByWeek] = useState<Record<string, string>>({})
-  const WEEK_KEYS = ['1주차', '2주차', '3주차', '4주차']
+  const [helperId, setHelperId] = useState<string>('')
   const POOL_ID = '__pool__'
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -488,46 +487,56 @@ export function CleaningZonesPage() {
               </div>
             ))}
           </div>
+          {helperId && (
+            <div className="mt-6 rounded-lg border border-indigo-100 bg-indigo-50 p-3">
+              <p className="mb-2 text-sm font-semibold text-indigo-800">이번 주 칠판·교탁 정리 도우미</p>
+              {(() => {
+                const s = students.find((stu) => stu.student_id === helperId)
+                if (!s) {
+                  return <p className="text-xs text-gray-500">선택된 학생을 찾을 수 없습니다.</p>
+                }
+                return (
+                  <div className="max-w-xs">
+                    <StudentAssignmentCard
+                      studentId={s.student_id}
+                      name={s.name}
+                      photoData={s.photo_data}
+                    />
+                  </div>
+                )
+              })()}
+            </div>
+          )}
         </section>
       )}
-      {/* 5. 주차별 칠판·교탁 정리 도우미 */}
+      {/* 5. 이번 주 칠판·교탁 정리 도우미 (누적 횟수 계산에는 포함하지 않음) */}
       <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-2 text-sm font-semibold text-gray-800">주차별 칠판·교탁 정리 도우미</h2>
+        <h2 className="mb-2 text-sm font-semibold text-gray-800">이번 주 칠판·교탁 정리 도우미</h2>
         <p className="mb-3 text-xs text-gray-500">
-          주차별로 칠판·교탁 정리를 도와줄 학생을 선택하세요. (등록된 학생 학번 기준)
+          이번 주 칠판·교탁 정리를 도와줄 학생을 선택하세요. (등록된 학생 학번 기준, 청소 누적 횟수 계산에는 포함되지 않습니다)
         </p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {WEEK_KEYS.map((week) => (
-            <div key={week} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-              <p className="mb-2 text-xs font-semibold text-gray-800">{week}</p>
-              <select
-                value={helperByWeek[week] ?? ''}
-                onChange={(e) =>
-                  setHelperByWeek((prev) => ({
-                    ...prev,
-                    [week]: e.target.value,
-                  }))
-                }
-                className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs"
-              >
-                <option value="">선택 안 함</option>
-                {students.map((s) => {
-                  const count = cleaningCounts[s.student_id] ?? 0
-                  return (
-                    <option key={s.student_id} value={s.student_id}>
-                      {s.student_id} {s.name} {count > 0 ? `(${count}회)` : ''}
-                    </option>
-                  )
-                })}
-              </select>
-            </div>
-          ))}
+        <div className="max-w-xs">
+          <select
+            value={helperId}
+            onChange={(e) => setHelperId(e.target.value)}
+            className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs"
+          >
+            <option value="">선택 안 함</option>
+            {students.map((s) => {
+              const count = cleaningCounts[s.student_id] ?? 0
+              return (
+                <option key={s.student_id} value={s.student_id}>
+                  {s.student_id} {s.name} {count > 0 ? `(${count}회)` : ''}
+                </option>
+              )
+            })}
+          </select>
         </div>
       </section>
 
       {manualOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-          <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-xl bg-white shadow-xl">
+          <div className="max-h-[90vh] w-full max-w-5xl overflow-auto rounded-xl bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
               <h2 className="text-sm font-semibold text-gray-800">수동 배정</h2>
               <button
@@ -594,7 +603,7 @@ export function CleaningZonesPage() {
                       구역 추가
                     </button>
                   </div>
-                  <div className="grid max-h-[360px] gap-3 overflow-y-auto md:grid-cols-2">
+                  <div className="grid gap-3 md:grid-cols-2">
                     {zones.filter((z) => z.name.trim()).length === 0 ? (
                       <p className="text-xs text-gray-400">먼저 청소구역 이름을 입력해 주세요.</p>
                     ) : (
