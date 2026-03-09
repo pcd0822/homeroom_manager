@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { getStudents, getCleaningAssignment } from '@/api/api'
 import type { Student } from '@/types'
 import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
@@ -6,6 +7,8 @@ import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCa
 type AssignmentMap = Record<string, Array<{ student_id: string; name: string }>>
 
 export function CleaningResultPage() {
+  const [searchParams] = useSearchParams()
+  const helperId = searchParams.get('helper') ?? ''
   const [assignments, setAssignments] = useState<AssignmentMap>({})
   const [studentMap, setStudentMap] = useState<Record<string, Student>>({})
   const [savedAt, setSavedAt] = useState<string | null>(null)
@@ -59,6 +62,18 @@ export function CleaningResultPage() {
           <p className="mb-6 text-sm text-gray-500">
             배정 일시: {new Date(savedAt).toLocaleString('ko-KR')}
           </p>
+        )}
+        {helperId && studentMap[helperId] && (
+          <div className="mb-6 rounded-lg border border-indigo-100 bg-indigo-50 p-3">
+            <p className="mb-2 text-sm font-semibold text-indigo-800">이번 주 칠판·교탁 정리 도우미</p>
+            <div className="max-w-xs">
+              <StudentAssignmentCard
+                studentId={studentMap[helperId].student_id}
+                name={studentMap[helperId].name}
+                photoData={studentMap[helperId].photo_data}
+              />
+            </div>
+          </div>
         )}
         {!hasResult ? (
           <p className="rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500">

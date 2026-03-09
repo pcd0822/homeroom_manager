@@ -441,7 +441,11 @@ export function CleaningZonesPage() {
             <h2 className="text-sm font-semibold text-gray-800">배정 결과</h2>
             <div className="flex items-center gap-2">
               <a
-                href={`${window.location.origin}/cleaning-result`}
+                href={
+                  helperId
+                    ? `${window.location.origin}/cleaning-result?helper=${encodeURIComponent(helperId)}`
+                    : `${window.location.origin}/cleaning-result`
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-blue-600 hover:underline"
@@ -451,7 +455,8 @@ export function CleaningZonesPage() {
               <button
                 type="button"
                 onClick={() => {
-                  const url = `${window.location.origin}/cleaning-result`
+                  const base = `${window.location.origin}/cleaning-result`
+                  const url = helperId ? `${base}?helper=${encodeURIComponent(helperId)}` : base
                   navigator.clipboard.writeText(url).then(() => alert('링크가 복사되었습니다.'))
                 }}
                 className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
@@ -460,6 +465,26 @@ export function CleaningZonesPage() {
               </button>
             </div>
           </div>
+          {helperId && (
+            <div className="mb-4 rounded-lg border border-indigo-100 bg-indigo-50 p-3">
+              <p className="mb-2 text-sm font-semibold text-indigo-800">이번 주 칠판·교탁 정리 도우미</p>
+              {(() => {
+                const s = students.find((stu) => stu.student_id === helperId)
+                if (!s) {
+                  return <p className="text-xs text-gray-500">선택된 학생을 찾을 수 없습니다.</p>
+                }
+                return (
+                  <div className="max-w-xs">
+                    <StudentAssignmentCard
+                      studentId={s.student_id}
+                      name={s.name}
+                      photoData={s.photo_data}
+                    />
+                  </div>
+                )
+              })()}
+            </div>
+          )}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Object.entries(assignmentResult).map(([zoneName, list]) => (
               <div
@@ -487,26 +512,6 @@ export function CleaningZonesPage() {
               </div>
             ))}
           </div>
-          {helperId && (
-            <div className="mt-6 rounded-lg border border-indigo-100 bg-indigo-50 p-3">
-              <p className="mb-2 text-sm font-semibold text-indigo-800">이번 주 칠판·교탁 정리 도우미</p>
-              {(() => {
-                const s = students.find((stu) => stu.student_id === helperId)
-                if (!s) {
-                  return <p className="text-xs text-gray-500">선택된 학생을 찾을 수 없습니다.</p>
-                }
-                return (
-                  <div className="max-w-xs">
-                    <StudentAssignmentCard
-                      studentId={s.student_id}
-                      name={s.name}
-                      photoData={s.photo_data}
-                    />
-                  </div>
-                )
-              })()}
-            </div>
-          )}
         </section>
       )}
       {/* 5. 이번 주 칠판·교탁 정리 도우미 (누적 횟수 계산에는 포함하지 않음) */}
