@@ -1,5 +1,13 @@
 import { useEffect, useState, useCallback } from 'react'
-import { getStudents, saveCleaningAssignment, getCleaningAssignment, getCleaningAssignmentCounts } from '@/api/api'
+import {
+  getStudents,
+  saveCleaningAssignment,
+  getCleaningAssignment,
+  getCleaningAssignmentCounts,
+  saveCleaningHelper,
+  getCleaningHelper,
+  getCleaningHelperCounts,
+} from '@/api/api'
 import type { Student } from '@/types'
 import { cn } from '@/lib/utils'
 import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
@@ -56,6 +64,7 @@ export function CleaningZonesPage() {
   const [assignStatus, setAssignStatus] = useState<Record<string, AssignStatus>>({})
   const [assignmentResult, setAssignmentResult] = useState<Record<string, Student[]>>({})
   const [cleaningCounts, setCleaningCounts] = useState<Record<string, number>>({})
+  const [helperCounts, setHelperCounts] = useState<Record<string, number>>({})
   const [manualOpen, setManualOpen] = useState(false)
   const [manualMap, setManualMap] = useState<Record<string, string>>({})
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -67,8 +76,14 @@ export function CleaningZonesPage() {
 
   const load = useCallback(() => {
     setLoading(true)
-    Promise.all([getStudents(), getCleaningAssignment(), getCleaningAssignmentCounts()])
-      .then(([studentsRes, assignRes, countsRes]) => {
+    Promise.all([
+        getStudents(),
+        getCleaningAssignment(),
+        getCleaningAssignmentCounts(),
+        getCleaningHelper(),
+        getCleaningHelperCounts(),
+      ])
+      .then(([studentsRes, assignRes, countsRes, helperRes, helperCountsRes]) => {
         if (studentsRes.success && studentsRes.data) {
           setStudents(studentsRes.data)
           setAssignStatus((prev) => {
@@ -81,6 +96,12 @@ export function CleaningZonesPage() {
         }
         if (countsRes.success && countsRes.data) {
           setCleaningCounts(countsRes.data)
+        }
+        if (helperRes.success && helperRes.data?.student_id) {
+          setHelperId(helperRes.data.student_id)
+        }
+        if (helperCountsRes.success && helperCountsRes.data) {
+          setHelperCounts(helperCountsRes.data)
         }
         if (assignRes.success && assignRes.data?.assignments && Object.keys(assignRes.data.assignments).length > 0) {
           const map: Record<string, Student[]> = {}
@@ -346,13 +367,15 @@ export function CleaningZonesPage() {
               <tr className="border-b border-gray-200 text-left">
                 <th className="p-2 font-medium text-gray-700">학번</th>
                 <th className="p-2 font-medium text-gray-700">이름</th>
+                <th className="w-24 p-2 font-medium text-gray-700">칠판 도우미 누적</th>
                 <th className="w-24 p-2 font-medium text-gray-700">청소 누적</th>
                 <th className="w-40 p-2 font-medium text-gray-700">구분</th>
               </tr>
             </thead>
             <tbody>
               {students.map((s) => {
-                const count = cleaningCounts[s.student_id] ?? 0
+                const cleaningCount = cleaningCounts[s.student_id] ?? 0
+                const helperCount = helperCounts[s.student_id] ?? 0
                 return (
                   <tr key={s.student_id} className="border-b border-gray-100">
                     <td className="p-2 text-gray-600">{s.student_id}</td>
@@ -361,10 +384,20 @@ export function CleaningZonesPage() {
                       <span
                         className={cn(
                           'inline-flex items-center rounded px-2 py-0.5 text-xs font-medium',
-                          count >= 3 ? 'bg-amber-100 text-amber-800' : count >= 1 ? 'bg-gray-100 text-gray-700' : 'bg-gray-50 text-gray-500'
+                          helperCount >= 1 ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-50 text-gray-500'
                         )}
                       >
-                        {count}회
+                        {helperCount}회
+                      </span>
+                    </td>
+                    <td className="p-2">
+                      <span
+                        className={cn(
+                          'inline-flex items-center rounded px-2 py-0.5 text-xs font-medium',
+                          cleaningCount >= 3 ? 'bg-amber-100 text-amber-800' : cleaningCount >= 1 ? 'bg-gray-100 text-gray-700' : 'bg-gray-50 text-gray-500'
+                        )}
+                      >
+                        {cleaningCount}회
                       </span>
                     </td>
                     <td className="p-2">
@@ -518,24 +551,45 @@ export function CleaningZonesPage() {
       <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="mb-2 text-sm font-semibold text-gray-800">이번 주 칠판·교탁 정리 도우미</h2>
         <p className="mb-3 text-xs text-gray-500">
-          이번 주 칠판·교탁 정리를 도와줄 학생을 선택하세요. (등록된 학생 학번 기준, 청소 누적 횟수 계산에는 포함되지 않습니다)
+          이번 주 칠판·교탁 정리를 도와줄 학생을 선택한 뒤 저장하세요. (청소 누적 횟수 계산에는 포함되지 않습니다)
         </p>
-        <div className="max-w-xs">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={helperId}
             onChange={(e) => setHelperId(e.target.value)}
-            className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs"
+            className="max-w-xs rounded border border-gray-300 px-2 py-1.5 text-xs"
           >
             <option value="">선택 안 함</option>
             {students.map((s) => {
-              const count = cleaningCounts[s.student_id] ?? 0
+              const hCount = helperCounts[s.student_id] ?? 0
               return (
                 <option key={s.student_id} value={s.student_id}>
-                  {s.student_id} {s.name} {count > 0 ? `(${count}회)` : ''}
+                  {s.student_id} {s.name} {hCount > 0 ? `(칠판 ${hCount}회)` : ''}
                 </option>
               )
             })}
           </select>
+          <button
+            type="button"
+            onClick={() => {
+              if (!helperId) {
+                alert('도우미를 선택한 뒤 저장해 주세요.')
+                return
+              }
+              setSaving(true)
+              saveCleaningHelper(helperId)
+                .then((res) => {
+                  if (res.success) {
+                    getCleaningHelperCounts().then((r) => r.success && r.data && setHelperCounts(r.data))
+                  } else alert(res.error || '저장에 실패했습니다.')
+                })
+                .finally(() => setSaving(false))
+            }}
+            disabled={saving || !helperId}
+            className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+          >
+            저장
+          </button>
         </div>
       </section>
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { getStudents, getCleaningAssignment } from '@/api/api'
+import { getStudents, getCleaningAssignment, getCleaningHelper } from '@/api/api'
 import type { Student } from '@/types'
 import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
 
@@ -8,7 +8,8 @@ type AssignmentMap = Record<string, Array<{ student_id: string; name: string }>>
 
 export function CleaningResultPage() {
   const [searchParams] = useSearchParams()
-  const helperId = searchParams.get('helper') ?? ''
+  const helperFromUrl = searchParams.get('helper') ?? ''
+  const [savedHelperId, setSavedHelperId] = useState<string | null>(null)
   const [assignments, setAssignments] = useState<AssignmentMap>({})
   const [studentMap, setStudentMap] = useState<Record<string, Student>>({})
   const [savedAt, setSavedAt] = useState<string | null>(null)
@@ -16,8 +17,8 @@ export function CleaningResultPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([getStudents(), getCleaningAssignment()])
-      .then(([studentsRes, assignRes]) => {
+    Promise.all([getStudents(), getCleaningAssignment(), getCleaningHelper()])
+      .then(([studentsRes, assignRes, helperRes]) => {
         if (studentsRes.success && studentsRes.data) {
           const map: Record<string, Student> = {}
           studentsRes.data.forEach((s) => {
@@ -31,10 +32,15 @@ export function CleaningResultPage() {
         } else {
           setAssignments({})
         }
+        if (helperRes.success && helperRes.data?.student_id) {
+          setSavedHelperId(helperRes.data.student_id)
+        }
       })
       .catch((err) => setError(err?.message || '데이터를 불러올 수 없습니다.'))
       .finally(() => setLoading(false))
   }, [])
+
+  const helperId = helperFromUrl || savedHelperId || ''
 
   if (loading) {
     return (

@@ -25,7 +25,8 @@ var SHEETS = {
   CLASS: 'Class',
   RECORD: 'record',
   RECORD_SUMMARY: 'RecordSummary',
-  CLEANING_ASSIGNMENTS: 'CleaningAssignments'
+  CLEANING_ASSIGNMENTS: 'CleaningAssignments',
+  CLEANING_HELPER: 'CleaningHelper'
 };
 
 // 생기부 record 시트 헤더 (순서 유지)
@@ -164,6 +165,15 @@ function handleRequest(e, method) {
         break;
       case 'GET_CLEANING_ASSIGNMENT_COUNTS':
         result = getCleaningAssignmentCounts();
+        break;
+      case 'SAVE_CLEANING_HELPER':
+        result = saveCleaningHelper(params.student_id);
+        break;
+      case 'GET_CLEANING_HELPER':
+        result = getCleaningHelper();
+        break;
+      case 'GET_CLEANING_HELPER_COUNTS':
+        result = getCleaningHelperCounts();
         break;
       default:
         result.error = 'Unknown action: ' + action;
@@ -1074,6 +1084,65 @@ function getCleaningAssignmentCounts() {
     if (sid === '') continue;
     var key = sid;
     counts[key] = (counts[key] || 0) + 1;
+  }
+  return { success: true, data: counts };
+}
+
+// ----- 칠판·교탁 정리 도우미 시트 -----
+var CLEANING_HELPER_HEADERS = ['saved_at', 'student_id'];
+
+function getOrCreateCleaningHelperSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.CLEANING_HELPER);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.CLEANING_HELPER);
+    sheet.getRange(1, 1, 1, CLEANING_HELPER_HEADERS.length).setValues([CLEANING_HELPER_HEADERS]);
+  }
+  return sheet;
+}
+
+function saveCleaningHelper(studentId) {
+  if (studentId == null || String(studentId).trim() === '') {
+    return { success: false, error: 'student_id required' };
+  }
+  var sheet = getOrCreateCleaningHelperSheet();
+  var savedAt = new Date().toISOString();
+  sheet.appendRow([savedAt, String(studentId).trim()]);
+  return { success: true, data: { saved_at: savedAt, student_id: String(studentId).trim() } };
+}
+
+function getCleaningHelper() {
+  var sheet = getSpreadsheet().getSheetByName(SHEETS.CLEANING_HELPER);
+  if (!sheet || sheet.getLastRow() < 2) {
+    return { success: true, data: { student_id: null, saved_at: null } };
+  }
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var savedAtCol = headers.indexOf('saved_at') >= 0 ? headers.indexOf('saved_at') : 0;
+  var sidCol = headers.indexOf('student_id') >= 0 ? headers.indexOf('student_id') : 1;
+  var lastRow = data[data.length - 1];
+  return {
+    success: true,
+    data: {
+      saved_at: lastRow[savedAtCol] != null ? String(lastRow[savedAtCol]).trim() : null,
+      student_id: lastRow[sidCol] != null ? String(lastRow[sidCol]).trim() : null
+    }
+  };
+}
+
+function getCleaningHelperCounts() {
+  var sheet = getSpreadsheet().getSheetByName(SHEETS.CLEANING_HELPER);
+  var counts = {};
+  if (!sheet || sheet.getLastRow() < 2) {
+    return { success: true, data: counts };
+  }
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var sidCol = headers.indexOf('student_id') >= 0 ? headers.indexOf('student_id') : 1;
+  for (var i = 1; i < data.length; i++) {
+    var sid = String(data[i][sidCol] != null ? data[i][sidCol] : '').trim();
+    if (sid === '') continue;
+    counts[sid] = (counts[sid] || 0) + 1;
   }
   return { success: true, data: counts };
 }

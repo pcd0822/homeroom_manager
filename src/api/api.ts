@@ -237,6 +237,23 @@ export function getCleaningAssignmentCounts() {
   return request<Record<string, number>>('GET_CLEANING_ASSIGNMENT_COUNTS', 'POST')
 }
 
+/** 칠판·교탁 정리 도우미 저장 */
+export function saveCleaningHelper(studentId: string) {
+  return request<{ saved_at: string; student_id: string }>('SAVE_CLEANING_HELPER', 'POST', {
+    student_id: studentId,
+  })
+}
+
+/** 최근 저장된 칠판·교탁 정리 도우미 */
+export function getCleaningHelper() {
+  return request<{ student_id: string | null; saved_at: string | null }>('GET_CLEANING_HELPER', 'POST')
+}
+
+/** 학번별 칠판 도우미 누적 횟수 */
+export function getCleaningHelperCounts() {
+  return request<Record<string, number>>('GET_CLEANING_HELPER_COUNTS', 'POST')
+}
+
 // ----- Helper: Form with parsed schema -----
 export function parseFormSchema(form: Form): FormWithParsedSchema {
   let schema: FormSchema | null = null
