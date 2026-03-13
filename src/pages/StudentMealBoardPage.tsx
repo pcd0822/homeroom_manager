@@ -539,8 +539,16 @@ export function StudentMealBoardPage() {
           )}
           {nightStudy && nightStudy.isOff && (
             <p className="text-[11px] text-rose-600">
-              오늘은 {nightStudy.offReason || '야간 자율학습이 운영되지 않는 날입니다.'}
-              (으)로 야자 없는 날!❤️
+              오늘은{' '}
+              {(() => {
+                const d = new Date(nightStudy.date.replace(/-/g, '/'))
+                const isSunday = d.getDay() === 0
+                const reason = isSunday
+                  ? '일요일'
+                  : nightStudy.offReason || '야간 자율학습이 운영되지 않는 날입니다.'
+                return `${reason}(으)로`
+              })()}{' '}
+              야자 없는 날!❤️
             </p>
           )}
           {nightStudy && !nightStudy.isOff && !nightStudy.assigned && (
