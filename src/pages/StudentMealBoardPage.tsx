@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { authStudent, getStudents, getAssignmentsByStudent } from '@/api/api'
-import type { AssignmentRow, Student } from '@/types'
+import { useNavigate } from 'react-router-dom'
+import { authStudent, getStudents, getAssignmentsByStudent, getForm } from '@/api/api'
+import type { AssignmentRow, Student, Form } from '@/types'
 import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
 
 const NEIS_BASE = 'https://open.neis.go.kr/hub'
@@ -88,6 +89,7 @@ function computeAssignmentStatus(a: AssignmentRow, todayStr: string): 'upcoming'
 const LOGIN_KEY = 'homeroom_login'
 
 export function StudentMealBoardPage() {
+  const navigate = useNavigate()
   const [studentId, setStudentId] = useState('')
   const [authCode, setAuthCode] = useState('')
   const [studentName, setStudentName] = useState('')
@@ -95,7 +97,7 @@ export function StudentMealBoardPage() {
   const [authError, setAuthError] = useState('')
   const [remember, setRemember] = useState(true)
 
-  const [date] = useState(() => new Date())
+  const [date, setDate] = useState(() => new Date())
   const [meals, setMeals] = useState<MealItem[] | null>(null)
   const [mealError, setMealError] = useState('')
   const [scheduleRange, setScheduleRange] = useState<'week' | 'month' | 'year'>('week')
@@ -105,6 +107,7 @@ export function StudentMealBoardPage() {
   const [allAssignments, setAllAssignments] = useState<AssignmentRow[]>([])
   const [showClosed, setShowClosed] = useState(false)
   const [students, setStudents] = useState<Student[]>([])
+  const [formMap, setFormMap] = useState<Record<string, Form>>({})
 
   const todayStr = formatDate(new Date())
 
@@ -158,6 +161,16 @@ export function StudentMealBoardPage() {
       const assignRes = await getAssignmentsByStudent(studentId.trim())
       if (assignRes.success && assignRes.data) {
         setAllAssignments(assignRes.data)
+        const ids = Array.from(new Set(assignRes.data.map((a) => a.form_id)))
+        Promise.all(ids.map((id) => getForm(id))).then((results) => {
+          const map: Record<string, Form> = {}
+          results.forEach((res, idx) => {
+            if (res.success && res.data) {
+              map[ids[idx]] = res.data
+            }
+          })
+          setFormMap(map)
+        })
       }
     } else {
       setAuthState('error')
@@ -237,7 +250,21 @@ export function StudentMealBoardPage() {
         <header className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-sm">
           {stu && (
             <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gray-100">
-              <StudentAssignmentCard studentId={stu.student_id} name={stu.name} photoData={stu.photo_data} />
+              {stu.photo_data ? (
+                <img
+                  src={
+                    stu.photo_data.startsWith('data:')
+                      ? stu.photo_data
+                      : `data:image/jpeg;base64,${stu.photo_data}`
+                  }
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-sm font-medium text-gray-400">
+                  {stu.name.charAt(0) || '?'}
+                </div>
+              )}
             </div>
           )}
           <div className="min-w-0 flex-1">
@@ -251,7 +278,39 @@ export function StudentMealBoardPage() {
         {/* 오늘의 메뉴 */}
         <section className="rounded-2xl bg-white p-3 shadow-sm">
           <div className="mb-2 flex items-center justify-between text-xs">
-            <p className="font-semibold text-gray-800">오늘의 메뉴</p>
+            <p className="font-semibold text-gray-800">급식 메뉴</p>
+            <div className="flex items-center gap-1 text-[11px] text-gray-600">
+              <button
+                type="button"
+                onClick={() =>
+                  setDate((prev) => {
+                    const d = new Date(prev)
+                    d.setDate(d.getDate() - 1)
+                    return d
+                  })
+                }
+                className="rounded border border-gray-300 px-1.5 py-0.5"
+              >
+                ◀
+              </button>
+              <span>
+                {date.getFullYear()}-{String(date.getMonth() + 1).padStart(2, '0')}-
+                {String(date.getDate()).padStart(2, '0')}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  setDate((prev) => {
+                    const d = new Date(prev)
+                    d.setDate(d.getDate() + 1)
+                    return d
+                  })
+                }
+                className="rounded border border-gray-300 px-1.5 py-0.5"
+              >
+                ▶
+              </button>
+            </div>
           </div>
           {mealError && <p className="text-xs text-red-600">{mealError}</p>}
           <div className="space-y-2">
@@ -297,8 +356,68 @@ export function StudentMealBoardPage() {
             </div>
           </div>
           {scheduleError && <p className="text-xs text-red-600">{scheduleError}</p>}
+          <div className="mb-1 flex items-center justify-between text-[11px] text-gray-600">
+            <span>
+              기준일: {date.getFullYear()}-{String(date.getMonth() + 1).padStart(2, '0')}-
+              {String(date.getDate()).padStart(2, '0')}
+            </span>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() =>
+                  setDate((prev) => {
+                    const d = new Date(prev)
+                    if (scheduleRange === 'week') d.setDate(d.getDate() - 7)
+                    else if (scheduleRange === 'month') d.setMonth(d.getMonth() - 1)
+                    else d.setFullYear(d.getFullYear() - 1)
+                    return d
+                  })
+                }
+                className="rounded border border-gray-300 px-1.5 py-0.5"
+              >
+                ◀
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setDate((prev) => {
+                    const d = new Date(prev)
+                    if (scheduleRange === 'week') d.setDate(d.getDate() + 7)
+                    else if (scheduleRange === 'month') d.setMonth(d.getMonth() + 1)
+                    else d.setFullYear(d.getFullYear() + 1)
+                    return d
+                  })
+                }
+                className="rounded border border-gray-300 px-1.5 py-0.5"
+              >
+                ▶
+              </button>
+            </div>
+          </div>
           <ul className="space-y-1 text-[11px]">
-            {scheduleItems?.map((s) => (
+            {(scheduleRange === 'year'
+              ? Object.values(
+                  (scheduleItems || []).reduce((acc, cur) => {
+                    const key = cur.name
+                    if (!acc[key]) {
+                      acc[key] = { name: cur.name, start: cur.date, end: cur.date }
+                    } else {
+                      if (cur.date < acc[key].start) acc[key].start = cur.date
+                      if (cur.date > acc[key].end) acc[key].end = cur.date
+                    }
+                    return acc
+                  }, {} as Record<string, { name: string; start: string; end: string }>)
+                ).map((item) => (
+                  <li key={item.name} className="flex items-center justify-between">
+                    <span className="text-gray-500">
+                      {item.start.slice(0, 4)}-{item.start.slice(4, 6)}-{item.start.slice(6, 8)} ~{' '}
+                      {item.end.slice(0, 4)}-{item.end.slice(4, 6)}-{item.end.slice(6, 8)}
+                    </span>
+                    <span className="ml-2 flex-1 truncate text-gray-800">{item.name}</span>
+                  </li>
+                ))
+              : scheduleItems
+            )?.map((s) => (
               <li key={`${s.date}-${s.name}`} className="flex items-center justify-between">
                 <span className="text-gray-500">
                   {s.date.slice(0, 4)}-{s.date.slice(4, 6)}-{s.date.slice(6, 8)}
@@ -326,18 +445,28 @@ export function StudentMealBoardPage() {
             <p className="text-[11px] text-gray-500">현재 진행 중인 과제가 없습니다.</p>
           )}
           <div className="space-y-2">
-            {visibleAssignments.map((a) => (
-              <div key={`${a.form_id}-${a.student_id}-${a.assigned_at}`} className="rounded-lg border border-gray-200 p-2 text-[11px]">
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="font-semibold text-gray-800">과제</span>
-                  {getStatusBadge(a)}
-                </div>
-                <p className="text-gray-600">
-                  기간: {a.start_date} ~ {a.end_date}
-                </p>
-                <p className="text-gray-400">배당일: {a.assigned_at.slice(0, 10)}</p>
-              </div>
-            ))}
+            {visibleAssignments.map((a) => {
+              const form = formMap[a.form_id]
+              return (
+                <button
+                  key={`${a.form_id}-${a.student_id}-${a.assigned_at}`}
+                  type="button"
+                  onClick={() => navigate(`/view/${a.form_id}`)}
+                  className="w-full rounded-lg border border-gray-200 p-2 text-left text-[11px] hover:border-blue-400 hover:bg-blue-50"
+                >
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="truncate font-semibold text-gray-800">
+                      {form?.title || '과제'}
+                    </span>
+                    {getStatusBadge(a)}
+                  </div>
+                  <p className="text-gray-600">
+                    기간: {a.start_date} ~ {a.end_date}
+                  </p>
+                  <p className="text-gray-400">배당일: {a.assigned_at.slice(0, 10)}</p>
+                </button>
+              )
+            })}
           </div>
         </section>
       </div>

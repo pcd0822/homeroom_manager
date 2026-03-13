@@ -238,9 +238,16 @@ function BroomIcon({ className }: { className?: string }) {
 
 function MealIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h6v2H8v14H6V6H4z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M14 4a2 2 0 012 2v5h2V6a2 2 0 114 0v5.5c0 1.933-1.567 3.5-3.5 3.5H18v5h-2v-5h-1.5A2.5 2.5 0 0112 12.5V6a2 2 0 012-2z" />
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      {/* 접시 */}
+      <circle cx="12" cy="12" r="7" className="text-gray-300" stroke="currentColor" />
+      {/* 숟가락 */}
+      <path d="M9 8c0-1.105.672-2 1.5-2S12 6.895 12 8c0 .74-.27 1.386-.7 1.75V16" />
+      {/* 포크 */}
+      <path d="M14 6v3" />
+      <path d="M16 6v3" />
+      <path d="M18 6v3" />
+      <path d="M16 9v7" />
     </svg>
   )
 }

@@ -199,8 +199,8 @@ export function AdminDashboard() {
     let hasUpcoming = false
     let hasClosed = false
     list.forEach((a) => {
-      const start = a.start_date || todayStr
-      const end = a.end_date || todayStr
+      const start = (a.start_date || '').replace(/-/g, '') || todayStr
+      const end = (a.end_date || '').replace(/-/g, '') || todayStr
       if (todayStr < start) hasUpcoming = true
       else if (todayStr > end) hasClosed = true
       else hasInProgress = true
