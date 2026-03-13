@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authStudent, getStudents, getAssignmentsByStudent, getForm } from '@/api/api'
 import type { AssignmentRow, Student, Form } from '@/types'
-import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
 
 const NEIS_BASE = 'https://open.neis.go.kr/hub'
 const MEAL_KEY = '1ff34ee414734a8ab3bf67c55492df58'
@@ -395,7 +394,7 @@ export function StudentMealBoardPage() {
             </div>
           </div>
           <ul className="space-y-1 text-[11px]">
-            {(scheduleRange === 'year'
+            {scheduleRange === 'year'
               ? Object.values(
                   (scheduleItems || []).reduce((acc, cur) => {
                     const key = cur.name
@@ -416,15 +415,14 @@ export function StudentMealBoardPage() {
                     <span className="ml-2 flex-1 truncate text-gray-800">{item.name}</span>
                   </li>
                 ))
-              : scheduleItems
-            )?.map((s) => (
-              <li key={`${s.date}-${s.name}`} className="flex items-center justify-between">
-                <span className="text-gray-500">
-                  {s.date.slice(0, 4)}-{s.date.slice(4, 6)}-{s.date.slice(6, 8)}
-                </span>
-                <span className="ml-2 flex-1 truncate text-gray-800">{s.name}</span>
-              </li>
-            ))}
+              : scheduleItems?.map((s) => (
+                  <li key={`${s.date}-${s.name}`} className="flex items-center justify-between">
+                    <span className="text-gray-500">
+                      {s.date.slice(0, 4)}-{s.date.slice(4, 6)}-{s.date.slice(6, 8)}
+                    </span>
+                    <span className="ml-2 flex-1 truncate text-gray-800">{s.name}</span>
+                  </li>
+                ))}
           </ul>
         </section>
 
