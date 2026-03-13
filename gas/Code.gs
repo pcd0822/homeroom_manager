@@ -1453,16 +1453,16 @@ function getNightStudyForStudent(studentId, dateStr) {
   }
 
   var participants = cfg.participants || [];
-  var groupId = null;
+  var participant = null;
   for (var j = 0; j < participants.length; j++) {
     var p = participants[j] || {};
     if (String(p.student_id) === String(studentId)) {
-      groupId = p.group_id || null;
+      participant = p;
       break;
     }
   }
 
-  if (!groupId) {
+  if (!participant) {
     return {
       success: true,
       data: {
@@ -1476,29 +1476,50 @@ function getNightStudyForStudent(studentId, dateStr) {
   }
 
   var groups = cfg.groups || [];
-  var groupName = null;
-  for (var g = 0; g < groups.length; g++) {
-    var gr = groups[g] || {};
-    if (String(gr.id) === String(groupId)) {
-      groupName = gr.name || null;
-      break;
+  var groupNames = [];
+  var ids = participant.group_ids || [];
+  for (var gi = 0; gi < groups.length; gi++) {
+    var gr = groups[gi] || {};
+    if (ids.indexOf(gr.id) !== -1) {
+      groupNames.push(gr.name || '');
     }
   }
 
   var timetable = cfg.timetable || [];
   var field = '';
+  var dayKey = '';
   if (isHoliday) {
     field = 'holiday';
+    dayKey = 'holiday';
   } else if (weekday === 1) {
     field = 'mon';
+    dayKey = 'mon';
   } else if (weekday === 2) {
     field = 'tue';
+    dayKey = 'tue';
   } else if (weekday === 3) {
     field = 'wed';
+    dayKey = 'wed';
   } else if (weekday === 4) {
     field = 'thu';
+    dayKey = 'thu';
   } else if (weekday === 5) {
     field = 'fri';
+    dayKey = 'fri';
+  }
+
+  var days = participant.days || [];
+  if (dayKey && days.length && days.indexOf(dayKey) === -1) {
+    return {
+      success: true,
+      data: {
+        assigned: false,
+        date: today,
+        isOff: false,
+        isHolidaySchedule: isHoliday,
+        slots: []
+      }
+    };
   }
 
   var slots = [];
@@ -1517,7 +1538,7 @@ function getNightStudyForStudent(studentId, dateStr) {
       date: today,
       isOff: false,
       isHolidaySchedule: isHoliday,
-      groupName: groupName,
+      groupName: groupNames.join(', '),
       slots: slots
     }
   };

@@ -147,7 +147,8 @@ export interface NightStudyTimetableRow {
 
 export interface NightStudyParticipant {
   student_id: string
-  group_id: string | null
+  group_ids: string[]
+  days: string[]
 }
 
 export interface NightStudyConfig {

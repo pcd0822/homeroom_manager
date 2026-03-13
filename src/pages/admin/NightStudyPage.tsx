@@ -47,16 +47,52 @@ export function NightStudyPage() {
     Promise.all([getNightStudyConfig(), getStudents()])
       .then(([cfgRes, stuRes]) => {
         if (cfgRes.success && cfgRes.data) {
-          setConfig(cfgRes.data)
-          // id 카운터가 겹치지 않도록 현재 최대값 이후로 증가
-          cfgRes.data.timetable.forEach((r) => {
-            const n = parseInt(String(r.id).replace(/\D/g, '') || '0', 10)
-            if (n >= rowIdCounter) rowIdCounter = n + 1
+          const raw = cfgRes.data as any
+          const normalizedGroups: NightStudyGroup[] = (raw.groups || []).map((g: any) => {
+            const id = String(g.id || `G${groupIdCounter++}`)
+            return { id, name: String(g.name || '') }
           })
-          cfgRes.data.groups.forEach((g) => {
-            const n = parseInt(String(g.id).replace(/\D/g, '') || '0', 10)
-            if (n >= groupIdCounter) groupIdCounter = n + 1
-          })
+          const normalizedTimetable: NightStudyTimetableRow[] = (raw.timetable || []).map(
+            (r: any) => {
+              const id = String(r.id || `R${rowIdCounter++}`)
+              return {
+                id,
+                mon: String(r.mon || ''),
+                tue: String(r.tue || ''),
+                wed: String(r.wed || ''),
+                thu: String(r.thu || ''),
+                fri: String(r.fri || ''),
+                holiday: String(r.holiday || ''),
+              }
+            }
+          )
+          const normalizedParticipants: NightStudyParticipant[] = (raw.participants || []).map(
+            (p: any) => {
+              const baseIds: string[] = Array.isArray(p.group_ids)
+                ? p.group_ids.map((id: any) => String(id))
+                : p.group_id
+                ? [String(p.group_id)]
+                : []
+              const baseDays: string[] = Array.isArray(p.days)
+                ? p.days.map((d: any) => String(d))
+                : ['mon', 'tue', 'wed', 'thu', 'fri', 'holiday']
+              return {
+                student_id: String(p.student_id),
+                group_ids: baseIds,
+                days: baseDays,
+              }
+            }
+          )
+          const normalized: NightStudyConfig = {
+            periodStart: String(raw.periodStart || ''),
+            periodEnd: String(raw.periodEnd || ''),
+            excluded: (raw.excluded || []) as NightStudyExcludedDate[],
+            groups: normalizedGroups,
+            timetable: normalizedTimetable,
+            participants: normalizedParticipants,
+            updatedAt: String(raw.updatedAt || ''),
+          }
+          setConfig(normalized)
         }
         if (stuRes.success && stuRes.data) {
           setStudents(stuRes.data)
@@ -121,9 +157,10 @@ export function NightStudyPage() {
     setConfig((prev) => ({
       ...prev,
       groups: prev.groups.filter((g) => g.id !== id),
-      participants: prev.participants.map((p) =>
-        p.group_id === id ? { ...p, group_id: null } : p
-      ),
+      participants: prev.participants.map((p) => ({
+        ...p,
+        group_ids: p.group_ids.filter((gid) => gid !== id),
+      })),
     }))
   }
 
@@ -140,7 +177,8 @@ export function NightStudyPage() {
       const baseGroup = config.groups[0] || null
       const list: NightStudyParticipant[] = allIds.map((id) => ({
         student_id: id,
-        group_id: baseGroup ? baseGroup.id : null,
+        group_ids: baseGroup ? [baseGroup.id] : [],
+        days: ['mon', 'tue', 'wed', 'thu', 'fri', 'holiday'],
       }))
       setConfig((prev) => ({
         ...prev,
@@ -161,7 +199,8 @@ export function NightStudyPage() {
       const baseGroup = prev.groups[0] || null
       const next: NightStudyParticipant = {
         student_id: stu.student_id,
-        group_id: baseGroup ? baseGroup.id : null,
+        group_ids: baseGroup ? [baseGroup.id] : [],
+        days: ['mon', 'tue', 'wed', 'thu', 'fri', 'holiday'],
       }
       return {
         ...prev,
@@ -170,12 +209,20 @@ export function NightStudyPage() {
     })
   }
 
-  const handleChangeParticipantGroup = (studentId: string, groupId: string | null) => {
+  const handleChangeParticipantGroup = (studentId: string, groupId: string, checked: boolean) => {
     setConfig((prev) => ({
       ...prev,
-      participants: prev.participants.map((p) =>
-        p.student_id === studentId ? { ...p, group_id: groupId } : p
-      ),
+      participants: prev.participants.map((p) => {
+        if (p.student_id !== studentId) return p
+        const has = p.group_ids.includes(groupId)
+        if (checked && !has) {
+          return { ...p, group_ids: [...p.group_ids, groupId] }
+        }
+        if (!checked && has) {
+          return { ...p, group_ids: p.group_ids.filter((id) => id !== groupId) }
+        }
+        return p
+      }),
     }))
   }
 
@@ -430,25 +477,37 @@ export function NightStudyPage() {
                   />
                 </div>
                 {assigned && (
-                  <div className="mt-2 flex items-center justify-between text-[11px]">
-                    <select
-                      value={participant?.group_id || ''}
-                      onChange={(e) =>
-                        handleChangeParticipantGroup(
-                          stu.student_id,
-                          e.target.value || null
+                  <div className="mt-2 space-y-1 text-[11px]">
+                    <p className="font-semibold text-gray-700">분반 선택</p>
+                    <div className="flex flex-wrap gap-2">
+                      {config.groups.map((g) => {
+                        const checked = participant?.group_ids?.includes(g.id) ?? false
+                        return (
+                          <label
+                            key={g.id}
+                            className="flex cursor-pointer items-center gap-1 rounded-full border border-gray-300 px-2 py-0.5 text-gray-700 hover:border-blue-400"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) =>
+                                handleChangeParticipantGroup(
+                                  stu.student_id,
+                                  g.id,
+                                  e.target.checked
+                                )
+                              }
+                              className="h-3 w-3"
+                            />
+                            <span>{g.name}</span>
+                          </label>
                         )
-                      }
-                      className="rounded border border-gray-300 px-2 py-0.5 text-[11px]"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <option value="">분반 선택 안 함</option>
-                      {config.groups.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
-                        </option>
-                      ))}
-                    </select>
+                      })}
+                      {config.groups.length === 0 && (
+                        <span className="text-gray-400">분반이 없습니다.</span>
+                      )}
+                    </div>
                     <button
                       type="button"
                       onClick={(e) => {
@@ -568,11 +627,66 @@ export function NightStudyPage() {
                   const p = config.participants.find(
                     (x) => x.student_id === selectedStudent.student_id
                   )
-                  if (!p || !p.group_id) return '선택 안 됨'
-                  const g = config.groups.find((gg) => gg.id === p.group_id)
-                  return g?.name || '선택 안 됨'
+                  if (!p || !p.group_ids || p.group_ids.length === 0) return '선택 안 됨'
+                  const names = config.groups
+                    .filter((gg) => p.group_ids.includes(gg.id))
+                    .map((gg) => gg.name)
+                  return names.length > 0 ? names.join(', ') : '선택 안 됨'
                 })()}
               </p>
+            </div>
+            <div className="mb-3">
+              <p className="mb-1 text-xs font-semibold text-gray-700">참가 요일 설정</p>
+              {(() => {
+                const p = config.participants.find(
+                  (x) => x.student_id === selectedStudent.student_id
+                )
+                const days = p?.days || ['mon', 'tue', 'wed', 'thu', 'fri', 'holiday']
+                const labels: Record<string, string> = {
+                  mon: '월',
+                  tue: '화',
+                  wed: '수',
+                  thu: '목',
+                  fri: '금',
+                  holiday: '공휴일',
+                }
+                return (
+                  <div className="flex flex-wrap gap-2 text-[11px]">
+                    {(['mon', 'tue', 'wed', 'thu', 'fri', 'holiday'] as const).map((k) => (
+                      <label
+                        key={k}
+                        className="flex cursor-pointer items-center gap-1 rounded-full border border-gray-300 px-2 py-0.5 text-gray-700 hover:border-blue-400"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={days.includes(k)}
+                          onChange={(e) =>
+                            setConfig((prev) => ({
+                              ...prev,
+                              participants: prev.participants.map((pp) => {
+                                if (pp.student_id !== selectedStudent.student_id) return pp
+                                const has = (pp.days || []).includes(k)
+                                if (e.target.checked && !has) {
+                                  return { ...pp, days: [...(pp.days || []), k] }
+                                }
+                                if (!e.target.checked && has) {
+                                  return {
+                                    ...pp,
+                                    days: (pp.days || []).filter((d) => d !== k),
+                                  }
+                                }
+                                return pp
+                              }),
+                            }))
+                          }
+                          className="h-3 w-3"
+                        />
+                        <span>{labels[k]}</span>
+                      </label>
+                    ))}
+                  </div>
+                )
+              })()}
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full border-collapse text-xs">
@@ -618,6 +732,22 @@ export function NightStudyPage() {
                   })}
                 </tbody>
               </table>
+            </div>
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedStudent(null)}
+                className="rounded border border-gray-300 px-3 py-1 text-xs text-gray-600 hover:bg-gray-100"
+              >
+                닫기
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="rounded bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700"
+              >
+                저장
+              </button>
             </div>
           </div>
         </div>

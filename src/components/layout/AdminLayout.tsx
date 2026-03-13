@@ -293,14 +293,14 @@ function NightStudyIcon({ className }: { className?: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      {/* 달 모양 */}
-      <path d="M9 3.5A6.5 6.5 0 0012 16a6.5 6.5 0 005.5-3.03A5.5 5.5 0 019 3.5z" />
-      {/* 별 */}
-      <path d="M5 6.5l.6-1.3.6 1.3 1.4.2-1 .9.3 1.4-1.3-.7-1.3.7.3-1.4-1-.9z" />
-      {/* 책 / 책상 */}
-      <rect x="4" y="14" width="16" height="5" rx="1" />
-      <path d="M8 14v5" />
-      <path d="M16 14v5" />
+      {/* 연필 몸통 */}
+      <path d="M7 4l8 8" />
+      {/* 연필 끝 (심) */}
+      <path d="M15 12l1.8 3.6L13.2 14z" />
+      {/* 연필 지우개 부분 */}
+      <rect x="5.5" y="2.5" width="3" height="3.5" rx="1.2" />
+      {/* 연필 아래 그림자 느낌의 둥근 선 */}
+      <path d="M5 19c1.5 1 3.5 1.5 5.5 1.5S14.5 20 16 19" />
     </svg>
   )
 }
