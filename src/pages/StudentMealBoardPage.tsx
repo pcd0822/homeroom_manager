@@ -194,6 +194,22 @@ export function StudentMealBoardPage() {
     return true
   })
 
+  const formatDateLabel = (value: string | null | undefined): string => {
+    if (!value) return ''
+    const s = String(value).trim()
+    if (!s) return ''
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+    if (/^\d{8}$/.test(s)) {
+      return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`
+    }
+    const d = new Date(s)
+    if (isNaN(d.getTime())) return s
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
   const getStatusBadge = (a: AssignmentRow) => {
     const status = computeAssignmentStatus(a)
     if (status === 'closed')
@@ -483,7 +499,7 @@ export function StudentMealBoardPage() {
                     {getStatusBadge(a)}
                   </div>
                   <p className="text-gray-600">
-                    기간: {a.start_date} ~ {a.end_date}
+                    기간: {formatDateLabel(a.start_date)} ~ {formatDateLabel(a.end_date)}
                   </p>
                   <p className="text-gray-400">배당일: {a.assigned_at.slice(0, 10)}</p>
                 </button>

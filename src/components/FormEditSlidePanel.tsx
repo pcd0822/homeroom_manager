@@ -56,6 +56,25 @@ export function FormEditSlidePanel({
   const [assignStart, setAssignStart] = useState('')
   const [assignEnd, setAssignEnd] = useState('')
 
+  const normalizeDateString = (value: string | null | undefined): string => {
+    if (!value) return ''
+    const s = String(value).trim()
+    if (!s) return ''
+    // 이미 YYYY-MM-DD 형식이면 그대로 사용
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+    // YYYYMMDD 형식이면 변환
+    if (/^\d{8}$/.test(s)) {
+      return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`
+    }
+    // 그 외(Date 문자열 등)는 Date로 파싱 후 YYYY-MM-DD로 포맷
+    const d = new Date(s)
+    if (isNaN(d.getTime())) return ''
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
   useEffect(() => {
     Promise.all([getForm(form.form_id), getStudents(), getAssignmentsByForm(form.form_id)]).then(
       ([res, stuRes, assignRes]) => {
@@ -86,8 +105,8 @@ export function FormEditSlidePanel({
           const ids = Array.from(new Set(assignRes.data.map((a) => a.student_id)))
           setAssignedIds(ids)
           if (assignRes.data.length > 0) {
-            setAssignStart(assignRes.data[0].start_date || '')
-            setAssignEnd(assignRes.data[0].end_date || '')
+            setAssignStart(normalizeDateString(assignRes.data[0].start_date))
+            setAssignEnd(normalizeDateString(assignRes.data[0].end_date))
           }
         }
         setLoading(false)
