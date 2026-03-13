@@ -77,7 +77,7 @@ async function fetchSchedule(range: 'week' | 'month' | 'year', base: Date): Prom
   }))
 }
 
-function computeAssignmentStatus(a: AssignmentRow, todayStr: string): 'upcoming' | 'in_progress' | 'closed' {
+function computeAssignmentStatus(a: AssignmentRow): 'upcoming' | 'in_progress' | 'closed' {
   const parse = (v: string | undefined | null) => {
     if (!v) return null
     const s = String(v).trim()
@@ -191,13 +191,13 @@ export function StudentMealBoardPage() {
   }
 
   const visibleAssignments = allAssignments.filter((a) => {
-    const status = computeAssignmentStatus(a, todayStr)
+    const status = computeAssignmentStatus(a)
     if (!showClosed && status === 'closed') return false
     return true
   })
 
   const getStatusBadge = (a: AssignmentRow) => {
-    const status = computeAssignmentStatus(a, todayStr)
+    const status = computeAssignmentStatus(a)
     if (status === 'closed')
       return (
         <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-red-50 text-red-700">
