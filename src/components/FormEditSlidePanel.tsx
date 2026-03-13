@@ -52,7 +52,6 @@ export function FormEditSlidePanel({
 
   // 과제 배당 상태
   const [students, setStudents] = useState<Student[]>([])
-  const [assignments, setAssignments] = useState<AssignmentRow[]>([])
   const [assignedIds, setAssignedIds] = useState<string[]>([])
   const [assignStart, setAssignStart] = useState('')
   const [assignEnd, setAssignEnd] = useState('')
@@ -84,7 +83,6 @@ export function FormEditSlidePanel({
           setStudents(stuRes.data)
         }
         if (assignRes.success && assignRes.data) {
-          setAssignments(assignRes.data)
           const ids = Array.from(new Set(assignRes.data.map((a) => a.student_id)))
           setAssignedIds(ids)
           if (assignRes.data.length > 0) {
