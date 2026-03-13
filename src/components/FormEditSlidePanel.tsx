@@ -361,6 +361,11 @@ export function FormEditSlidePanel({
                     className="rounded border border-gray-300 px-2 py-1 text-[11px]"
                   />
                 </div>
+                {(assignStart || assignEnd) && (
+                  <p className="text-[11px] text-gray-500">
+                    설정된 기간: {assignStart || '시작일 없음'} ~ {assignEnd || '종료일 없음'}
+                  </p>
+                )}
                 <div className="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
                   <div>
                     <p className="mb-1 text-[11px] font-semibold text-gray-700">학생 목록</p>
