@@ -58,14 +58,30 @@ export function FormView() {
     setErrorMessage('')
     const res = await authStudent(studentId.trim(), authCode.trim())
     if (res.success && res.data) {
-      // 과제 배당 여부 확인 (이 문서에 대한 배당 내역이 있고, 그 중 현재 학생 학번이 포함될 때만 접근 허용)
+      // 과제 배당 여부 및 응답 기간 확인
       if (formId) {
         const assignRes = await getAssignmentsByForm(formId)
         if (assignRes.success && assignRes.data && assignRes.data.length > 0) {
-          const allowed = assignRes.data.some((a) => a.student_id === studentId.trim())
-          if (!allowed) {
+          const sid = studentId.trim()
+          const myAssignments = assignRes.data.filter((a) => a.student_id === sid)
+          if (myAssignments.length === 0) {
             setAuthState('error')
             setErrorMessage('이 공지사항/설문은 배정되지 않은 학생입니다.')
+            return
+          }
+          const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+          const hasActive = myAssignments.some((a) => {
+            const start = a.start_date || today
+            const end = a.end_date || today
+            return today >= start && today <= end
+          })
+          if (!hasActive) {
+            const hasEnded = myAssignments.every((a) => {
+              const end = a.end_date || today
+              return today > end
+            })
+            setAuthState('error')
+            setErrorMessage(hasEnded ? '응답 기간이 지났습니다.' : '현재는 응답 기간이 아닙니다.')
             return
           }
         }

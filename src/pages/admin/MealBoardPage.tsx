@@ -134,6 +134,18 @@ export function MealBoardPage() {
         <div>
           <h1 className="text-xl font-semibold text-gray-900">급식알림판</h1>
           <p className="text-xs text-gray-500">오늘의 급식 메뉴와 학사일정을 한눈에 확인하세요.</p>
+          <button
+            type="button"
+            onClick={() => {
+              const url = `${window.location.origin}/student/meal-board`
+              navigator.clipboard.writeText(url).then(() => {
+                alert('학생용 대시보드 링크가 복사되었습니다.')
+              })
+            }}
+            className="mt-2 inline-flex items-center rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-gray-700 hover:bg-gray-50"
+          >
+            학생용 대시보드 링크 복사
+          </button>
         </div>
         <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white p-1 text-xs">
           <button
@@ -158,7 +170,15 @@ export function MealBoardPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => (tab === 'meal' ? changeDay(-1) : changeMonth(-1))}
+              onClick={() => {
+                if (tab === 'meal') {
+                  changeDay(-1)
+                } else if (scheduleRange === 'week') {
+                  changeDay(-7)
+                } else {
+                  changeMonth(-1)
+                }
+              }}
               className="rounded border border-gray-300 px-2 py-1 hover:bg-gray-50"
             >
               ◀
@@ -166,7 +186,15 @@ export function MealBoardPage() {
             <span className="font-medium">{displayDate}</span>
             <button
               type="button"
-              onClick={() => (tab === 'meal' ? changeDay(1) : changeMonth(1))}
+              onClick={() => {
+                if (tab === 'meal') {
+                  changeDay(1)
+                } else if (scheduleRange === 'week') {
+                  changeDay(7)
+                } else {
+                  changeMonth(1)
+                }
+              }}
               className="rounded border border-gray-300 px-2 py-1 hover:bg-gray-50"
             >
               ▶
