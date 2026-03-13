@@ -78,21 +78,23 @@ async function fetchSchedule(range: 'week' | 'month' | 'year', base: Date): Prom
 }
 
 function computeAssignmentStatus(a: AssignmentRow): 'upcoming' | 'in_progress' | 'closed' {
-  const parse = (v: string | undefined | null) => {
+  const parse = (v: string | undefined | null): Date | null => {
     if (!v) return null
     const s = String(v).trim()
     if (!s) return null
-    const normalized = s.includes('-') ? s : `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`
-    const d = new Date(normalized)
-    return isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    let datePart: string
+    const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (isoMatch) datePart = `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`
+    else if (/^\d{8}$/.test(s)) datePart = `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`
+    else datePart = s
+    const d = new Date(datePart)
+    if (isNaN(d.getTime())) return null
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate())
   }
-  const today = (() => {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    return d
-  })()
-  const startDate = parse(a.start_date) || today
-  const endDate = parse(a.end_date) || today
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const startDate = parse(a.start_date) ?? today
+  const endDate = parse(a.end_date) ?? today
   if (today.getTime() < startDate.getTime()) return 'upcoming'
   if (today.getTime() > endDate.getTime()) return 'closed'
   return 'in_progress'

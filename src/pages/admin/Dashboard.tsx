@@ -184,33 +184,47 @@ export function AdminDashboard() {
     ? forms.filter((f) => f.folder_id === selectedFolderId)
     : forms
 
-  const todayDate = (() => {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    return d
-  })()
-
+  // 날짜 비교용: 항상 'YYYY-MM-DD'만 추출해 로컬 자정 Date로 통일 (시트 ISO 문자열/타임존 영향 제거)
   const parseDate = (value: string | undefined | null): Date | null => {
     if (!value) return null
     const s = String(value).trim()
     if (!s) return null
-    // 지원: YYYY-MM-DD 또는 YYYYMMDD
-    const normalized = s.includes('-') ? s : `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`
-    const d = new Date(normalized)
-    return isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    let datePart: string
+    const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (isoMatch) {
+      datePart = `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`
+    } else if (/^\d{8}$/.test(s)) {
+      datePart = `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`
+    } else {
+      datePart = s
+    }
+    const d = new Date(datePart)
+    if (isNaN(d.getTime())) return null
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate())
   }
+
+  // 오늘을 parseDate와 동일한 방식(로컬 날짜 자정)으로 계산해 비교 일관성 유지
+  const getTodayAsDate = (): Date => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = now.getMonth()
+    const d = now.getDate()
+    return new Date(y, m, d)
+  }
+  const todayDate = getTodayAsDate()
 
   const getAssignmentStatusBadge = (formId: string) => {
     const list = assignmentMap[formId]
     if (!list || list.length === 0) return null
+    const today = getTodayAsDate()
     let hasInProgress = false
     let hasUpcoming = false
     let hasClosed = false
     list.forEach((a) => {
-      const startDate = parseDate(a.start_date) || todayDate
-      const endDate = parseDate(a.end_date) || todayDate
-      if (todayDate.getTime() < startDate.getTime()) hasUpcoming = true
-      else if (todayDate.getTime() > endDate.getTime()) hasClosed = true
+      const startDate = parseDate(a.start_date) ?? today
+      const endDate = parseDate(a.end_date) ?? today
+      if (today.getTime() < startDate.getTime()) hasUpcoming = true
+      else if (today.getTime() > endDate.getTime()) hasClosed = true
       else hasInProgress = true
     })
     // 우선순위: 진행중 > 완료(전부 마감) > 예정

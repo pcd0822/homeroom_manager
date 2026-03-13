@@ -69,16 +69,25 @@ export function FormView() {
             setErrorMessage('이 공지사항/설문은 배정되지 않은 학생입니다.')
             return
           }
-          const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+          const now = new Date()
+          const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+          const toYmd = (v: string | undefined | null): string => {
+            if (!v) return todayStr
+            const s = String(v).trim()
+            const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+            if (m) return `${m[1]}-${m[2]}-${m[3]}`
+            if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`
+            return s
+          }
           const hasActive = myAssignments.some((a) => {
-            const start = a.start_date || today
-            const end = a.end_date || today
-            return today >= start && today <= end
+            const start = toYmd(a.start_date)
+            const end = toYmd(a.end_date)
+            return todayStr >= start && todayStr <= end
           })
           if (!hasActive) {
             const hasEnded = myAssignments.every((a) => {
-              const end = a.end_date || today
-              return today > end
+              const end = toYmd(a.end_date)
+              return todayStr > end
             })
             setAuthState('error')
             setErrorMessage(hasEnded ? '응답 기간이 지났습니다.' : '현재는 응답 기간이 아닙니다.')
