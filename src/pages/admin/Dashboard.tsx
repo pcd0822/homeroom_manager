@@ -184,13 +184,21 @@ export function AdminDashboard() {
     ? forms.filter((f) => f.folder_id === selectedFolderId)
     : forms
 
-  const todayStr = (() => {
+  const todayDate = (() => {
     const d = new Date()
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${y}${m}${day}`
+    d.setHours(0, 0, 0, 0)
+    return d
   })()
+
+  const parseDate = (value: string | undefined | null): Date | null => {
+    if (!value) return null
+    const s = String(value).trim()
+    if (!s) return null
+    // 지원: YYYY-MM-DD 또는 YYYYMMDD
+    const normalized = s.includes('-') ? s : `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`
+    const d = new Date(normalized)
+    return isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  }
 
   const getAssignmentStatusBadge = (formId: string) => {
     const list = assignmentMap[formId]
@@ -199,10 +207,10 @@ export function AdminDashboard() {
     let hasUpcoming = false
     let hasClosed = false
     list.forEach((a) => {
-      const start = (a.start_date || '').replace(/-/g, '') || todayStr
-      const end = (a.end_date || '').replace(/-/g, '') || todayStr
-      if (todayStr < start) hasUpcoming = true
-      else if (todayStr > end) hasClosed = true
+      const startDate = parseDate(a.start_date) || todayDate
+      const endDate = parseDate(a.end_date) || todayDate
+      if (todayDate.getTime() < startDate.getTime()) hasUpcoming = true
+      else if (todayDate.getTime() > endDate.getTime()) hasClosed = true
       else hasInProgress = true
     })
     if (hasInProgress) {

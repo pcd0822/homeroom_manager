@@ -78,10 +78,23 @@ async function fetchSchedule(range: 'week' | 'month' | 'year', base: Date): Prom
 }
 
 function computeAssignmentStatus(a: AssignmentRow, todayStr: string): 'upcoming' | 'in_progress' | 'closed' {
-  const start = (a.start_date || '').replace(/-/g, '') || todayStr
-  const end = (a.end_date || '').replace(/-/g, '') || todayStr
-  if (todayStr < start) return 'upcoming'
-  if (todayStr > end) return 'closed'
+  const parse = (v: string | undefined | null) => {
+    if (!v) return null
+    const s = String(v).trim()
+    if (!s) return null
+    const normalized = s.includes('-') ? s : `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`
+    const d = new Date(normalized)
+    return isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  }
+  const today = (() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d
+  })()
+  const startDate = parse(a.start_date) || today
+  const endDate = parse(a.end_date) || today
+  if (today.getTime() < startDate.getTime()) return 'upcoming'
+  if (today.getTime() > endDate.getTime()) return 'closed'
   return 'in_progress'
 }
 
