@@ -225,25 +225,43 @@ function ChartBarIcon({ className }: { className?: string }) {
 
 function BroomIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2v11" />
-      <path d="M12 13l-7 9" />
-      <path d="M12 13l-3 9" />
-      <path d="M12 13v9" />
-      <path d="M12 13l3 9" />
-      <path d="M12 13l7 9" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {/* 손잡이 */}
+      <path d="M13 2.5c-.6-.6-1.4-.6-2 0l-1 1c-.6.6-.6 1.4 0 2l1.5 1.5 3-3L13 2.5z" />
+      <path d="M12 7l-4 4" />
+      {/* 빗자루 머리 */}
+      <path d="M5 13h10l1.5 6.5a1.5 1.5 0 01-1.47 1.8H4.97A1.5 1.5 0 013.5 19.5L5 13z" />
+      <path d="M7 13v8" />
+      <path d="M11 13v8" />
     </svg>
   )
 }
 
 function MealIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      {/* 포크 하나 */}
-      <path d="M8 3v5" />
-      <path d="M10 3v5" />
-      <path d="M12 3v5" />
-      <path d="M10 8v13" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {/* 포크 하나 - 둥근 헤드와 두꺼운 손잡이 */}
+      <path d="M9 3.5v3" />
+      <path d="M11 3.5v3" />
+      <path d="M13 3.5v3" />
+      <path d="M11 6.5v13" />
+      <path d="M8.5 10h5" />
     </svg>
   )
 }
