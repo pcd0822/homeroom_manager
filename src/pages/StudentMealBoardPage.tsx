@@ -121,8 +121,6 @@ export function StudentMealBoardPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [formMap, setFormMap] = useState<Record<string, Form>>({})
 
-  const todayStr = formatDate(new Date())
-
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LOGIN_KEY)
