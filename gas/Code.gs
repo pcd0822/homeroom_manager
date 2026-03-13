@@ -26,7 +26,8 @@ var SHEETS = {
   RECORD: 'record',
   RECORD_SUMMARY: 'RecordSummary',
   CLEANING_ASSIGNMENTS: 'CleaningAssignments',
-  CLEANING_HELPER: 'CleaningHelper'
+  CLEANING_HELPER: 'CleaningHelper',
+  NIGHT_STUDY: 'NightStudy'
 };
 
 // 생기부 record 시트 헤더 (순서 유지)
@@ -183,6 +184,15 @@ function handleRequest(e, method) {
         break;
       case 'GET_ASSIGNMENTS_BY_STUDENT':
         result = getAssignmentsByStudent(params.student_id);
+        break;
+      case 'SAVE_NIGHT_STUDY_CONFIG':
+        result = saveNightStudyConfig(params.config);
+        break;
+      case 'GET_NIGHT_STUDY_CONFIG':
+        result = getNightStudyConfig();
+        break;
+      case 'GET_NIGHT_STUDY_FOR_STUDENT':
+        result = getNightStudyForStudent(params.student_id, params.date);
         break;
       default:
         result.error = 'Unknown action: ' + action;
@@ -1280,4 +1290,235 @@ function getAssignmentsByStudent(studentId) {
     });
   }
   return { success: true, data: out };
+}
+
+// ----- 야간 자율학습 -----
+
+function getOrCreateNightStudySheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.NIGHT_STUDY);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.NIGHT_STUDY);
+    sheet.getRange(1, 1, 1, 2).setValues([['key', 'value']]);
+  }
+  return sheet;
+}
+
+function saveNightStudyConfig(config) {
+  if (!config) return { success: false, error: 'config required' };
+  var sheet = getOrCreateNightStudySheet();
+  var lastRow = sheet.getLastRow();
+  var key = 'config';
+  var json = JSON.stringify(config);
+  var data = lastRow >= 2 ? sheet.getRange(2, 1, lastRow - 1, 2).getValues() : [];
+  var foundRow = null;
+  for (var i = 0; i < data.length; i++) {
+    if (String(data[i][0] || '') === key) {
+      foundRow = i + 2;
+      break;
+    }
+  }
+  if (foundRow) {
+    sheet.getRange(foundRow, 1, 1, 2).setValues([[key, json]]);
+  } else {
+    var row = sheet.getLastRow() + 1;
+    sheet.getRange(row, 1, 1, 2).setValues([[key, json]]);
+  }
+  return { success: true, data: { saved: true } };
+}
+
+function getNightStudyConfig() {
+  var sheet = getOrCreateNightStudySheet();
+  if (sheet.getLastRow() < 2) return { success: true, data: null };
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '') === 'config') {
+      var value = data[i][1];
+      if (!value) return { success: true, data: null };
+      try {
+        var obj = JSON.parse(value);
+        return { success: true, data: obj };
+      } catch (e) {
+        return { success: false, error: 'Invalid NightStudy config JSON: ' + e };
+      }
+    }
+  }
+  return { success: true, data: null };
+}
+
+function getNightStudyForStudent(studentId, dateStr) {
+  if (!studentId) return { success: false, error: 'student_id required' };
+  var cfgRes = getNightStudyConfig();
+  if (!cfgRes.success) return cfgRes;
+  var cfg = cfgRes.data;
+  var todayRaw = (dateStr && String(dateStr).trim()) || new Date().toISOString().slice(0, 10);
+
+  function toYmd(value) {
+    if (!value) return '';
+    var s = String(value).trim();
+    if (!s) return '';
+    var m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return m[1] + '-' + m[2] + '-' + m[3];
+    if (/^\d{8}$/.test(s)) return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
+    return s;
+  }
+
+  var today = toYmd(todayRaw);
+
+  if (!cfg) {
+    return {
+      success: true,
+      data: {
+        assigned: false,
+        date: today,
+        isOff: false,
+        isHolidaySchedule: false,
+        slots: []
+      }
+    };
+  }
+
+  var start = toYmd(cfg.periodStart);
+  var end = toYmd(cfg.periodEnd);
+  if (!start || !end || today < start || today > end) {
+    return {
+      success: true,
+      data: {
+        assigned: false,
+        date: today,
+        isOff: true,
+        offReason: '운영 기간이 아닙니다.',
+        isHolidaySchedule: false,
+        slots: []
+      }
+    };
+  }
+
+  var d = new Date(today);
+  if (isNaN(d.getTime())) {
+    return {
+      success: true,
+      data: {
+        assigned: false,
+        date: today,
+        isOff: false,
+        isHolidaySchedule: false,
+        slots: []
+      }
+    };
+  }
+
+  var weekday = d.getDay(); // 0=Sun
+  if (weekday === 0) {
+    return {
+      success: true,
+      data: {
+        assigned: false,
+        date: today,
+        isOff: true,
+        offReason: '일요일은 운영하지 않습니다.',
+        isHolidaySchedule: false,
+        slots: []
+      }
+    };
+  }
+
+  var excluded = cfg.excluded || [];
+  var off = null;
+  var isHoliday = false;
+  for (var i2 = 0; i2 < excluded.length; i2++) {
+    var e = excluded[i2] || {};
+    var ed = toYmd(e.date);
+    if (ed === today) {
+      if (e.type === 'off') {
+        off = e;
+      } else if (e.type === 'holiday') {
+        isHoliday = true;
+      }
+    }
+  }
+
+  if (off) {
+    return {
+      success: true,
+      data: {
+        assigned: false,
+        date: today,
+        isOff: true,
+        offReason: off.reason || '',
+        isHolidaySchedule: false,
+        slots: []
+      }
+    };
+  }
+
+  var participants = cfg.participants || [];
+  var groupId = null;
+  for (var j = 0; j < participants.length; j++) {
+    var p = participants[j] || {};
+    if (String(p.student_id) === String(studentId)) {
+      groupId = p.group_id || null;
+      break;
+    }
+  }
+
+  if (!groupId) {
+    return {
+      success: true,
+      data: {
+        assigned: false,
+        date: today,
+        isOff: false,
+        isHolidaySchedule: isHoliday,
+        slots: []
+      }
+    };
+  }
+
+  var groups = cfg.groups || [];
+  var groupName = null;
+  for (var g = 0; g < groups.length; g++) {
+    var gr = groups[g] || {};
+    if (String(gr.id) === String(groupId)) {
+      groupName = gr.name || null;
+      break;
+    }
+  }
+
+  var timetable = cfg.timetable || [];
+  var field = '';
+  if (isHoliday) {
+    field = 'holiday';
+  } else if (weekday === 1) {
+    field = 'mon';
+  } else if (weekday === 2) {
+    field = 'tue';
+  } else if (weekday === 3) {
+    field = 'wed';
+  } else if (weekday === 4) {
+    field = 'thu';
+  } else if (weekday === 5) {
+    field = 'fri';
+  }
+
+  var slots = [];
+  if (field) {
+    for (var r = 0; r < timetable.length; r++) {
+      var row = timetable[r] || {};
+      var val = row[field];
+      if (val) slots.push(String(val));
+    }
+  }
+
+  return {
+    success: true,
+    data: {
+      assigned: true,
+      date: today,
+      isOff: false,
+      isHolidaySchedule: isHoliday,
+      groupName: groupName,
+      slots: slots
+    }
+  };
 }

@@ -13,6 +13,8 @@ import type {
   FormSchema,
   RecordByStudent,
   AssignmentRow,
+  NightStudyConfig,
+  NightStudyForStudent,
 } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_GAS_API_URL || 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
@@ -269,6 +271,23 @@ export function getAssignmentsByForm(formId: string) {
 
 export function getAssignmentsByStudent(studentId: string) {
   return request<AssignmentRow[]>('GET_ASSIGNMENTS_BY_STUDENT', 'POST', { student_id: studentId })
+}
+
+// ----- 야간 자율학습 -----
+
+export function getNightStudyConfig() {
+  return request<NightStudyConfig | null>('GET_NIGHT_STUDY_CONFIG', 'POST')
+}
+
+export function saveNightStudyConfig(config: NightStudyConfig) {
+  return request('SAVE_NIGHT_STUDY_CONFIG', 'POST', { config })
+}
+
+export function getNightStudyForStudent(studentId: string, date: string) {
+  return request<NightStudyForStudent>('GET_NIGHT_STUDY_FOR_STUDENT', 'POST', {
+    student_id: studentId,
+    date,
+  })
 }
 
 // ----- Helper: Form with parsed schema -----

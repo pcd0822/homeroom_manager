@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authStudent, getStudents, getAssignmentsByStudent, getForm } from '@/api/api'
-import type { AssignmentRow, Student, Form } from '@/types'
+import { authStudent, getStudents, getAssignmentsByStudent, getForm, getNightStudyForStudent } from '@/api/api'
+import type { AssignmentRow, Student, Form, NightStudyForStudent } from '@/types'
 
 const NEIS_BASE = 'https://open.neis.go.kr/hub'
 const MEAL_KEY = '1ff34ee414734a8ab3bf67c55492df58'
@@ -122,6 +122,7 @@ export function StudentMealBoardPage() {
   const [showClosed, setShowClosed] = useState(false)
   const [students, setStudents] = useState<Student[]>([])
   const [formMap, setFormMap] = useState<Record<string, Form>>({})
+  const [nightStudy, setNightStudy] = useState<NightStudyForStudent | null>(null)
 
   useEffect(() => {
     try {
@@ -135,6 +136,22 @@ export function StudentMealBoardPage() {
       // ignore
     }
   }, [])
+
+  useEffect(() => {
+    if (!studentId) return
+    const today = new Date()
+    const y = today.getFullYear()
+    const m = String(today.getMonth() + 1).padStart(2, '0')
+    const d = String(today.getDate()).padStart(2, '0')
+    const todayStr = `${y}-${m}-${d}`
+    getNightStudyForStudent(studentId, todayStr).then((res) => {
+      if (res.success && res.data) {
+        setNightStudy(res.data)
+      } else {
+        setNightStudy(null)
+      }
+    })
+  }, [studentId])
 
   useEffect(() => {
     fetchMeals(date)
@@ -508,6 +525,51 @@ export function StudentMealBoardPage() {
               )
             })}
           </div>
+        </section>
+
+        {/* 야간 자율학습 */}
+        <section className="rounded-2xl bg-white p-3 shadow-sm">
+          <div className="mb-2 flex items-center justify-between text-xs">
+            <p className="font-semibold text-gray-800">야간 자율학습</p>
+          </div>
+          {!nightStudy && (
+            <p className="text-[11px] text-gray-500">
+              오늘 기준 야간 자율학습 배정 정보를 불러오는 중이거나 설정되지 않았습니다.
+            </p>
+          )}
+          {nightStudy && nightStudy.isOff && (
+            <p className="text-[11px] text-rose-600">
+              오늘은 {nightStudy.offReason || '야간 자율학습이 운영되지 않는 날입니다.'}
+              (으)로 야자 없는 날!❤️
+            </p>
+          )}
+          {nightStudy && !nightStudy.isOff && !nightStudy.assigned && (
+            <p className="text-[11px] text-gray-500">
+              오늘은 야간 자율학습 배정이 없습니다.
+            </p>
+          )}
+          {nightStudy && nightStudy.assigned && !nightStudy.isOff && (
+            <div className="space-y-1 text-[11px] text-gray-700">
+              <p>
+                <span className="font-semibold text-gray-800">
+                  {nightStudy.isHolidaySchedule ? '공휴일 시간표' : '평일 시간표'}
+                </span>
+                {nightStudy.groupName ? ` / 분반: ${nightStudy.groupName}` : ''}
+              </p>
+              {nightStudy.slots.length > 0 ? (
+                <ul className="list-disc pl-4">
+                  {nightStudy.slots.map((s, idx) => (
+                    <li key={idx}>{s}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-400">등록된 시간표가 없습니다.</p>
+              )}
+              <p className="pt-1 text-[10px] text-indigo-600">
+                날개를 펴 날아올라 세상 위로 태양처럼 빛을 내는 그대여 -Butterfly 중
+              </p>
+            </div>
+          )}
         </section>
       </div>
     </div>

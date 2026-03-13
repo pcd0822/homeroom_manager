@@ -119,3 +119,53 @@ export interface RecordByStudent {
     sample_ids_from_sheet: string[]
   }
 }
+
+// ----- 야간 자율학습 -----
+
+export type NightExcludedType = 'off' | 'holiday'
+
+export interface NightStudyExcludedDate {
+  date: string
+  reason: string
+  type: NightExcludedType
+}
+
+export interface NightStudyGroup {
+  id: string
+  name: string
+}
+
+export interface NightStudyTimetableRow {
+  id: string
+  mon: string
+  tue: string
+  wed: string
+  thu: string
+  fri: string
+  holiday: string
+}
+
+export interface NightStudyParticipant {
+  student_id: string
+  group_id: string | null
+}
+
+export interface NightStudyConfig {
+  periodStart: string
+  periodEnd: string
+  excluded: NightStudyExcludedDate[]
+  groups: NightStudyGroup[]
+  timetable: NightStudyTimetableRow[]
+  participants: NightStudyParticipant[]
+  updatedAt: string
+}
+
+export interface NightStudyForStudent {
+  assigned: boolean
+  date: string
+  isOff: boolean
+  offReason?: string
+  isHolidaySchedule: boolean
+  groupName?: string | null
+  slots: string[]
+}
