@@ -71,6 +71,14 @@ export interface SmsLog {
   status: string
 }
 
+export interface AssignmentRow {
+  form_id: string
+  student_id: string
+  start_date: string
+  end_date: string
+  assigned_at: string
+}
+
 /** GAS API 공통 응답 */
 export interface ApiResponse<T = unknown> {
   success: boolean

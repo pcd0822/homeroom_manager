@@ -8,7 +8,9 @@ import { StudentsPage } from '@/pages/admin/StudentsPage'
 import { RecordDashboardPage } from '@/pages/admin/RecordDashboardPage'
 import { RecordStudentDashboardPage } from '@/pages/admin/RecordStudentDashboardPage'
 import { CleaningZonesPage } from '@/pages/admin/CleaningZonesPage'
+import { MealBoardPage } from '@/pages/admin/MealBoardPage'
 import { CleaningResultPage } from '@/pages/CleaningResultPage'
+import { StudentMealBoardPage } from '@/pages/StudentMealBoardPage'
 import { FormView } from '@/pages/view/FormView'
 import { RegisterPage } from '@/pages/RegisterPage'
 
@@ -26,9 +28,11 @@ function App() {
         <Route path="record-dashboard" element={<RecordDashboardPage />} />
         <Route path="record-dashboard/:studentId" element={<RecordStudentDashboardPage />} />
         <Route path="cleaning-zones" element={<CleaningZonesPage />} />
+         <Route path="meal-board" element={<MealBoardPage />} />
       </Route>
       <Route path="/view/:formId" element={<FormView />} />
       <Route path="/cleaning-result" element={<CleaningResultPage />} />
+      <Route path="/student/meal-board" element={<StudentMealBoardPage />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   )

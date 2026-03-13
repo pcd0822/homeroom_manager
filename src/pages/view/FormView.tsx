@@ -16,6 +16,20 @@ export function FormView() {
   const [studentId, setStudentId] = useState('')
   const [authCode, setAuthCode] = useState('')
   const [studentName, setStudentName] = useState('')
+  const [remember, setRemember] = useState(true)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('homeroom_login')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed.student_id) setStudentId(parsed.student_id)
+        if (parsed.auth_code) setAuthCode(parsed.auth_code)
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
 
   useEffect(() => {
     if (!formId) return
@@ -46,6 +60,16 @@ export function FormView() {
     if (res.success && res.data) {
       setStudentName(res.data.name || '')
       setAuthState('success')
+      if (remember) {
+        try {
+          localStorage.setItem(
+            'homeroom_login',
+            JSON.stringify({ student_id: studentId.trim(), auth_code: authCode.trim() })
+          )
+        } catch {
+          // ignore
+        }
+      }
     } else {
       setAuthState('error')
       setErrorMessage(res.error || '인증에 실패했습니다.')
@@ -122,6 +146,15 @@ export function FormView() {
               autoComplete="off"
             />
           </div>
+          <label className="flex items-center gap-2 text-xs text-gray-600">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              className="h-4 w-4 text-blue-600"
+            />
+            이 기기에서 로그인 정보 저장
+          </label>
           {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
           <button
             type="submit"

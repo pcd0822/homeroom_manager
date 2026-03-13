@@ -127,6 +127,20 @@ export function AdminLayout() {
               학생관리
             </NavLink>
             <NavLink
+              to="/admin/meal-board"
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                )
+              }
+            >
+              <MealIcon className="h-5 w-5 shrink-0" />
+              급식알림판
+            </NavLink>
+            <NavLink
               to="/admin/cleaning-zones"
               className={({ isActive }) =>
                 cn(
@@ -218,6 +232,15 @@ function BroomIcon({ className }: { className?: string }) {
       <path d="M12 13v9" />
       <path d="M12 13l3 9" />
       <path d="M12 13l7 9" />
+    </svg>
+  )
+}
+
+function MealIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h6v2H8v14H6V6H4z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 4a2 2 0 012 2v5h2V6a2 2 0 114 0v5.5c0 1.933-1.567 3.5-3.5 3.5H18v5h-2v-5h-1.5A2.5 2.5 0 0112 12.5V6a2 2 0 012-2z" />
     </svg>
   )
 }

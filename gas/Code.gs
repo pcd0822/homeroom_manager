@@ -175,6 +175,15 @@ function handleRequest(e, method) {
       case 'GET_CLEANING_HELPER_COUNTS':
         result = getCleaningHelperCounts();
         break;
+      case 'SAVE_ASSIGNMENTS':
+        result = saveAssignments(params.form_id, params.assignments);
+        break;
+      case 'GET_ASSIGNMENTS_BY_FORM':
+        result = getAssignmentsByForm(params.form_id);
+        break;
+      case 'GET_ASSIGNMENTS_BY_STUDENT':
+        result = getAssignmentsByStudent(params.student_id);
+        break;
       default:
         result.error = 'Unknown action: ' + action;
     }
@@ -1145,4 +1154,130 @@ function getCleaningHelperCounts() {
     counts[sid] = (counts[sid] || 0) + 1;
   }
   return { success: true, data: counts };
+}
+
+// ----- 과제 배당 시트 -----
+// 1행: 헤더(form_id, student_id, start_date, end_date, assigned_at)
+var ASSIGNMENT_HEADERS = ['form_id', 'student_id', 'start_date', 'end_date', 'assigned_at'];
+
+function getOrCreateAssignmentsSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName('Assignments');
+  if (!sheet) {
+    sheet = ss.insertSheet('Assignments');
+    sheet.getRange(1, 1, 1, ASSIGNMENT_HEADERS.length).setValues([ASSIGNMENT_HEADERS]);
+  }
+  return sheet;
+}
+
+function saveAssignments(formId, assignments) {
+  if (!formId) {
+    return { success: false, error: 'form_id required' };
+  }
+  if (!assignments || !Array.isArray(assignments)) {
+    return { success: false, error: 'assignments must be array' };
+  }
+  var sheet = getOrCreateAssignmentsSheet();
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var formCol = headers.indexOf('form_id');
+  var sidCol = headers.indexOf('student_id');
+  var startCol = headers.indexOf('start_date');
+  var endCol = headers.indexOf('end_date');
+  var assignedCol = headers.indexOf('assigned_at');
+  if (formCol < 0) formCol = 0;
+  if (sidCol < 0) sidCol = 1;
+  if (startCol < 0) startCol = 2;
+  if (endCol < 0) endCol = 3;
+  if (assignedCol < 0) assignedCol = 4;
+
+  // 기존 form_id 행 삭제 (아래에서 위로)
+  var fid = String(formId).trim();
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][formCol] || '').trim() === fid) {
+      sheet.deleteRow(i + 1);
+    }
+  }
+
+  if (assignments.length === 0) {
+    return { success: true, data: { form_id: fid, count: 0 } };
+  }
+
+  var now = new Date().toISOString();
+  var rows = [];
+  for (var j = 0; j < assignments.length; j++) {
+    var a = assignments[j] || {};
+    var sid = a.student_id != null ? String(a.student_id) : '';
+    var sd = a.start_date != null ? String(a.start_date) : '';
+    var ed = a.end_date != null ? String(a.end_date) : '';
+    if (!sid) continue;
+    rows.push([fid, sid, sd, ed, now]);
+  }
+  if (rows.length > 0) {
+    var startRow = sheet.getLastRow() + 1;
+    sheet.getRange(startRow, 1, rows.length, ASSIGNMENT_HEADERS.length).setValues(rows);
+  }
+  return { success: true, data: { form_id: fid, count: rows.length } };
+}
+
+function getAssignmentsByForm(formId) {
+  if (!formId) return { success: false, error: 'form_id required' };
+  var sheet = getOrCreateAssignmentsSheet();
+  if (sheet.getLastRow() < 2) return { success: true, data: [] };
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var formCol = headers.indexOf('form_id');
+  var sidCol = headers.indexOf('student_id');
+  var startCol = headers.indexOf('start_date');
+  var endCol = headers.indexOf('end_date');
+  var assignedCol = headers.indexOf('assigned_at');
+  if (formCol < 0) formCol = 0;
+  if (sidCol < 0) sidCol = 1;
+  if (startCol < 0) startCol = 2;
+  if (endCol < 0) endCol = 3;
+  if (assignedCol < 0) assignedCol = 4;
+  var fid = String(formId).trim();
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][formCol] || '').trim() !== fid) continue;
+    out.push({
+      form_id: fid,
+      student_id: String(data[i][sidCol] || '').trim(),
+      start_date: String(data[i][startCol] || '').trim(),
+      end_date: String(data[i][endCol] || '').trim(),
+      assigned_at: String(data[i][assignedCol] || '').trim(),
+    });
+  }
+  return { success: true, data: out };
+}
+
+function getAssignmentsByStudent(studentId) {
+  if (!studentId) return { success: false, error: 'student_id required' };
+  var sheet = getOrCreateAssignmentsSheet();
+  if (sheet.getLastRow() < 2) return { success: true, data: [] };
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var formCol = headers.indexOf('form_id');
+  var sidCol = headers.indexOf('student_id');
+  var startCol = headers.indexOf('start_date');
+  var endCol = headers.indexOf('end_date');
+  var assignedCol = headers.indexOf('assigned_at');
+  if (formCol < 0) formCol = 0;
+  if (sidCol < 0) sidCol = 1;
+  if (startCol < 0) startCol = 2;
+  if (endCol < 0) endCol = 3;
+  if (assignedCol < 0) assignedCol = 4;
+  var sid = String(studentId).trim();
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][sidCol] || '').trim() !== sid) continue;
+    out.push({
+      form_id: String(data[i][formCol] || '').trim(),
+      student_id: sid,
+      start_date: String(data[i][startCol] || '').trim(),
+      end_date: String(data[i][endCol] || '').trim(),
+      assigned_at: String(data[i][assignedCol] || '').trim(),
+    });
+  }
+  return { success: true, data: out };
 }

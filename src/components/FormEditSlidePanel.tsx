@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { getForm, updateForm, parseFormSchema } from '@/api/api'
-import type { Form, Folder, FormSchema, FormFieldSchema, FieldType } from '@/types'
+import { getForm, updateForm, parseFormSchema, getStudents, getAssignmentsByForm, saveAssignments } from '@/api/api'
+import type { Form, Folder, FormSchema, FormFieldSchema, FieldType, Student, AssignmentRow } from '@/types'
+import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'text', label: '한 줄 텍스트' },
@@ -49,30 +50,51 @@ export function FormEditSlidePanel({
   const [consentBody, setConsentBody] = useState('')
   const [consentOptions, setConsentOptions] = useState<string[]>([])
 
+  // 과제 배당 상태
+  const [students, setStudents] = useState<Student[]>([])
+  const [assignments, setAssignments] = useState<AssignmentRow[]>([])
+  const [assignedIds, setAssignedIds] = useState<string[]>([])
+  const [assignStart, setAssignStart] = useState('')
+  const [assignEnd, setAssignEnd] = useState('')
+
   useEffect(() => {
-    getForm(form.form_id).then((res) => {
-      if (res.success && res.data) {
-        const f = res.data
-        const parsed = parseFormSchema(f)
-        setTitle(f.title)
-        setFormType((f.type as 'survey' | 'notice') || 'notice')
-        setFolderId(f.folder_id || '')
-        setDescription(parsed.schema?.body ?? '')
-        setFields(parsed.schema?.fields ?? [])
-        if (parsed.schema?.consent) {
-          setConsentEnabled(true)
-          setConsentTitle(parsed.schema.consent.title)
-          setConsentBody(parsed.schema.consent.body)
-          setConsentOptions(parsed.schema.consent.options || [])
-        } else {
-          setConsentEnabled(false)
-          setConsentTitle('')
-          setConsentBody('')
-          setConsentOptions([])
+    Promise.all([getForm(form.form_id), getStudents(), getAssignmentsByForm(form.form_id)]).then(
+      ([res, stuRes, assignRes]) => {
+        if (res.success && res.data) {
+          const f = res.data
+          const parsed = parseFormSchema(f)
+          setTitle(f.title)
+          setFormType((f.type as 'survey' | 'notice') || 'notice')
+          setFolderId(f.folder_id || '')
+          setDescription(parsed.schema?.body ?? '')
+          setFields(parsed.schema?.fields ?? [])
+          if (parsed.schema?.consent) {
+            setConsentEnabled(true)
+            setConsentTitle(parsed.schema.consent.title)
+            setConsentBody(parsed.schema.consent.body)
+            setConsentOptions(parsed.schema.consent.options || [])
+          } else {
+            setConsentEnabled(false)
+            setConsentTitle('')
+            setConsentBody('')
+            setConsentOptions([])
+          }
         }
+        if (stuRes.success && stuRes.data) {
+          setStudents(stuRes.data)
+        }
+        if (assignRes.success && assignRes.data) {
+          setAssignments(assignRes.data)
+          const ids = Array.from(new Set(assignRes.data.map((a) => a.student_id)))
+          setAssignedIds(ids)
+          if (assignRes.data.length > 0) {
+            setAssignStart(assignRes.data[0].start_date || '')
+            setAssignEnd(assignRes.data[0].end_date || '')
+          }
+        }
+        setLoading(false)
       }
-      setLoading(false)
-    })
+    )
   }, [form.form_id])
 
   const updateField = (id: string, patch: Partial<FormFieldSchema>) => {
@@ -142,8 +164,26 @@ export function FormEditSlidePanel({
     })
       .then((res) => {
         if (res.success) {
-          onSaved()
-          onClose()
+          // 과제 배당 저장 (공지 + 기간과 대상이 있을 때)
+          if (
+            formType === 'notice' &&
+            assignedIds.length > 0 &&
+            assignStart.trim() &&
+            assignEnd.trim()
+          ) {
+            const items = assignedIds.map((sid) => ({
+              student_id: sid,
+              start_date: assignStart,
+              end_date: assignEnd,
+            }))
+            saveAssignments(form.form_id, items).finally(() => {
+              onSaved()
+              onClose()
+            })
+          } else {
+            onSaved()
+            onClose()
+          }
         } else {
           setError(res.error || '저장 실패')
         }
@@ -301,6 +341,123 @@ export function FormEditSlidePanel({
                   </div>
                 )}
               </div>
+            )}
+            {formType === 'notice' && (
+              <section className="space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                <h3 className="text-xs font-semibold text-gray-700">과제 배당 대상 선택</h3>
+                <p className="text-[11px] text-gray-500">
+                  이 문서를 과제로 사용할 경우, 학생 카드로 배당 대상을 선택하고 과제 수행 기간을 설정할 수 있습니다.
+                </p>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
+                  <span>과제 수행 기간</span>
+                  <input
+                    type="date"
+                    value={assignStart}
+                    onChange={(e) => setAssignStart(e.target.value)}
+                    className="rounded border border-gray-300 px-2 py-1 text-[11px]"
+                  />
+                  <span>~</span>
+                  <input
+                    type="date"
+                    value={assignEnd}
+                    onChange={(e) => setAssignEnd(e.target.value)}
+                    className="rounded border border-gray-300 px-2 py-1 text-[11px]"
+                  />
+                </div>
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+                  <div>
+                    <p className="mb-1 text-[11px] font-semibold text-gray-700">학생 목록</p>
+                    <div className="max-h-52 space-y-1.5 overflow-y-auto rounded border border-gray-200 p-2">
+                      {students.map((s) => {
+                        const selected = assignedIds.includes(s.student_id)
+                        return (
+                          <button
+                            key={s.student_id}
+                            type="button"
+                            onClick={() =>
+                              setAssignedIds((prev) =>
+                                prev.includes(s.student_id)
+                                  ? prev.filter((id) => id !== s.student_id)
+                                  : [...prev, s.student_id]
+                              )
+                            }
+                            className={`w-full rounded border px-2 py-1 text-left text-[11px] ${
+                              selected
+                                ? 'border-blue-500 bg-blue-50 text-blue-800'
+                                : 'border-gray-200 bg-white hover:bg-gray-50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-gray-100">
+                                {s.photo_data ? (
+                                  <img
+                                    src={
+                                      s.photo_data.startsWith('data:')
+                                        ? s.photo_data
+                                        : `data:image/jpeg;base64,${s.photo_data}`
+                                    }
+                                    alt=""
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-[11px] text-gray-400">
+                                    {s.name.charAt(0) || '?'}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-medium">{s.name}</p>
+                                <p className="text-[10px] text-gray-500">{s.student_id}</p>
+                              </div>
+                              {selected && (
+                                <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+                                  배당
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        )
+                      })}
+                      {students.length === 0 && (
+                        <p className="text-[11px] text-gray-400">
+                          등록된 학생이 없습니다. 학생관리에서 학생을 먼저 등록해 주세요.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="mb-1 text-[11px] font-semibold text-gray-700">배당된 학생</p>
+                    <div className="flex max-h-52 flex-col gap-1.5 overflow-y-auto rounded border border-gray-200 p-2">
+                      {assignedIds.length === 0 && (
+                        <p className="text-[11px] text-gray-400">배당된 학생이 없습니다.</p>
+                      )}
+                      {assignedIds.map((sid) => {
+                        const stu = students.find((s) => s.student_id === sid)
+                        if (!stu) return null
+                        return (
+                          <div key={sid} className="group relative">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAssignedIds((prev) => prev.filter((id) => id !== sid))
+                              }
+                              className="absolute right-1 top-1 hidden rounded-full bg-black/60 px-1 text-[10px] text-white group-hover:block"
+                              aria-label="배당 취소"
+                            >
+                              ×
+                            </button>
+                            <StudentAssignmentCard
+                              studentId={stu.student_id}
+                              name={stu.name}
+                              photoData={stu.photo_data}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </section>
             )}
             {formType === 'survey' && (
               <div>

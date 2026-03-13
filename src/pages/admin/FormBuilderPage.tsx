@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getFolders, createForm } from '@/api/api'
-import type { Folder, FormSchema, FormFieldSchema, FieldType } from '@/types'
+import { getFolders, createForm, getStudents, saveAssignments } from '@/api/api'
+import type { Folder, FormSchema, FormFieldSchema, FieldType, Student } from '@/types'
+import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'text', label: '한 줄 텍스트' },
@@ -31,6 +32,13 @@ export function FormBuilderPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  // 과제 배당용 상태
+  const [students, setStudents] = useState<Student[]>([])
+  const [assignedIds, setAssignedIds] = useState<string[]>([])
+  const [bulkAssign, setBulkAssign] = useState(false)
+  const [assignStart, setAssignStart] = useState('')
+  const [assignEnd, setAssignEnd] = useState('')
+
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
   const [chatReply, setChatReply] = useState('')
@@ -38,6 +46,9 @@ export function FormBuilderPage() {
   useEffect(() => {
     getFolders().then((res) => {
       if (res.success && res.data) setFolders(res.data)
+    })
+    getStudents().then((res) => {
+      if (res.success && res.data) setStudents(res.data)
     })
   }, [])
 
@@ -150,7 +161,24 @@ export function FormBuilderPage() {
       schema,
     })
       .then((res) => {
-        if (res.success) {
+        if (res.success && res.data?.form_id) {
+          // 과제 배당 저장 (공지 문서 + 배당 대상이 있고 기간이 설정된 경우)
+          if (
+            formType === 'notice' &&
+            assignedIds.length > 0 &&
+            assignStart.trim() &&
+            assignEnd.trim()
+          ) {
+            const items = assignedIds.map((sid) => ({
+              student_id: sid,
+              start_date: assignStart,
+              end_date: assignEnd,
+            }))
+            saveAssignments(res.data.form_id, items).finally(() => {
+              navigate('/admin')
+            })
+            return
+          }
           navigate('/admin')
         } else {
           setError(res.error || '저장 실패')
@@ -324,6 +352,149 @@ export function FormBuilderPage() {
               )}
             </div>
           </div>
+
+          {formType === 'notice' && (
+            <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h2 className="mb-2 text-sm font-medium text-gray-700">과제 배당 대상 선택</h2>
+              <p className="mb-3 text-xs text-gray-500">
+                학생관리에서 등록된 학생들 중 과제를 배당할 대상을 선택하세요. 가정통신문 문구 도우미 아래 영역입니다.
+              </p>
+              <div className="mb-3 flex items-center gap-3">
+                <label className="flex items-center gap-2 text-xs text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={bulkAssign}
+                    onChange={(e) => {
+                      const checked = e.target.checked
+                      setBulkAssign(checked)
+                      if (checked) {
+                        setAssignedIds(students.map((s) => s.student_id))
+                      }
+                    }}
+                    className="h-4 w-4 text-blue-600"
+                  />
+                  전체 학생 일괄 배당
+                </label>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                  <span>과제 수행 기간</span>
+                  <input
+                    type="date"
+                    value={assignStart}
+                    onChange={(e) => setAssignStart(e.target.value)}
+                    className="rounded border border-gray-300 px-2 py-1 text-xs"
+                  />
+                  <span>~</span>
+                  <input
+                    type="date"
+                    value={assignEnd}
+                    onChange={(e) => setAssignEnd(e.target.value)}
+                    className="rounded border border-gray-300 px-2 py-1 text-xs"
+                  />
+                  {assignStart && assignEnd && (
+                    <span className="ml-2 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                      기간 설정 완료
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold text-gray-700">학생 목록</h3>
+                  <div className="max-h-60 space-y-2 overflow-y-auto rounded-lg border border-gray-200 p-2">
+                    {students.map((s) => {
+                      const selected = assignedIds.includes(s.student_id)
+                      return (
+                        <button
+                          key={s.student_id}
+                          type="button"
+                          onClick={() => {
+                            setAssignedIds((prev) =>
+                              prev.includes(s.student_id)
+                                ? prev.filter((id) => id !== s.student_id)
+                                : [...prev, s.student_id]
+                            )
+                          }}
+                          className={`w-full rounded-lg border px-2 py-1.5 text-left text-xs transition ${
+                            selected
+                              ? 'border-blue-500 bg-blue-50 text-blue-800'
+                              : 'border-gray-200 bg-white hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-gray-100">
+                              {s.photo_data ? (
+                                <img
+                                  src={
+                                    s.photo_data.startsWith('data:')
+                                      ? s.photo_data
+                                      : `data:image/jpeg;base64,${s.photo_data}`
+                                  }
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-[11px] text-gray-400">
+                                  {s.name.charAt(0) || '?'}
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-medium">{s.name}</p>
+                              <p className="text-[11px] text-gray-500">{s.student_id}</p>
+                            </div>
+                            {selected && (
+                              <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+                                배당
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      )
+                    })}
+                    {students.length === 0 && (
+                      <p className="text-xs text-gray-400">등록된 학생이 없습니다. 먼저 학생관리에서 학생을 추가해 주세요.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold text-gray-700">배당된 학생</h3>
+                  <div className="flex max-h-60 flex-col gap-2 overflow-y-auto rounded-lg border border-gray-200 p-2">
+                    {assignedIds.length === 0 && (
+                      <p className="text-xs text-gray-400">아직 배당된 학생이 없습니다.</p>
+                    )}
+                    {assignedIds.map((sid) => {
+                      const stu = students.find((s) => s.student_id === sid)
+                      if (!stu) return null
+                      return (
+                        <div
+                          key={sid}
+                          className="group relative"
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAssignedIds((prev) => prev.filter((id) => id !== sid))
+                            }
+                            className="absolute right-1 top-1 hidden rounded-full bg-black/60 p-0.5 text-white group-hover:block"
+                            aria-label="배당 취소"
+                          >
+                            ×
+                          </button>
+                          <StudentAssignmentCard
+                            studentId={stu.student_id}
+                            name={stu.name}
+                            photoData={stu.photo_data}
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
 
           {formType === 'survey' && (
             <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">

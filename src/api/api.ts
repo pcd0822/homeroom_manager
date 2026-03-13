@@ -12,6 +12,7 @@ import type {
   Student,
   FormSchema,
   RecordByStudent,
+  AssignmentRow,
 } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_GAS_API_URL || 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
@@ -252,6 +253,22 @@ export function getCleaningHelper() {
 /** 학번별 칠판 도우미 누적 횟수 */
 export function getCleaningHelperCounts() {
   return request<Record<string, number>>('GET_CLEANING_HELPER_COUNTS', 'POST')
+}
+
+// ----- 과제 배당 -----
+export function saveAssignments(formId: string, items: Array<{ student_id: string; start_date: string; end_date: string }>) {
+  return request<{ form_id: string; count: number }>('SAVE_ASSIGNMENTS', 'POST', {
+    form_id: formId,
+    assignments: items,
+  })
+}
+
+export function getAssignmentsByForm(formId: string) {
+  return request<AssignmentRow[]>('GET_ASSIGNMENTS_BY_FORM', 'POST', { form_id: formId })
+}
+
+export function getAssignmentsByStudent(studentId: string) {
+  return request<AssignmentRow[]>('GET_ASSIGNMENTS_BY_STUDENT', 'POST', { student_id: studentId })
 }
 
 // ----- Helper: Form with parsed schema -----
