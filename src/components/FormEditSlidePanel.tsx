@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getForm, updateForm, parseFormSchema, getStudents, getAssignmentsByForm, saveAssignments } from '@/api/api'
-import type { Form, Folder, FormSchema, FormFieldSchema, FieldType, Student, AssignmentRow } from '@/types'
+import type { Form, Folder, FormSchema, FormFieldSchema, FieldType, Student } from '@/types'
 import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
