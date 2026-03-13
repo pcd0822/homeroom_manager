@@ -213,6 +213,7 @@ export function AdminDashboard() {
       else if (todayDate.getTime() > endDate.getTime()) hasClosed = true
       else hasInProgress = true
     })
+    // 우선순위: 진행중 > 완료(전부 마감) > 예정
     if (hasInProgress) {
       return (
         <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700">
@@ -220,17 +221,18 @@ export function AdminDashboard() {
         </span>
       )
     }
+    // 하나라도 마감이고, 예정은 없으면 전체 마감으로 간주
+    if (hasClosed && !hasUpcoming) {
+      return (
+        <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-red-50 text-red-700">
+          완료
+        </span>
+      )
+    }
     if (hasUpcoming) {
       return (
         <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700">
           예정
-        </span>
-      )
-    }
-    if (hasClosed) {
-      return (
-        <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-red-50 text-red-700">
-          완료
         </span>
       )
     }
