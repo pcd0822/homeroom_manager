@@ -207,21 +207,21 @@ export function AdminDashboard() {
     })
     if (hasInProgress) {
       return (
-        <span className="inline-flex items-center rounded bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+        <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700">
           진행중
         </span>
       )
     }
     if (hasUpcoming) {
       return (
-        <span className="inline-flex items-center rounded bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+        <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700">
           예정
         </span>
       )
     }
     if (hasClosed) {
       return (
-        <span className="inline-flex items-center rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+        <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-red-50 text-red-700">
           완료
         </span>
       )
@@ -378,7 +378,7 @@ export function AdminDashboard() {
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             <span
                               className={cn(
-                                'inline-flex items-center rounded px-2 py-0.5 text-[11px] font-medium',
+                                'inline-block rounded px-2 py-0.5 text-xs font-medium',
                                 form.type === 'notice'
                                   ? 'bg-sky-100 text-sky-700'
                                   : 'bg-violet-100 text-violet-700'

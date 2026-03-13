@@ -78,8 +78,8 @@ async function fetchSchedule(range: 'week' | 'month' | 'year', base: Date): Prom
 }
 
 function computeAssignmentStatus(a: AssignmentRow, todayStr: string): 'upcoming' | 'in_progress' | 'closed' {
-  const start = a.start_date || todayStr
-  const end = a.end_date || todayStr
+  const start = (a.start_date || '').replace(/-/g, '') || todayStr
+  const end = (a.end_date || '').replace(/-/g, '') || todayStr
   if (todayStr < start) return 'upcoming'
   if (todayStr > end) return 'closed'
   return 'in_progress'
@@ -185,10 +185,23 @@ export function StudentMealBoardPage() {
 
   const getStatusBadge = (a: AssignmentRow) => {
     const status = computeAssignmentStatus(a, todayStr)
-    if (status === 'closed') return <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700">마감</span>
+    if (status === 'closed')
+      return (
+        <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-red-50 text-red-700">
+          마감
+        </span>
+      )
     if (status === 'upcoming')
-      return <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">예정</span>
-    return <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">진행중</span>
+      return (
+        <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700">
+          예정
+        </span>
+      )
+    return (
+      <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700">
+        진행중
+      </span>
+    )
   }
 
   const getStudent = () => students.find((s) => s.student_id === studentId)

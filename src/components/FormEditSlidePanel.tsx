@@ -162,9 +162,8 @@ export function FormEditSlidePanel({
     })
       .then((res) => {
         if (res.success) {
-          // 과제 배당 저장 (공지 + 기간과 대상이 있을 때)
+          // 과제 배당 저장 (기간과 대상이 있을 때)
           if (
-            formType === 'notice' &&
             assignedIds.length > 0 &&
             assignStart.trim() &&
             assignEnd.trim()
@@ -340,7 +339,7 @@ export function FormEditSlidePanel({
                 )}
               </div>
             )}
-            {formType === 'notice' && (
+            {(
               <section className="space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
                 <h3 className="text-xs font-semibold text-gray-700">과제 배당 대상 선택</h3>
                 <p className="text-[11px] text-gray-500">

@@ -163,9 +163,8 @@ export function FormBuilderPage() {
     })
       .then((res) => {
         if (res.success && res.data?.form_id) {
-          // 과제 배당 저장 (공지 문서 + 배당 대상이 있고 기간이 설정된 경우)
+          // 과제 배당 저장 (배당 대상이 있고 기간이 설정된 경우)
           if (
-            formType === 'notice' &&
             assignedIds.length > 0 &&
             assignStart.trim() &&
             assignEnd.trim()
@@ -354,7 +353,7 @@ export function FormBuilderPage() {
             </div>
           </div>
 
-          {formType === 'notice' && (
+          {(
             <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
               <h2 className="mb-2 text-sm font-medium text-gray-700">과제 배당 대상 선택</h2>
               <p className="mb-3 text-xs text-gray-500">
