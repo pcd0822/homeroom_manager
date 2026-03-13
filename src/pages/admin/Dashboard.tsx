@@ -211,7 +211,6 @@ export function AdminDashboard() {
     const d = now.getDate()
     return new Date(y, m, d)
   }
-  const todayDate = getTodayAsDate()
 
   const getAssignmentStatusBadge = (formId: string) => {
     const list = assignmentMap[formId]
