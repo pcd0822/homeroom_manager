@@ -256,12 +256,14 @@ function MealIcon({ className }: { className?: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      {/* 포크 하나 - 둥근 헤드와 두꺼운 손잡이 */}
-      <path d="M9 3.5v3" />
-      <path d="M11 3.5v3" />
-      <path d="M13 3.5v3" />
-      <path d="M11 6.5v13" />
-      <path d="M8.5 10h5" />
+      {/* 게시판 틀 */}
+      <rect x="4" y="6" width="16" height="12" rx="2" ry="2" />
+      {/* 상단 고정 핀 */}
+      <circle cx="12" cy="4" r="1.5" />
+      <path d="M12 5.5V6" />
+      {/* 게시판 내용 라인 */}
+      <path d="M8 10h8" />
+      <path d="M8 13h5" />
     </svg>
   )
 }
