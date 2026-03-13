@@ -286,7 +286,7 @@ export function StudentMealBoardPage() {
   const stu = getStudent()
 
   return (
-    <div className="min-h-screen bg-gray-50 px-3 py-4">
+    <div className="min-h-screen bg-gray-50 px-5 py-4 sm:px-6">
       <div className="mx-auto flex max-w-md flex-col gap-4">
         <header className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-sm">
           {stu && (
@@ -309,7 +309,7 @@ export function StudentMealBoardPage() {
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-gray-500">안녕하세요</p>
+            <p className="text-xs text-gray-500">오늘도 행복하길 바라 : )</p>
             <p className="truncate text-sm font-semibold text-gray-900">
               {studentName || stu?.name || ''} ({studentId})
             </p>
