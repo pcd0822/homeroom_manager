@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getForms, getFolders, createFolder, updateForm, deleteForm } from '@/api/api'
-import type { Form, Folder } from '@/types'
+import { getForms, getFolders, createFolder, updateForm, deleteForm, getAssignmentsByForm } from '@/api/api'
+import type { Form, Folder, AssignmentRow } from '@/types'
 import { cn } from '@/lib/utils'
 import { FormEditSlidePanel } from '@/components/FormEditSlidePanel'
 
@@ -78,6 +78,7 @@ export function AdminDashboard() {
   const [deletingFormId, setDeletingFormId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Form | null>(null)
   const [folderSortOrder, setFolderSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [assignmentMap, setAssignmentMap] = useState<Record<string, AssignmentRow[]>>({})
 
   const copyShareLink = (formId: string) => {
     const url = `${window.location.origin}/view/${formId}`
@@ -91,7 +92,20 @@ export function AdminDashboard() {
     setLoading(true)
     Promise.all([getForms(), getFolders()])
       .then(([formsRes, foldersRes]) => {
-        if (formsRes.success && formsRes.data) setForms(formsRes.data)
+        if (formsRes.success && formsRes.data) {
+          setForms(formsRes.data)
+          const list = formsRes.data
+          // 각 문서별 과제 배당 정보도 함께 불러와 상태 배지에 사용
+          Promise.all(list.map((f) => getAssignmentsByForm(f.form_id))).then((results) => {
+            const map: Record<string, AssignmentRow[]> = {}
+            results.forEach((res, idx) => {
+              if (res.success && res.data) {
+                map[list[idx].form_id] = res.data
+              }
+            })
+            setAssignmentMap(map)
+          })
+        }
         if (foldersRes.success && foldersRes.data) setFolders(foldersRes.data)
       })
       .finally(() => setLoading(false))
@@ -169,6 +183,51 @@ export function AdminDashboard() {
   const filteredForms = selectedFolderId
     ? forms.filter((f) => f.folder_id === selectedFolderId)
     : forms
+
+  const todayStr = (() => {
+    const d = new Date()
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}${m}${day}`
+  })()
+
+  const getAssignmentStatusBadge = (formId: string) => {
+    const list = assignmentMap[formId]
+    if (!list || list.length === 0) return null
+    let hasInProgress = false
+    let hasUpcoming = false
+    let hasClosed = false
+    list.forEach((a) => {
+      const start = a.start_date || todayStr
+      const end = a.end_date || todayStr
+      if (todayStr < start) hasUpcoming = true
+      else if (todayStr > end) hasClosed = true
+      else hasInProgress = true
+    })
+    if (hasInProgress) {
+      return (
+        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+          진행중
+        </span>
+      )
+    }
+    if (hasUpcoming) {
+      return (
+        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+          예정
+        </span>
+      )
+    }
+    if (hasClosed) {
+      return (
+        <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+          완료
+        </span>
+      )
+    }
+    return null
+  }
 
   const sortedFolders = [...folders].sort((a, b) => {
     const cmp = a.name.localeCompare(b.name, 'ko')
@@ -315,13 +374,20 @@ export function AdminDashboard() {
                           <DocumentIcon className="h-6 w-6" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h3 className="font-medium text-gray-900 truncate">{form.title}</h3>
-                          <span className={cn(
-                            'mt-1 inline-block rounded px-2 py-0.5 text-xs font-medium',
-                            form.type === 'notice' ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700'
-                          )}>
-                            {form.type === 'notice' ? '공지' : '설문'}
-                          </span>
+                          <h3 className="truncate font-medium text-gray-900">{form.title}</h3>
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            <span
+                              className={cn(
+                                'inline-flex items-center rounded px-2 py-0.5 text-[11px] font-medium',
+                                form.type === 'notice'
+                                  ? 'bg-sky-100 text-sky-700'
+                                  : 'bg-violet-100 text-violet-700'
+                              )}
+                            >
+                              {form.type === 'notice' ? '공지' : '설문'}
+                            </span>
+                            {getAssignmentStatusBadge(form.form_id)}
+                          </div>
                         </div>
                       </div>
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">

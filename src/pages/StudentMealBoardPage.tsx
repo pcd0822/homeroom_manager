@@ -6,8 +6,9 @@ import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCa
 const NEIS_BASE = 'https://open.neis.go.kr/hub'
 const MEAL_KEY = '1ff34ee414734a8ab3bf67c55492df58'
 const SCHEDULE_KEY = '8262772d3934410fae17de7bdf1ae020'
-const ATPT_OFCDC_SC_CODE = 'T10'
-const SD_SCHUL_CODE = '7003713'
+// 속초여자고등학교
+const ATPT_OFCDC_SC_CODE = 'K10'
+const SD_SCHUL_CODE = '7801153'
 
 type MealItem = {
   mealName: string

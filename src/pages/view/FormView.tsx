@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getForm, authStudent, submitResponse, parseFormSchema } from '@/api/api'
+import { getForm, authStudent, submitResponse, parseFormSchema, getAssignmentsByForm } from '@/api/api'
 import type { FormSchema } from '@/types'
 import { FormRenderer } from '@/components/FormRenderer'
 
@@ -58,6 +58,18 @@ export function FormView() {
     setErrorMessage('')
     const res = await authStudent(studentId.trim(), authCode.trim())
     if (res.success && res.data) {
+      // 과제 배당 여부 확인 (이 문서에 대한 배당 내역이 있고, 그 중 현재 학생 학번이 포함될 때만 접근 허용)
+      if (formId) {
+        const assignRes = await getAssignmentsByForm(formId)
+        if (assignRes.success && assignRes.data && assignRes.data.length > 0) {
+          const allowed = assignRes.data.some((a) => a.student_id === studentId.trim())
+          if (!allowed) {
+            setAuthState('error')
+            setErrorMessage('이 공지사항/설문은 배정되지 않은 학생입니다.')
+            return
+          }
+        }
+      }
       setStudentName(res.data.name || '')
       setAuthState('success')
       if (remember) {

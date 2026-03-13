@@ -38,6 +38,7 @@ export function FormBuilderPage() {
   const [bulkAssign, setBulkAssign] = useState(false)
   const [assignStart, setAssignStart] = useState('')
   const [assignEnd, setAssignEnd] = useState('')
+  const [assignSearch, setAssignSearch] = useState('')
 
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
@@ -400,9 +401,24 @@ export function FormBuilderPage() {
 
               <div className="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
                 <div>
-                  <h3 className="mb-2 text-xs font-semibold text-gray-700">학생 목록</h3>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h3 className="text-xs font-semibold text-gray-700">학생 목록</h3>
+                    <input
+                      type="text"
+                      value={assignSearch}
+                      onChange={(e) => setAssignSearch(e.target.value)}
+                      placeholder="학번 또는 이름 검색"
+                      className="w-40 flex-shrink rounded-md border border-gray-300 px-2 py-1 text-[11px]"
+                    />
+                  </div>
                   <div className="max-h-60 space-y-2 overflow-y-auto rounded-lg border border-gray-200 p-2">
-                    {students.map((s) => {
+                    {students
+                      .filter((s) => {
+                        const q = assignSearch.trim()
+                        if (!q) return true
+                        return s.student_id.includes(q) || s.name.includes(q)
+                      })
+                      .map((s) => {
                       const selected = assignedIds.includes(s.student_id)
                       return (
                         <button
