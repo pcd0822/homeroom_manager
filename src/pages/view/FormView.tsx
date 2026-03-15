@@ -63,31 +63,46 @@ export function FormView() {
         const assignRes = await getAssignmentsByForm(formId)
         if (assignRes.success && assignRes.data && assignRes.data.length > 0) {
           const sid = studentId.trim()
-          const myAssignments = assignRes.data.filter((a) => a.student_id === sid)
+          const sameStudentId = (a: string, b: string) => {
+            const sa = String(a ?? '').trim()
+            const sb = String(b ?? '').trim()
+            if (sa === sb) return true
+            const na = parseInt(sa, 10)
+            const nb = parseInt(sb, 10)
+            if (!isNaN(na) && !isNaN(nb) && na === nb) return true
+            if (sa.length > 0 && sb.length > 0 && sa.replace(/^0+/, '') === sb.replace(/^0+/, '')) return true
+            return false
+          }
+          const myAssignments = assignRes.data.filter((a) => sameStudentId(a.student_id, sid))
           if (myAssignments.length === 0) {
             setAuthState('error')
             setErrorMessage('이 공지사항/설문은 배정되지 않은 학생입니다.')
             return
           }
           const now = new Date()
-          const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-          const toYmd = (v: string | undefined | null): string => {
-            if (!v) return todayStr
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          const parseToLocalDate = (v: string | undefined | null): Date | null => {
+            if (v == null) return null
             const s = String(v).trim()
+            if (!s) return null
+            let datePart: string
             const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
-            if (m) return `${m[1]}-${m[2]}-${m[3]}`
-            if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`
-            return s
+            if (m) datePart = `${m[1]}-${m[2]}-${m[3]}`
+            else if (/^\d{8}$/.test(s)) datePart = `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`
+            else datePart = s
+            const d = new Date(datePart)
+            if (isNaN(d.getTime())) return null
+            return new Date(d.getFullYear(), d.getMonth(), d.getDate())
           }
           const hasActive = myAssignments.some((a) => {
-            const start = toYmd(a.start_date)
-            const end = toYmd(a.end_date)
-            return todayStr >= start && todayStr <= end
+            const startDate = parseToLocalDate(a.start_date) ?? today
+            const endDate = parseToLocalDate(a.end_date) ?? today
+            return today.getTime() >= startDate.getTime() && today.getTime() <= endDate.getTime()
           })
           if (!hasActive) {
             const hasEnded = myAssignments.every((a) => {
-              const end = toYmd(a.end_date)
-              return todayStr > end
+              const endDate = parseToLocalDate(a.end_date) ?? today
+              return today.getTime() > endDate.getTime()
             })
             setAuthState('error')
             setErrorMessage(hasEnded ? '응답 기간이 지났습니다.' : '현재는 응답 기간이 아닙니다.')
