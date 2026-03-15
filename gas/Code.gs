@@ -1364,6 +1364,18 @@ function getNightStudyForStudent(studentId, dateStr) {
   }
 
   var today = toYmd(todayRaw);
+  if (!today) {
+    return {
+      success: true,
+      data: {
+        assigned: false,
+        date: '',
+        isOff: false,
+        isHolidaySchedule: false,
+        slots: []
+      }
+    };
+  }
 
   if (!cfg) {
     return {
@@ -1394,21 +1406,18 @@ function getNightStudyForStudent(studentId, dateStr) {
     };
   }
 
-  var d = new Date(today);
-  if (isNaN(d.getTime())) {
-    return {
-      success: true,
-      data: {
-        assigned: false,
-        date: today,
-        isOff: false,
-        isHolidaySchedule: false,
-        slots: []
-      }
-    };
+  var weekday = 0;
+  var dateMatch = today.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateMatch) {
+    var y = parseInt(dateMatch[1], 10);
+    var mo = parseInt(dateMatch[2], 10) - 1;
+    var day = parseInt(dateMatch[3], 10);
+    var d = new Date(y, mo, day);
+    if (!isNaN(d.getTime())) weekday = d.getDay();
+  } else {
+    var d = new Date(today);
+    if (!isNaN(d.getTime())) weekday = d.getDay();
   }
-
-  var weekday = d.getDay(); // 0=Sun
   if (weekday === 0) {
     return {
       success: true,
@@ -1454,9 +1463,10 @@ function getNightStudyForStudent(studentId, dateStr) {
 
   var participants = cfg.participants || [];
   var participant = null;
+  var sidReq = String(studentId).trim();
   for (var j = 0; j < participants.length; j++) {
     var p = participants[j] || {};
-    if (String(p.student_id) === String(studentId)) {
+    if (isSameStudentId(p.student_id, sidReq)) {
       participant = p;
       break;
     }
