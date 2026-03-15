@@ -10,6 +10,29 @@ const SCHEDULE_KEY = '8262772d3934410fae17de7bdf1ae020'
 const ATPT_OFCDC_SC_CODE = 'K10'
 const SD_SCHUL_CODE = '7801153'
 
+/** 알레르기 유발 식재료 번호 안내 (교육부 NEIS 기준) */
+const ALLERGY_GUIDE: Record<number, string> = {
+  1: '난류',
+  2: '우유',
+  3: '메밀',
+  4: '땅콩',
+  5: '대두',
+  6: '밀',
+  7: '고등어',
+  8: '게',
+  9: '새우',
+  10: '돼지고기',
+  11: '복숭아',
+  12: '토마토',
+  13: '아황산류',
+  14: '호두',
+  15: '닭고기',
+  16: '쇠고기',
+  17: '오징어',
+  18: '조개류(굴·전복·홍합 포함)',
+  19: '잣',
+}
+
 type MealItem = {
   mealName: string
   dishes: string[]
@@ -123,6 +146,8 @@ export function StudentMealBoardPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [formMap, setFormMap] = useState<Record<string, Form>>({})
   const [nightStudy, setNightStudy] = useState<NightStudyForStudent | null>(null)
+  const [showAllergyModal, setShowAllergyModal] = useState(false)
+  const [selectedAllergyNum, setSelectedAllergyNum] = useState<number | null>(null)
 
   useEffect(() => {
     try {
@@ -335,8 +360,20 @@ export function StudentMealBoardPage() {
 
         {/* 오늘의 메뉴 */}
         <section className="rounded-2xl bg-white p-3 shadow-sm">
-          <div className="mb-2 flex items-center justify-between text-xs">
-            <p className="font-semibold text-gray-800">급식 메뉴</p>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-gray-800">급식 메뉴</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAllergyModal(true)
+                  setSelectedAllergyNum(null)
+                }}
+                className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-800 hover:bg-amber-100"
+              >
+                알레르기 유발 식재료 번호 보기
+              </button>
+            </div>
             <div className="flex items-center gap-1 text-[11px] text-gray-600">
               <button
                 type="button"
@@ -384,6 +421,62 @@ export function StudentMealBoardPage() {
             ))}
           </div>
         </section>
+
+        {/* 알레르기 유발 식재료 번호 안내 모달 */}
+        {showAllergyModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-lg">
+              <h3 className="mb-3 text-sm font-semibold text-gray-900">
+                알레르기 유발 식재료 번호 안내
+              </h3>
+              <div className="mb-3">
+                <label className="mb-1 block text-[11px] text-gray-600">번호 선택</label>
+                <select
+                  value={selectedAllergyNum ?? ''}
+                  onChange={(e) =>
+                    setSelectedAllergyNum(e.target.value ? Number(e.target.value) : null)
+                  }
+                  className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                >
+                  <option value="">전체 보기</option>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19].map(
+                    (n) => (
+                      <option key={n} value={n}>
+                        {n}. {ALLERGY_GUIDE[n]}
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+              {selectedAllergyNum !== null && (
+                <div className="mb-3 rounded-lg bg-amber-50 p-3 text-center">
+                  <p className="text-sm font-semibold text-amber-900">
+                    {selectedAllergyNum}. {ALLERGY_GUIDE[selectedAllergyNum]}
+                  </p>
+                </div>
+              )}
+              <ul className="max-h-48 space-y-0.5 overflow-y-auto text-[11px] text-gray-700">
+                {(selectedAllergyNum !== null
+                  ? [selectedAllergyNum]
+                  : ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19] as const)
+                ).map((n) => (
+                  <li key={n} className="rounded px-2 py-0.5 odd:bg-gray-50">
+                    <span className="font-medium text-gray-800">{n}.</span> {ALLERGY_GUIDE[n]}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowAllergyModal(false)}
+                  className="rounded bg-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-300"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 학사일정 */}
         <section className="rounded-2xl bg-white p-3 shadow-sm">
