@@ -169,4 +169,5 @@ export interface NightStudyForStudent {
   isHolidaySchedule: boolean
   groupName?: string | null
   slots: string[]
+  encouragement?: string
 }

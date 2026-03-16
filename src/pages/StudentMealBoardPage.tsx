@@ -651,6 +651,11 @@ export function StudentMealBoardPage() {
           )}
           {nightStudy && nightStudy.assigned && !nightStudy.isOff && (
             <div className="space-y-1 text-[11px] text-gray-700">
+              {nightStudy.encouragement && (
+                <p className="text-[11px] font-semibold text-indigo-700">
+                  {nightStudy.encouragement}
+                </p>
+              )}
               <p>
                 <span className="font-semibold text-gray-800">
                   {nightStudy.isHolidaySchedule ? '공휴일 시간표' : '평일 시간표'}
@@ -666,9 +671,6 @@ export function StudentMealBoardPage() {
               ) : (
                 <p className="text-gray-400">등록된 시간표가 없습니다.</p>
               )}
-              <p className="pt-1 text-[10px] text-indigo-600">
-                날개를 펴 날아올라 세상 위로 태양처럼 빛을 내는 그대여 -Butterfly 중
-              </p>
             </div>
           )}
         </section>

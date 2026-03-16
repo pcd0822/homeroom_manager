@@ -27,7 +27,8 @@ var SHEETS = {
   RECORD_SUMMARY: 'RecordSummary',
   CLEANING_ASSIGNMENTS: 'CleaningAssignments',
   CLEANING_HELPER: 'CleaningHelper',
-  NIGHT_STUDY: 'NightStudy'
+  NIGHT_STUDY: 'NightStudy',
+  NIGHT_STUDY_MESSAGES: 'NightStudyMessages'
 };
 
 // 생기부 record 시트 헤더 (순서 유지)
@@ -1346,6 +1347,35 @@ function getNightStudyConfig() {
   return { success: true, data: null };
 }
 
+function getOrCreateNightStudyMessagesSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.NIGHT_STUDY_MESSAGES);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.NIGHT_STUDY_MESSAGES);
+    sheet.getRange(1, 1, 1, 1).setValues([['message']]);
+  }
+  return sheet;
+}
+
+function getNightStudyEncouragement(dateYmd) {
+  var sheet = getOrCreateNightStudyMessagesSheet();
+  if (sheet.getLastRow() < 2) return '';
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  var messages = [];
+  for (var i = 0; i < values.length; i++) {
+    var msg = String(values[i][0] != null ? values[i][0] : '').trim();
+    if (msg) messages.push(msg);
+  }
+  if (messages.length === 0) return '';
+  var key = String(dateYmd || '');
+  var hash = 0;
+  for (var j = 0; j < key.length; j++) {
+    hash = (hash * 31 + key.charCodeAt(j)) >>> 0;
+  }
+  var idx = hash % messages.length;
+  return messages[idx];
+}
+
 function getNightStudyForStudent(studentId, dateStr) {
   if (!studentId) return { success: false, error: 'student_id required' };
   var cfgRes = getNightStudyConfig();
@@ -1377,6 +1407,8 @@ function getNightStudyForStudent(studentId, dateStr) {
     };
   }
 
+  var encouragement = getNightStudyEncouragement(today);
+
   if (!cfg) {
     return {
       success: true,
@@ -1385,7 +1417,8 @@ function getNightStudyForStudent(studentId, dateStr) {
         date: today,
         isOff: false,
         isHolidaySchedule: false,
-        slots: []
+        slots: [],
+        encouragement: encouragement
       }
     };
   }
@@ -1401,7 +1434,8 @@ function getNightStudyForStudent(studentId, dateStr) {
         isOff: true,
         offReason: '운영 기간이 아닙니다.',
         isHolidaySchedule: false,
-        slots: []
+        slots: [],
+        encouragement: encouragement
       }
     };
   }
@@ -1427,7 +1461,8 @@ function getNightStudyForStudent(studentId, dateStr) {
         isOff: true,
         offReason: '일요일은 운영하지 않습니다.',
         isHolidaySchedule: false,
-        slots: []
+        slots: [],
+        encouragement: encouragement
       }
     };
   }
@@ -1456,7 +1491,8 @@ function getNightStudyForStudent(studentId, dateStr) {
         isOff: true,
         offReason: off.reason || '',
         isHolidaySchedule: false,
-        slots: []
+        slots: [],
+        encouragement: encouragement
       }
     };
   }
@@ -1480,7 +1516,8 @@ function getNightStudyForStudent(studentId, dateStr) {
         date: today,
         isOff: false,
         isHolidaySchedule: isHoliday,
-        slots: []
+        slots: [],
+        encouragement: encouragement
       }
     };
   }
@@ -1527,7 +1564,8 @@ function getNightStudyForStudent(studentId, dateStr) {
         date: today,
         isOff: false,
         isHolidaySchedule: isHoliday,
-        slots: []
+        slots: [],
+        encouragement: encouragement
       }
     };
   }
@@ -1549,7 +1587,8 @@ function getNightStudyForStudent(studentId, dateStr) {
       isOff: false,
       isHolidaySchedule: isHoliday,
       groupName: groupNames.join(', '),
-      slots: slots
+      slots: slots,
+      encouragement: encouragement
     }
   };
 }
