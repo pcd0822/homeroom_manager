@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { authStudent, getStudents, saveClassGameScore, getClassGameRanking } from '@/api/api'
 import type { ClassGameRankingRow, Student } from '@/types'
 import { HomeRunCanvas, type HomeRunGameStats } from '@/components/game/HomeRunCanvas'
 import { GameOverGraphic } from '@/components/game/GameOverGraphic'
-import { GAME_ID_HOME_SEND_ME } from '@/constants/games'
+import { GAME_ID_HOME_SEND_ME, GAMES_META } from '@/constants/games'
 
 const LOGIN_KEY = 'homeroom_login'
+const GAME_SHARE_TITLE = `${GAMES_META[GAME_ID_HOME_SEND_ME].title} | 학급 게임`
+const GAME_SHARE_DESC = GAMES_META[GAME_ID_HOME_SEND_ME].description
 
 type AuthState = 'idle' | 'loading' | 'success' | 'error'
 
@@ -84,8 +87,13 @@ export function HomeRunGamePage() {
   }, [])
 
   useEffect(() => {
-    if (authState === 'success') refreshRanking()
-  }, [authState, refreshRanking])
+    if (authState !== 'success') return
+    refreshRanking()
+    const id = window.setInterval(() => {
+      refreshRanking()
+    }, running ? 2000 : 5000)
+    return () => window.clearInterval(id)
+  }, [authState, refreshRanking, running])
 
   const stu = students.find((s) => s.student_id === studentId)
 
@@ -181,6 +189,12 @@ export function HomeRunGamePage() {
   if (authState !== 'success') {
     return (
       <div className="min-h-screen bg-sky-100 px-4 py-8">
+        <Helmet>
+          <title>{GAME_SHARE_TITLE}</title>
+          <meta property="og:title" content={GAME_SHARE_TITLE} />
+          <meta name="description" content={GAME_SHARE_DESC} />
+          <meta property="og:description" content={GAME_SHARE_DESC} />
+        </Helmet>
         <div className="mx-auto max-w-sm rounded-2xl bg-white p-5 shadow-md">
           <h1 className="text-lg font-semibold text-gray-900">집 보내주세요!</h1>
           <p className="mb-4 text-xs text-gray-500">
@@ -230,6 +244,12 @@ export function HomeRunGamePage() {
 
   return (
     <div className="min-h-[100dvh] min-h-screen bg-gradient-to-b from-sky-200 via-sky-100 to-sky-200 px-3 pb-10 pt-4">
+      <Helmet>
+        <title>{GAME_SHARE_TITLE}</title>
+        <meta property="og:title" content={GAME_SHARE_TITLE} />
+        <meta name="description" content={GAME_SHARE_DESC} />
+        <meta property="og:description" content={GAME_SHARE_DESC} />
+      </Helmet>
       <div className="mx-auto flex min-h-[calc(100dvh-2rem)] max-w-md flex-col items-stretch">
         <div className="mb-2 w-full shrink-0 text-center">
           <p className="text-xs text-sky-900/80">{studentName || stu?.name} · 생존 시간</p>
@@ -247,6 +267,33 @@ export function HomeRunGamePage() {
             slidePressedRef={slideRef}
           />
         </div>
+
+        {/* 게임 화면 바로 아래 조작 버튼 */}
+        <div className="mt-3 grid w-full max-w-xs shrink-0 grid-cols-2 gap-3 self-center">
+          <button
+            type="button"
+            className="rounded-xl bg-white py-4 text-lg font-bold text-gray-800 shadow-md active:scale-[0.98]"
+            onPointerDown={(e) => {
+              e.preventDefault()
+              jumpQueueRef.current = Math.min(jumpQueueRef.current + 1, 6)
+            }}
+          >
+            점프
+          </button>
+          <button
+            type="button"
+            className="rounded-xl bg-indigo-100 py-4 text-lg font-bold text-indigo-900 shadow-md active:scale-[0.98]"
+            onPointerDown={(e) => {
+              e.preventDefault()
+              slideRef.current = true
+            }}
+          >
+            슬라이드
+          </button>
+        </div>
+        <p className="mt-2 shrink-0 text-center text-[11px] text-sky-900/70">
+          점프를 연속으로 누르면 공중에서 한 번 더 점프합니다. 하늘 책상은 슬라이드로 피하세요.
+        </p>
 
         {/* 플레이 + 게임오버 전용 세로 영역 */}
         <div className="mt-3 flex min-h-[220px] flex-col items-center justify-start px-1">
@@ -280,32 +327,6 @@ export function HomeRunGamePage() {
             </div>
           )}
         </div>
-
-        <div className="mt-4 grid w-full max-w-xs shrink-0 grid-cols-2 gap-3 self-center">
-          <button
-            type="button"
-            className="rounded-xl bg-white py-4 text-lg font-bold text-gray-800 shadow-md active:scale-[0.98]"
-            onPointerDown={(e) => {
-              e.preventDefault()
-              jumpQueueRef.current = Math.min(jumpQueueRef.current + 1, 6)
-            }}
-          >
-            점프
-          </button>
-          <button
-            type="button"
-            className="rounded-xl bg-indigo-100 py-4 text-lg font-bold text-indigo-900 shadow-md active:scale-[0.98]"
-            onPointerDown={(e) => {
-              e.preventDefault()
-              slideRef.current = true
-            }}
-          >
-            슬라이드
-          </button>
-        </div>
-        <p className="mt-2 shrink-0 text-center text-[11px] text-sky-900/70">
-          점프를 연속으로 누르면 공중에서 한 번 더 점프합니다. 하늘 책상은 슬라이드로 피하세요.
-        </p>
 
         <section className="mt-5 w-full max-w-xs shrink-0 self-center rounded-xl bg-white/90 p-3 shadow">
           <h2 className="text-center text-sm font-semibold text-gray-800">랭킹 TOP 5</h2>

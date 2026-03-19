@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { useSearchParams } from 'react-router-dom'
 import { getStudents, getCleaningAssignment, getCleaningHelper } from '@/api/api'
 import type { Student } from '@/types'
 import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
+
+const CLEANING_SHARE_TITLE = '청소구역 배정 결과 | 학급 경영'
+const CLEANING_SHARE_DESC = '학급 청소구역 배정 결과를 확인합니다.'
 
 type AssignmentMap = Record<string, Array<{ student_id: string; name: string }>>
 
@@ -45,6 +49,12 @@ export function CleaningResultPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <Helmet>
+          <title>{CLEANING_SHARE_TITLE}</title>
+          <meta property="og:title" content={CLEANING_SHARE_TITLE} />
+          <meta name="description" content={CLEANING_SHARE_DESC} />
+          <meta property="og:description" content={CLEANING_SHARE_DESC} />
+        </Helmet>
         <p className="text-gray-500">불러오는 중…</p>
       </div>
     )
@@ -53,6 +63,12 @@ export function CleaningResultPage() {
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <Helmet>
+          <title>{CLEANING_SHARE_TITLE}</title>
+          <meta property="og:title" content={CLEANING_SHARE_TITLE} />
+          <meta name="description" content={CLEANING_SHARE_DESC} />
+          <meta property="og:description" content={CLEANING_SHARE_DESC} />
+        </Helmet>
         <p className="text-red-600">{error}</p>
       </div>
     )
@@ -62,6 +78,12 @@ export function CleaningResultPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-6 px-4">
+      <Helmet>
+        <title>{CLEANING_SHARE_TITLE}</title>
+        <meta property="og:title" content={CLEANING_SHARE_TITLE} />
+        <meta name="description" content={CLEANING_SHARE_DESC} />
+        <meta property="og:description" content={CLEANING_SHARE_DESC} />
+      </Helmet>
       <div className="mx-auto max-w-4xl">
         <h1 className="mb-2 text-xl font-semibold text-gray-800">청소구역 배정 결과</h1>
         {savedAt && (

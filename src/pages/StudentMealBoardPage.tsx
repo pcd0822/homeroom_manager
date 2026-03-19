@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { useNavigate } from 'react-router-dom'
 import { authStudent, getStudents, getAssignmentsByStudent, getForm, getNightStudyForStudent } from '@/api/api'
 import type { AssignmentRow, Student, Form, NightStudyForStudent } from '@/types'
@@ -9,6 +10,9 @@ const SCHEDULE_KEY = '8262772d3934410fae17de7bdf1ae020'
 // 속초여자고등학교
 const ATPT_OFCDC_SC_CODE = 'K10'
 const SD_SCHUL_CODE = '7801153'
+
+const MEAL_BOARD_SHARE_TITLE = '학급 급식·과제 보드 | 학급 경영'
+const MEAL_BOARD_SHARE_DESC = '학번·개인코드로 오늘 급식, 학사일정, 배당 과제를 확인합니다.'
 
 /** 알레르기 유발 식재료 번호 안내 (교육부 NEIS 기준) */
 const ALLERGY_GUIDE: Record<number, string> = {
@@ -280,6 +284,12 @@ export function StudentMealBoardPage() {
   if (authState !== 'success') {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-6">
+        <Helmet>
+          <title>{MEAL_BOARD_SHARE_TITLE}</title>
+          <meta property="og:title" content={MEAL_BOARD_SHARE_TITLE} />
+          <meta name="description" content={MEAL_BOARD_SHARE_DESC} />
+          <meta property="og:description" content={MEAL_BOARD_SHARE_DESC} />
+        </Helmet>
         <div className="mx-auto max-w-sm rounded-2xl bg-white p-5 shadow-sm">
           <h1 className="mb-2 text-lg font-semibold text-gray-900">학급 급식·과제 보드</h1>
           <p className="mb-4 text-xs text-gray-500">학번과 개인코드를 입력하면 오늘의 급식, 학사일정, 나에게 배당된 과제를 볼 수 있습니다.</p>
@@ -329,6 +339,12 @@ export function StudentMealBoardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-5 py-4 sm:px-6">
+      <Helmet>
+        <title>{MEAL_BOARD_SHARE_TITLE}</title>
+        <meta property="og:title" content={MEAL_BOARD_SHARE_TITLE} />
+        <meta name="description" content={MEAL_BOARD_SHARE_DESC} />
+        <meta property="og:description" content={MEAL_BOARD_SHARE_DESC} />
+      </Helmet>
       <div className="mx-auto flex max-w-md flex-col gap-4">
         <header className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-sm">
           {stu && (

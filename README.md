@@ -93,6 +93,14 @@ VITE_GAS_API_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 - `/admin/students` — 학생관리 (학번·이름 등록, 인증코드 발급)
 - `/view/:formId` — 학생용 폼 보기/제출 (인증 후 Survey 또는 Notice 렌더링)
 - `/register` — 학생 자가등록 (학번, 이름, 학생·부모 번호, 이메일 입력 후 인증코드 발급)
+- `/game/home-run`, `/student/meal-board`, `/cleaning-result` — 학생·공유용 페이지
+
+## 링크 미리보기 (카카오톡·SNS 제목)
+
+- 브라우저 탭 제목·일부 환경: `react-helmet-async`로 **문서 제목·게임 제목** 등이 반영됩니다.
+- 카카오 등 **자바스크립트를 실행하지 않는** 미리보기: Netlify **Edge Function** `netlify/edge-functions/share-meta.ts`가 크롤러 요청 시 HTML의 `<title>`·`og:title`을 바꿉니다.
+- **필수:** Netlify → Environment variables에 **`GAS_API_URL`**(값은 `VITE_GAS_API_URL`과 동일한 GAS 웹앱 URL)을 추가하고, 변수 설정에서 **Edge functions** 스코프가 적용되도록 합니다. (`VITE_`만 빌드에 쓰이면 Edge에서 안 읽힐 수 있어 별도 키를 둡니다.)
+- `/view/:formId` 미리보기 제목은 Edge에서 GAS `GET_FORM`으로 문서 `title`을 불러옵니다.
 
 ## Netlify 환경 변수 (가정통신문 챗봇)
 

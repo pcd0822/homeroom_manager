@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { useParams } from 'react-router-dom'
 import { getForm, authStudent, submitResponse, parseFormSchema, getAssignmentsByForm } from '@/api/api'
 import type { FormSchema } from '@/types'
@@ -146,9 +147,15 @@ export function FormView() {
     }
   }
 
+  const siteSuffix = ' | 학급 경영'
+
   if (!formId) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
+        <Helmet>
+          <title>잘못된 링크{siteSuffix}</title>
+          <meta property="og:title" content={`잘못된 링크${siteSuffix}`} />
+        </Helmet>
         <p className="text-gray-600">잘못된 링크입니다.</p>
       </div>
     )
@@ -157,6 +164,12 @@ export function FormView() {
   if (!form) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
+        <Helmet>
+          <title>문서{siteSuffix}</title>
+          <meta property="og:title" content={`문서${siteSuffix}`} />
+          <meta name="description" content="학급 문서·설문에 참여합니다." />
+          <meta property="og:description" content="학급 문서·설문에 참여합니다." />
+        </Helmet>
         {errorMessage ? (
           <p className="text-red-600">{errorMessage}</p>
         ) : (
@@ -166,9 +179,18 @@ export function FormView() {
     )
   }
 
+  const docTitle = `${form.title}${siteSuffix}`
+  const docDesc = `${form.title} - 학급 문서·설문`
+
   if (authState !== 'success') {
     return (
       <div className="mx-auto max-w-md p-6">
+        <Helmet>
+          <title>{docTitle}</title>
+          <meta property="og:title" content={docTitle} />
+          <meta name="description" content={docDesc} />
+          <meta property="og:description" content={docDesc} />
+        </Helmet>
         <h1 className="mb-4 text-xl font-semibold text-gray-900">{form.title}</h1>
         <p className="mb-4 text-sm text-gray-600">제출을 위해 학번과 인증코드를 입력해 주세요.</p>
         <form onSubmit={handleAuth} className="space-y-4">
@@ -223,6 +245,12 @@ export function FormView() {
   if (submitState === 'done') {
     return (
       <div className="mx-auto max-w-md p-6 text-center">
+        <Helmet>
+          <title>{docTitle}</title>
+          <meta property="og:title" content={docTitle} />
+          <meta name="description" content={docDesc} />
+          <meta property="og:description" content={docDesc} />
+        </Helmet>
         <p className="text-lg font-medium text-green-700">제출이 완료되었습니다.</p>
       </div>
     )
@@ -230,6 +258,12 @@ export function FormView() {
 
   return (
     <div className="mx-auto max-w-2xl p-6">
+      <Helmet>
+        <title>{docTitle}</title>
+        <meta property="og:title" content={docTitle} />
+        <meta name="description" content={docDesc} />
+        <meta property="og:description" content={docDesc} />
+      </Helmet>
       <h1 className="mb-6 text-xl font-semibold text-gray-900">{form.title}</h1>
       {submitState === 'error' && (
         <p className="mb-4 text-sm text-red-600">{errorMessage}</p>

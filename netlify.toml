@@ -7,5 +7,9 @@
 # SPA: 모든 경로를 index.html로 (public/_redirects가 dist에 복사됨)
 # 직접 URL 접근 시 404 방지
 
+# 링크 미리보기(카카오 등): netlify/edge-functions/share-meta.ts
+# 환경 변수 GAS_API_URL (또는 Edge에서 읽히도록 VITE_GAS_API_URL) = GAS 웹앱 URL
+# Netlify 대시보드 → Environment variables → 해당 변수 → "Scopes"에 Edge functions 포함
+
 # 가정통신문 챗봇용 OpenAI API 키 (Netlify 대시보드 → Site settings → Environment variables)
 # OPENAI_API_KEY = sk-...
