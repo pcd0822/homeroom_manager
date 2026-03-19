@@ -10,6 +10,9 @@ import { RecordStudentDashboardPage } from '@/pages/admin/RecordStudentDashboard
 import { CleaningZonesPage } from '@/pages/admin/CleaningZonesPage'
 import { MealBoardPage } from '@/pages/admin/MealBoardPage'
 import { NightStudyPage } from '@/pages/admin/NightStudyPage'
+import { ClassGamesPage } from '@/pages/admin/ClassGamesPage'
+import { ClassGameRankingPage } from '@/pages/admin/ClassGameRankingPage'
+import { HomeRunGamePage } from '@/pages/game/HomeRunGamePage'
 import { CleaningResultPage } from '@/pages/CleaningResultPage'
 import { StudentMealBoardPage } from '@/pages/StudentMealBoardPage'
 import { FormView } from '@/pages/view/FormView'
@@ -31,10 +34,13 @@ function App() {
         <Route path="cleaning-zones" element={<CleaningZonesPage />} />
         <Route path="meal-board" element={<MealBoardPage />} />
         <Route path="night-study" element={<NightStudyPage />} />
+        <Route path="class-games/:gameId/ranking" element={<ClassGameRankingPage />} />
+        <Route path="class-games" element={<ClassGamesPage />} />
       </Route>
       <Route path="/view/:formId" element={<FormView />} />
       <Route path="/cleaning-result" element={<CleaningResultPage />} />
       <Route path="/student/meal-board" element={<StudentMealBoardPage />} />
+      <Route path="/game/home-run" element={<HomeRunGamePage />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   )

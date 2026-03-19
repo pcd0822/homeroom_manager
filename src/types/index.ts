@@ -171,3 +171,11 @@ export interface NightStudyForStudent {
   slots: string[]
   encouragement?: string
 }
+
+/** 학급 게임 랭킹 한 줄 (학생별 최고 기록) */
+export interface ClassGameRankingRow {
+  student_id: string
+  student_name: string
+  duration_ms: number
+  played_at: string
+}

@@ -28,7 +28,8 @@ var SHEETS = {
   CLEANING_ASSIGNMENTS: 'CleaningAssignments',
   CLEANING_HELPER: 'CleaningHelper',
   NIGHT_STUDY: 'NightStudy',
-  NIGHT_STUDY_MESSAGES: 'NightStudyMessages'
+  NIGHT_STUDY_MESSAGES: 'NightStudyMessages',
+  CLASS_GAME_SCORES: 'ClassGameScores'
 };
 
 // 생기부 record 시트 헤더 (순서 유지)
@@ -194,6 +195,12 @@ function handleRequest(e, method) {
         break;
       case 'GET_NIGHT_STUDY_FOR_STUDENT':
         result = getNightStudyForStudent(params.student_id, params.date);
+        break;
+      case 'SAVE_CLASS_GAME_SCORE':
+        result = saveClassGameScore(params);
+        break;
+      case 'GET_CLASS_GAME_RANKING':
+        result = getClassGameRanking(params.game_id, params.limit);
         break;
       default:
         result.error = 'Unknown action: ' + action;
@@ -1591,4 +1598,90 @@ function getNightStudyForStudent(studentId, dateStr) {
       encouragement: encouragement
     }
   };
+}
+
+// ----- 학급 게임 점수 (랭킹) -----
+// 헤더: game_id, student_id, student_name, duration_ms, played_at, timers_collected, hits_total
+var CLASS_GAME_SCORE_HEADERS = [
+  'game_id',
+  'student_id',
+  'student_name',
+  'duration_ms',
+  'played_at',
+  'timers_collected',
+  'hits_total'
+];
+
+function getOrCreateClassGameScoresSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.CLASS_GAME_SCORES);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.CLASS_GAME_SCORES);
+    sheet.getRange(1, 1, 1, CLASS_GAME_SCORE_HEADERS.length).setValues([CLASS_GAME_SCORE_HEADERS]);
+  }
+  return sheet;
+}
+
+function saveClassGameScore(params) {
+  var gameId = params && params.game_id != null ? String(params.game_id).trim() : '';
+  var sid = params && params.student_id != null ? String(params.student_id).trim() : '';
+  var name = params && params.student_name != null ? String(params.student_name).trim() : '';
+  var duration = params && params.duration_ms != null ? Number(params.duration_ms) : 0;
+  if (!gameId || !sid) return { success: false, error: 'game_id and student_id required' };
+  if (isNaN(duration) || duration < 0) duration = 0;
+  var timers = params && params.timers_collected != null ? Number(params.timers_collected) : 0;
+  var hits = params && params.hits_total != null ? Number(params.hits_total) : 0;
+  if (isNaN(timers)) timers = 0;
+  if (isNaN(hits)) hits = 0;
+  var sheet = getOrCreateClassGameScoresSheet();
+  var now = new Date().toISOString();
+  var row = [gameId, sid, name, duration, now, timers, hits];
+  var r = sheet.getLastRow() + 1;
+  var n = CLASS_GAME_SCORE_HEADERS.length;
+  sheet.getRange(r, 1, r, n).setValues([row]);
+  return { success: true, data: { saved: true } };
+}
+
+function getClassGameRanking(gameId, limit) {
+  var gid = gameId != null ? String(gameId).trim() : '';
+  if (!gid) return { success: false, error: 'game_id required' };
+  var lim = limit != null ? parseInt(String(limit), 10) : 50;
+  if (isNaN(lim) || lim < 1) lim = 50;
+  if (lim > 200) lim = 200;
+  var sheet = getOrCreateClassGameScoresSheet();
+  if (sheet.getLastRow() < 2) return { success: true, data: [] };
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var gameCol = headers.indexOf('game_id');
+  var sidCol = headers.indexOf('student_id');
+  var nameCol = headers.indexOf('student_name');
+  var durCol = headers.indexOf('duration_ms');
+  var playedCol = headers.indexOf('played_at');
+  if (gameCol < 0) gameCol = 0;
+  if (sidCol < 0) sidCol = 1;
+  if (nameCol < 0) nameCol = 2;
+  if (durCol < 0) durCol = 3;
+  if (playedCol < 0) playedCol = 4;
+  var best = {};
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (String(row[gameCol] || '').trim() !== gid) continue;
+    var sid = String(row[sidCol] || '').trim();
+    if (!sid) continue;
+    var d = Number(row[durCol] || 0);
+    if (isNaN(d)) d = 0;
+    var nm = String(row[nameCol] || '').trim();
+    var played = String(row[playedCol] || '').trim();
+    if (!best[sid] || d > best[sid].duration_ms) {
+      best[sid] = { student_id: sid, student_name: nm, duration_ms: d, played_at: played };
+    }
+  }
+  var list = [];
+  for (var k in best) {
+    if (best.hasOwnProperty(k)) list.push(best[k]);
+  }
+  list.sort(function (a, b) {
+    return b.duration_ms - a.duration_ms;
+  });
+  return { success: true, data: list.slice(0, lim) };
 }

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
 const SIDEBAR_STORAGE_KEY = 'homeroom_admin_sidebar_open'
 
 export function AdminLayout() {
+  const location = useLocation()
+  const classGamesActive = location.pathname.startsWith('/admin/class-games')
   const [open, setOpen] = useState(true)
 
   useEffect(() => {
@@ -168,6 +170,20 @@ export function AdminLayout() {
               <NightStudyIcon className="h-5 w-5 shrink-0" />
               야간 자율학습
             </NavLink>
+            <NavLink
+              to="/admin/class-games"
+              className={() =>
+                cn(
+                  'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+                  classGamesActive
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                )
+              }
+            >
+              <GamepadIcon className="h-5 w-5 shrink-0" />
+              학급 게임
+            </NavLink>
           </nav>
         )}
       </aside>
@@ -278,6 +294,18 @@ function MealIcon({ className }: { className?: string }) {
       {/* 게시판 내용 라인 */}
       <path d="M8 10h8" />
       <path d="M8 13h5" />
+    </svg>
+  )
+}
+
+function GamepadIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 12h2m-1-1v2M6 8h.01M18 8h.01M14 12h2m1-1v2M6 16h2m4 0h2M8 5l-2.5 2.5a4 4 0 00-1 3.2v3.4a2 2 0 002 2h11a2 2 0 002-2v-3.4a4 4 0 00-1-3.2L16 5"
+      />
     </svg>
   )
 }

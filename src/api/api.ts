@@ -15,6 +15,7 @@ import type {
   AssignmentRow,
   NightStudyConfig,
   NightStudyForStudent,
+  ClassGameRankingRow,
 } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_GAS_API_URL || 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
@@ -287,6 +288,25 @@ export function getNightStudyForStudent(studentId: string, date: string) {
   return request<NightStudyForStudent>('GET_NIGHT_STUDY_FOR_STUDENT', 'POST', {
     student_id: studentId,
     date,
+  })
+}
+
+// ----- 학급 게임 -----
+export function saveClassGameScore(params: {
+  game_id: string
+  student_id: string
+  student_name: string
+  duration_ms: number
+  timers_collected?: number
+  hits_total?: number
+}) {
+  return request<{ saved: boolean }>('SAVE_CLASS_GAME_SCORE', 'POST', params)
+}
+
+export function getClassGameRanking(gameId: string, limit = 50) {
+  return request<ClassGameRankingRow[]>('GET_CLASS_GAME_RANKING', 'POST', {
+    game_id: gameId,
+    limit,
   })
 }
 
