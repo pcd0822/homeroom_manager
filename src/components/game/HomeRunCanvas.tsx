@@ -7,10 +7,10 @@ const PLAYER_X = 108
 const PW = 40
 const PH = 42
 const TEACHER_SCALE = 3
-/** 단일 점프로는 3단(78px) 책상을 넘지 못하고, 2단 점프로만 통과 · 낮은 중력으로 체공 연장 */
-const GRAVITY = 0.39
-const JUMP_V = -7.55
-const JUMP2_MUL = 0.69
+/** 단일 점프로는 3단(78px) 책상을 넘지 못하고, 2단 점프로만 통과 · 기본 점프 높이 다소 상향 */
+const GRAVITY = 0.382
+const JUMP_V = -7.92
+const JUMP2_MUL = 0.675
 const SLIDE_MS = 520
 const BASE_SPEED = 2.45
 const SPEED_RAMP = 0.00105
@@ -20,6 +20,14 @@ const GAP_TIMER_BONUS = 38
 const GAP_HIT_PENALTY = 32
 const PASSIVE_MS_MAX = 30000
 const TIMER_SPAWN_INTERVAL_MS = 10000
+/** 장애물 간격: 초반 넓음 → 시간이 지날수록 좁아짐 (약 90초에 최대 밀도) */
+const OBSTACLE_GAP_RAMP_MS = 90000
+const OBSTACLE_GAP_BASE_START = 268
+const OBSTACLE_GAP_BASE_END = 132
+const OBSTACLE_GAP_JITTER_START = 185
+const OBSTACLE_GAP_JITTER_END = 72
+const OBSTACLE_FIRST_OFFSET_START = 115
+const OBSTACLE_FIRST_OFFSET_END = 58
 
 type ObsKind = 'f1' | 'f2' | 'f3' | 'air'
 
@@ -28,12 +36,18 @@ type Obstacle = {
   kind: ObsKind
   w: number
   hit: boolean
+  /** 충돌 시 깨짐 연출 시작 시각 */
+  breakStart?: number
 }
 
+/** x: 시계 중심 X (달리기 레인) */
 type TimerItem = {
   x: number
   collected: boolean
 }
+
+const TIMER_LANE_CY = GROUND - 30
+const TIMER_HIT_R = 19
 
 function deskHeight(kind: ObsKind): number {
   if (kind === 'f1') return 26
@@ -61,6 +75,125 @@ function drawStackedDesks(
     ctx.lineWidth = 1
     ctx.strokeRect(x + 0.5, top + 0.5, width - 1, unit - 2.5)
   }
+}
+
+/** 반짝이는 시계 아이템 (플레이어 레인 높이) */
+function drawSparkleClockItem(ctx: CanvasRenderingContext2D, cx: number, cy: number, phase: number) {
+  const pulse = 0.88 + Math.sin(phase * 0.01) * 0.12
+  const spin = phase * 0.003
+  ctx.save()
+  ctx.translate(cx, cy)
+  ctx.scale(pulse, pulse)
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + spin
+    const dist = 24 + Math.sin(phase * 0.015 + i * 0.9) * 5
+    const al = 0.2 + Math.sin(phase * 0.02 + i) * 0.22
+    ctx.fillStyle = `rgba(254, 249, 195, ${al})`
+    ctx.beginPath()
+    ctx.moveTo(Math.cos(a) * dist, Math.sin(a) * dist)
+    ctx.lineTo(Math.cos(a) * (dist + 7), Math.sin(a) * (dist + 7))
+    ctx.lineTo(Math.cos(a + 0.08) * (dist + 4), Math.sin(a + 0.08) * (dist + 4))
+    ctx.closePath()
+    ctx.fill()
+  }
+  ctx.beginPath()
+  ctx.arc(0, 0, 17, 0, Math.PI * 2)
+  const faceGrad = ctx.createRadialGradient(-4, -4, 2, 0, 0, 17)
+  faceGrad.addColorStop(0, '#fffef0')
+  faceGrad.addColorStop(0.55, '#fef9c3')
+  faceGrad.addColorStop(1, '#fde047')
+  ctx.fillStyle = faceGrad
+  ctx.fill()
+  ctx.strokeStyle = '#b45309'
+  ctx.lineWidth = 2.5
+  ctx.stroke()
+  ctx.strokeStyle = '#78350f'
+  ctx.lineWidth = 1.2
+  ctx.beginPath()
+  ctx.arc(0, 0, 14, 0, Math.PI * 2)
+  ctx.stroke()
+  for (let h = 0; h < 12; h++) {
+    const ang = (h / 12) * Math.PI * 2 - Math.PI / 2
+    const r0 = h % 3 === 0 ? 12 : 13
+    const r1 = 14.2
+    ctx.beginPath()
+    ctx.moveTo(Math.cos(ang) * r0, Math.sin(ang) * r0)
+    ctx.lineTo(Math.cos(ang) * r1, Math.sin(ang) * r1)
+    ctx.stroke()
+  }
+  const t = phase * 0.0025
+  ctx.strokeStyle = '#1c1917'
+  ctx.lineWidth = 2.2
+  ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(0, 0)
+  ctx.lineTo(Math.sin(t) * 9, -Math.cos(t) * 9)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(0, 0)
+  ctx.lineTo(Math.sin(t * 1.7) * 6, -Math.cos(t * 1.7) * 6)
+  ctx.stroke()
+  ctx.fillStyle = '#dc2626'
+  ctx.beginPath()
+  ctx.arc(0, 0, 3, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = '#450a0a'
+  ctx.lineWidth = 1
+  ctx.stroke()
+  ctx.restore()
+}
+
+function drawBrokenFloorDesks(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  groundY: number,
+  stacks: 1 | 2 | 3,
+  width: number,
+  elapsed: number
+) {
+  const unit = 26
+  const t = Math.min(1, elapsed / 520)
+  const alpha = 1 - t * 0.85
+  const kick = t * 38
+  for (let i = 0; i < stacks; i++) {
+    const top = groundY - (i + 1) * unit
+    const ox = (i % 2 === 0 ? 1 : -1) * kick * (0.4 + i * 0.15)
+    const oy = -kick * (0.15 + i * 0.12)
+    const rot = (i % 2 === 0 ? 1 : -1) * t * 0.45
+    ctx.save()
+    ctx.globalAlpha = alpha
+    ctx.translate(x + width / 2 + ox, top + unit / 2 + oy)
+    ctx.rotate(rot)
+    ctx.translate(-width / 2, -unit / 2)
+    ctx.fillStyle = '#8B5A2B'
+    ctx.fillRect(0, 0, width, unit - 2)
+    ctx.fillStyle = '#5D3A1A'
+    ctx.fillRect(4, unit - 8, 5, 6)
+    ctx.fillRect(width - 9, unit - 8, 5, 6)
+    ctx.strokeStyle = '#3d2410'
+    ctx.strokeRect(0.5, 0.5, width - 1, unit - 2.5)
+    ctx.restore()
+  }
+  ctx.globalAlpha = 1
+}
+
+function drawBrokenHangingDesk(ctx: CanvasRenderingContext2D, x: number, yTop: number, w: number, elapsed: number) {
+  const t = Math.min(1, elapsed / 480)
+  const alpha = 1 - t * 0.9
+  const dy = t * 22
+  const dx = Math.sin(t * 3) * 10 * t
+  ctx.save()
+  ctx.globalAlpha = alpha
+  ctx.translate(x + w / 2 + dx, yTop + 10 + dy)
+    ctx.rotate(t * 0.6 * (((x / 40) | 0) % 2 === 0 ? 1 : -1))
+  ctx.translate(-w / 2, -10)
+  ctx.fillStyle = '#6b4423'
+  ctx.fillRect(0, 0, w, 20)
+  ctx.fillStyle = '#4a2c12'
+  ctx.fillRect(w * 0.35, 20, 4, 20)
+  ctx.fillRect(w * 0.6, 20, 4, 20)
+  ctx.restore()
+  ctx.globalAlpha = 1
 }
 
 function drawHangingDesk(ctx: CanvasRenderingContext2D, x: number, yTop: number, w: number) {
@@ -286,7 +419,7 @@ export function HomeRunCanvas({
       sliding: false,
       slideEnd: 0,
       obstacles: [],
-      timers: [],
+      timers: [{ x: PLAYER_X + 198, collected: false }],
       speed: BASE_SPEED,
       startTime: performance.now(),
       lastFrame: performance.now(),
@@ -318,14 +451,19 @@ export function HomeRunCanvas({
       return 'air'
     }
 
-    const spawnObstacle = (st: typeof stateRef.current) => {
+    const spawnObstacle = (st: typeof stateRef.current, gameMs: number) => {
+      const ramp = Math.min(1, Math.max(0, gameMs / OBSTACLE_GAP_RAMP_MS))
+      const gapBase = OBSTACLE_GAP_BASE_START + (OBSTACLE_GAP_BASE_END - OBSTACLE_GAP_BASE_START) * ramp
+      const gapJitter = OBSTACLE_GAP_JITTER_START + (OBSTACLE_GAP_JITTER_END - OBSTACLE_GAP_JITTER_START) * ramp
+      const firstOff = OBSTACLE_FIRST_OFFSET_START + (OBSTACLE_FIRST_OFFSET_END - OBSTACLE_FIRST_OFFSET_START) * ramp
+
       const kind = pickKind()
       const w = kind === 'air' ? 56 : 40
-      let spawnX = W + 64 + Math.random() * 90
+      let spawnX = W + firstOff + Math.random() * (firstOff * 0.65)
       if (st.obstacles.length > 0) {
         let maxX = 0
         for (const o of st.obstacles) if (o.x > maxX) maxX = o.x
-        spawnX = Math.max(spawnX, maxX + 170 + Math.random() * 160)
+        spawnX = Math.max(spawnX, maxX + gapBase + Math.random() * gapJitter)
       }
       st.obstacles.push({ x: spawnX, kind, w, hit: false })
     }
@@ -341,12 +479,12 @@ export function HomeRunCanvas({
 
       const hasAhead = st.obstacles.some((o) => o.x > W + 165)
       if (!hasAhead) {
-        spawnObstacle(st)
+        spawnObstacle(st, gameMs)
       }
 
       if (gameMs - st.lastTimerSpawnGameMs >= TIMER_SPAWN_INTERVAL_MS) {
         st.lastTimerSpawnGameMs = gameMs
-        st.timers.push({ x: W + 30 + Math.random() * 80, collected: false })
+        st.timers.push({ x: W + 48 + Math.random() * 72, collected: false })
       }
 
       st.speed = BASE_SPEED + gameMs * SPEED_RAMP
@@ -389,8 +527,6 @@ export function HomeRunCanvas({
       for (const t of st.timers) {
         t.x -= st.speed * (dt / 16)
       }
-      st.obstacles = st.obstacles.filter((o) => o.x > -60)
-      st.timers = st.timers.filter((t) => t.x > -40 || !t.collected)
 
       const playerTop = st.py
       const playerBottom = st.py + PH
@@ -411,6 +547,7 @@ export function HomeRunCanvas({
           const plankTop = airY
           const plankBot = airY + airH
           if (bodyTop < plankBot && playerBottom > plankTop) {
+            if (!o.hit) o.breakStart = now
             o.hit = true
             st.hitCount++
             st.gap -= GAP_HIT_PENALTY
@@ -424,6 +561,7 @@ export function HomeRunCanvas({
           const clearedHigh = playerBottom <= obsTop + 4
           if (clearedHigh) continue
           if (playerBottom > obsTop + 2 && bodyTop < GROUND - 4) {
+            if (!o.hit) o.breakStart = now
             o.hit = true
             st.hitCount++
             st.gap -= GAP_HIT_PENALTY
@@ -435,13 +573,22 @@ export function HomeRunCanvas({
 
       for (const t of st.timers) {
         if (t.collected) continue
-        if (t.x < PLAYER_X + PW && t.x + 28 > PLAYER_X && playerBottom > GROUND - 50 && playerTop < GROUND - 20) {
+        const cx = t.x
+        const cy = TIMER_LANE_CY
+        const closestX = Math.max(PLAYER_X, Math.min(cx, PLAYER_X + PW))
+        const closestY = Math.max(playerTop, Math.min(cy, playerBottom))
+        const ddx = cx - closestX
+        const ddy = cy - closestY
+        if (ddx * ddx + ddy * ddy < TIMER_HIT_R * TIMER_HIT_R) {
           t.collected = true
           st.timersCollected++
           st.gap = Math.min(GAP_START + 40, st.gap + GAP_TIMER_BONUS)
           st.passiveMs = 0
         }
       }
+
+      st.obstacles = st.obstacles.filter((o) => o.x > -100)
+      st.timers = st.timers.filter((t) => !t.collected && t.x > -52)
 
       const maxHits = 3 + st.timersCollected
       if (st.hitCount >= maxHits) {
@@ -494,7 +641,15 @@ export function HomeRunCanvas({
       const onGround = st.py >= GROUND - PH - 1 && st.vy >= -0.01
 
       for (const o of st.obstacles) {
-        if (o.kind === 'air') {
+        if (o.hit && o.breakStart != null) {
+          const elapsed = now - o.breakStart
+          if (o.kind === 'air') {
+            drawBrokenHangingDesk(ctx, o.x, airY, o.w, elapsed)
+          } else {
+            const stacks = o.kind === 'f1' ? 1 : o.kind === 'f2' ? 2 : 3
+            drawBrokenFloorDesks(ctx, o.x, GROUND, stacks, o.w, elapsed)
+          }
+        } else if (o.kind === 'air') {
           drawHangingDesk(ctx, o.x, airY, o.w)
         } else {
           const stacks = o.kind === 'f1' ? 1 : o.kind === 'f2' ? 2 : 3
@@ -502,19 +657,10 @@ export function HomeRunCanvas({
         }
       }
 
+      const sparklePhase = st.runFrame * 30 + now * 0.05
       for (const t of st.timers) {
         if (t.collected) continue
-        ctx.fillStyle = '#22c55e'
-        ctx.beginPath()
-        ctx.moveTo(t.x + 14, GROUND - 42)
-        ctx.lineTo(t.x + 28, GROUND - 28)
-        ctx.lineTo(t.x + 14, GROUND - 14)
-        ctx.lineTo(t.x, GROUND - 28)
-        ctx.closePath()
-        ctx.fill()
-        ctx.fillStyle = '#fff'
-        ctx.font = 'bold 11px system-ui,sans-serif'
-        ctx.fillText('T', t.x + 10, GROUND - 22)
+        drawSparkleClockItem(ctx, t.x, TIMER_LANE_CY, sparklePhase + t.x * 0.15)
       }
 
       const teacherW = PW * TEACHER_SCALE

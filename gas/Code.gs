@@ -571,7 +571,7 @@ function getOrCreateClassSheet() {
   if (!sheet) {
     sheet = ss.insertSheet(SHEETS.CLASS);
     sheet.getRange(1, 1, 1, 3).setValues([['grade', 'class', 'teacher_name']]);
-    sheet.getRange(2, 1, 2, 3).setValues([['', '', '']]);
+    sheet.getRange(2, 1, 1, 3).setValues([['', '', '']]);
   }
   return sheet;
 }
@@ -1675,7 +1675,8 @@ function saveClassGameScore(params) {
 
   var rowOut = [gameId, sid, prevName || name, duration, now, timers, hits];
   var r = sheet.getLastRow() + 1;
-  sheet.getRange(r, 1, r, n).setValues([rowOut]);
+  // getRange(row, column, numRows, numColumns) — 3·4번째 인자는 "개수"이지 끝 행/열이 아님. (r,1,r,n)은 r>1일 때 r행짜리 범위가 되어 오류 발생.
+  sheet.getRange(r, 1, 1, n).setValues([rowOut]);
   return { success: true, data: { saved: true, updated: true } };
 }
 
