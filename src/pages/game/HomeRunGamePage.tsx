@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { authStudent, getStudents, saveClassGameScore, getClassGameRanking } from '@/api/api'
 import type { ClassGameRankingRow, Student } from '@/types'
 import { HomeRunCanvas, type HomeRunGameStats } from '@/components/game/HomeRunCanvas'
+import { GameOverGraphic } from '@/components/game/GameOverGraphic'
 import { GAME_ID_HOME_SEND_ME } from '@/constants/games'
 
 const LOGIN_KEY = 'homeroom_login'
@@ -37,9 +38,15 @@ export function HomeRunGamePage() {
   const [lastStats, setLastStats] = useState<HomeRunGameStats | null>(null)
   const [ranking, setRanking] = useState<ClassGameRankingRow[]>([])
   const [teacherImg, setTeacherImg] = useState<HTMLImageElement | null>(null)
+  const [saveHint, setSaveHint] = useState<string | null>(null)
 
-  const jumpRef = useRef(false)
+  const jumpQueueRef = useRef(0)
   const slideRef = useRef(false)
+  /** 게임 종료 시점의 저장용 (클로저/비동기 타이밍 오류 방지) */
+  const saveCtxRef = useRef({
+    studentId: '',
+    studentName: '',
+  })
 
   useEffect(() => {
     getStudents().then((res) => {
@@ -80,6 +87,15 @@ export function HomeRunGamePage() {
     if (authState === 'success') refreshRanking()
   }, [authState, refreshRanking])
 
+  const stu = students.find((s) => s.student_id === studentId)
+
+  useEffect(() => {
+    saveCtxRef.current = {
+      studentId: studentId.trim(),
+      studentName: (stu?.name || studentName || '').trim(),
+    }
+  }, [studentId, studentName, stu?.name])
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!studentId.trim() || !authCode.trim()) {
@@ -108,7 +124,6 @@ export function HomeRunGamePage() {
     }
   }
 
-  const stu = students.find((s) => s.student_id === studentId)
   const playerPhoto = photoSrc(stu)
 
   const onGameOver = useCallback(
@@ -116,23 +131,52 @@ export function HomeRunGamePage() {
       setRunning(false)
       setGameOver(true)
       setLastStats(stats)
-      const name = stu?.name || studentName || ''
+      setSaveHint(null)
+
+      const ctx = saveCtxRef.current
+      const sid = ctx.studentId
+      if (!sid) {
+        setSaveHint('학번을 확인할 수 없어 기록이 저장되지 않았습니다.')
+        return
+      }
+
       saveClassGameScore({
         game_id: GAME_ID_HOME_SEND_ME,
-        student_id: studentId.trim(),
-        student_name: name,
+        student_id: sid,
+        student_name: ctx.studentName,
         duration_ms: stats.duration_ms,
         timers_collected: stats.timers_collected,
         hits_total: stats.hits_total,
-      }).then(() => refreshRanking())
+      }).then((res) => {
+        if (res.success) {
+          refreshRanking()
+          const d = res.data as { updated?: boolean; reason?: string } | undefined
+          if (d?.reason === 'not_best') {
+            setSaveHint('이전 최고 기록보다 짧아 랭킹은 갱신되지 않았습니다.')
+          } else {
+            setSaveHint(null)
+          }
+        } else {
+          setSaveHint(res.error || '서버에 기록을 저장하지 못했습니다. 네트워크·GAS 배포를 확인해 주세요.')
+        }
+      })
     },
-    [studentId, studentName, stu?.name, refreshRanking]
+    [refreshRanking]
   )
 
   const top5 = ranking.slice(0, 5)
   const myRank =
     ranking.findIndex((r) => r.student_id === studentId.trim()) + 1 || null
   const myBest = ranking.find((r) => r.student_id === studentId.trim())
+
+  const startRun = () => {
+    jumpQueueRef.current = 0
+    setGameOver(false)
+    setLastStats(null)
+    setElapsedMs(0)
+    setSaveHint(null)
+    setRunning(true)
+  }
 
   if (authState !== 'success') {
     return (
@@ -185,67 +229,65 @@ export function HomeRunGamePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-200 to-sky-100 px-3 pb-8 pt-4">
-      <div className="mx-auto flex max-w-md flex-col items-center">
-        <div className="mb-2 w-full text-center">
+    <div className="min-h-[100dvh] min-h-screen bg-gradient-to-b from-sky-200 via-sky-100 to-sky-200 px-3 pb-10 pt-4">
+      <div className="mx-auto flex min-h-[calc(100dvh-2rem)] max-w-md flex-col items-stretch">
+        <div className="mb-2 w-full shrink-0 text-center">
           <p className="text-xs text-sky-900/80">{studentName || stu?.name} · 생존 시간</p>
           <p className="text-2xl font-bold tabular-nums text-sky-950">{formatTime(elapsedMs)}</p>
         </div>
 
-        <HomeRunCanvas
-          running={running}
-          playerPhotoSrc={playerPhoto}
-          teacherImage={teacherImg}
-          onGameOver={onGameOver}
-          onTimeUpdate={setElapsedMs}
-          jumpPressedRef={jumpRef}
-          slidePressedRef={slideRef}
-        />
+        <div className="flex shrink-0 justify-center">
+          <HomeRunCanvas
+            running={running}
+            playerPhotoSrc={playerPhoto}
+            teacherImage={teacherImg}
+            onGameOver={onGameOver}
+            onTimeUpdate={setElapsedMs}
+            jumpQueueRef={jumpQueueRef}
+            slidePressedRef={slideRef}
+          />
+        </div>
 
-        {!running && !gameOver && (
-          <button
-            type="button"
-            className="mt-4 w-full max-w-xs rounded-xl bg-emerald-600 py-3 text-lg font-bold text-white shadow-lg hover:bg-emerald-700"
-            onClick={() => {
-              setGameOver(false)
-              setLastStats(null)
-              setElapsedMs(0)
-              setRunning(true)
-            }}
-          >
-            스타트
-          </button>
-        )}
-
-        {gameOver && lastStats && (
-          <div className="mt-4 w-full max-w-xs rounded-xl border border-amber-200 bg-amber-50 p-4 text-center shadow">
-            <p className="text-lg font-bold text-amber-900">게임 오버</p>
-            <p className="mt-1 text-sm text-amber-800">
-              생존 {formatTime(lastStats.duration_ms)} · 타이머 {lastStats.timers_collected}개 · 충돌{' '}
-              {lastStats.hits_total}회
-            </p>
+        {/* 플레이 + 게임오버 전용 세로 영역 */}
+        <div className="mt-3 flex min-h-[220px] flex-col items-center justify-start px-1">
+          {!running && !gameOver && (
             <button
               type="button"
-              className="mt-3 w-full rounded-lg bg-sky-600 py-2 text-sm font-medium text-white"
-              onClick={() => {
-                setGameOver(false)
-                setLastStats(null)
-                setElapsedMs(0)
-                setRunning(true)
-              }}
+              className="w-full max-w-xs rounded-xl bg-emerald-600 py-3 text-lg font-bold text-white shadow-lg hover:bg-emerald-700"
+              onClick={startRun}
             >
-              다시 하기
+              스타트
             </button>
-          </div>
-        )}
+          )}
 
-        <div className="mt-6 grid w-full max-w-xs grid-cols-2 gap-3">
+          {gameOver && lastStats && (
+            <div className="flex w-full max-w-sm flex-col items-center rounded-2xl border-2 border-amber-300/80 bg-gradient-to-b from-amber-50 to-orange-50/90 px-4 py-5 shadow-lg">
+              <GameOverGraphic className="h-auto w-full max-w-[300px]" />
+              <p className="mt-2 text-center text-sm text-amber-900/90">
+                생존 <span className="font-semibold">{formatTime(lastStats.duration_ms)}</span> · 타이머{' '}
+                {lastStats.timers_collected}개 · 충돌 {lastStats.hits_total}회
+              </p>
+              {saveHint && (
+                <p className="mt-2 text-center text-xs text-amber-800/90">{saveHint}</p>
+              )}
+              <button
+                type="button"
+                className="mt-4 w-full max-w-xs rounded-xl bg-sky-600 py-2.5 text-sm font-bold text-white shadow-md hover:bg-sky-700"
+                onClick={startRun}
+              >
+                다시 하기
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 grid w-full max-w-xs shrink-0 grid-cols-2 gap-3 self-center">
           <button
             type="button"
             className="rounded-xl bg-white py-4 text-lg font-bold text-gray-800 shadow-md active:scale-[0.98]"
             onPointerDown={(e) => {
               e.preventDefault()
-              jumpRef.current = true
+              jumpQueueRef.current = Math.min(jumpQueueRef.current + 1, 6)
             }}
           >
             점프
@@ -261,11 +303,11 @@ export function HomeRunGamePage() {
             슬라이드
           </button>
         </div>
-        <p className="mt-2 text-center text-[11px] text-sky-900/70">
-          점프 두 번으로 높은 책상(3단)을 넘을 수 있어요. 하늘 책상은 슬라이드로 피하세요.
+        <p className="mt-2 shrink-0 text-center text-[11px] text-sky-900/70">
+          점프를 연속으로 누르면 공중에서 한 번 더 점프합니다. 하늘 책상은 슬라이드로 피하세요.
         </p>
 
-        <section className="mt-6 w-full max-w-xs rounded-xl bg-white/90 p-3 shadow">
+        <section className="mt-5 w-full max-w-xs shrink-0 self-center rounded-xl bg-white/90 p-3 shadow">
           <h2 className="text-center text-sm font-semibold text-gray-800">랭킹 TOP 5</h2>
           {myRank != null && myRank > 0 && (
             <p className="mt-1 text-center text-xs text-sky-700">

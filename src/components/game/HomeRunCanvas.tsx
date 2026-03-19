@@ -7,13 +7,13 @@ const PLAYER_X = 108
 const PW = 40
 const PH = 42
 const TEACHER_SCALE = 3
-/** 단일 점프로는 3단(78px) 책상을 넘지 못하고, 2단 점프로만 통과 */
-const GRAVITY = 0.5
-const JUMP_V = -8.15
-const JUMP2_MUL = 0.7
+/** 단일 점프로는 3단(78px) 책상을 넘지 못하고, 2단 점프로만 통과 · 낮은 중력으로 체공 연장 */
+const GRAVITY = 0.39
+const JUMP_V = -7.55
+const JUMP2_MUL = 0.69
 const SLIDE_MS = 520
-const BASE_SPEED = 4.2
-const SPEED_RAMP = 0.00095
+const BASE_SPEED = 2.45
+const SPEED_RAMP = 0.00105
 const TEACHER_CATCH_GAP = 12
 const GAP_START = 88
 const GAP_TIMER_BONUS = 38
@@ -82,6 +82,81 @@ function drawCloud(ctx: CanvasRenderingContext2D, x: number, y: number, s: numbe
   ctx.fill()
 }
 
+/**
+ * 밝은 단색·흰 배경만 투명 처리 (피부톤은 채도·채널 차이로 보존)
+ */
+function createProfileCanvasWithoutWhiteBg(img: HTMLImageElement): HTMLCanvasElement {
+  const w = img.naturalWidth
+  const h = img.naturalHeight
+  if (w < 1 || h < 1) {
+    const c = document.createElement('canvas')
+    c.width = 1
+    c.height = 1
+    return c
+  }
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h
+  const xctx = c.getContext('2d', { willReadFrequently: true })
+  if (!xctx) return c
+  xctx.drawImage(img, 0, 0)
+  let id: ImageData
+  try {
+    id = xctx.getImageData(0, 0, w, h)
+  } catch {
+    return c
+  }
+  const d = id.data
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i]
+    const g = d[i + 1]
+    const b = d[i + 2]
+    const aIn = d[i + 3]
+    if (aIn < 8) continue
+
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    const sat = max <= 0 ? 0 : (max - min) / max
+    const avg = (r + g + b) / 3
+
+    // 순백·아주 연한 회색 배경
+    let bgFactor = 0
+    if (avg >= 248 && sat < 0.08) {
+      bgFactor = 1
+    } else if (avg >= 218 && min >= 195 && sat < 0.14) {
+      bgFactor = Math.min(1, (avg - 218) / 32 + (0.14 - sat) * 2)
+    } else if (avg >= 235 && sat < 0.06) {
+      bgFactor = 0.85
+    }
+
+    if (bgFactor > 0) {
+      const na = Math.round(aIn * (1 - Math.min(1, bgFactor)))
+      d[i + 3] = na
+    }
+  }
+  xctx.putImageData(id, 0, 0)
+  return c
+}
+
+function drawPlayerGroundShadow(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  groundY: number,
+  jumpLift: number,
+  maxLift: number
+) {
+  const t = Math.min(1, Math.max(0, jumpLift / maxLift))
+  const rx = 16 + (1 - t) * 4
+  const ry = 4 + t * 2
+  const alpha = 0.22 * (1 - t * 0.65)
+  ctx.save()
+  ctx.fillStyle = `rgba(30,50,30,${alpha})`
+  ctx.beginPath()
+  ctx.ellipse(cx, groundY + 2, rx, ry, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
 function drawFallbackTeacher(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number) {
   ctx.save()
   ctx.translate(cx, cy)
@@ -131,7 +206,8 @@ type Props = {
   teacherImage: HTMLImageElement | null
   onGameOver: (stats: HomeRunGameStats) => void
   onTimeUpdate: (ms: number) => void
-  jumpPressedRef: React.MutableRefObject<boolean>
+  /** 터치마다 +1, 매 프레임 최대 1회 점프 처리(이단 점프는 연속 프레임에 반영) */
+  jumpQueueRef: React.MutableRefObject<number>
   slidePressedRef: React.MutableRefObject<boolean>
 }
 
@@ -141,11 +217,14 @@ export function HomeRunCanvas({
   teacherImage,
   onGameOver,
   onTimeUpdate,
-  jumpPressedRef,
+  jumpQueueRef,
   slidePressedRef,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  /** 원본(폴백용) */
   const playerImgRef = useRef<HTMLImageElement | null>(null)
+  /** 흰 배경 제거 후 그리기용 */
+  const playerDrawCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const teacherImgRef = useRef<HTMLImageElement | null>(null)
   const rafRef = useRef<number>(0)
   teacherImgRef.current = teacherImage
@@ -172,14 +251,18 @@ export function HomeRunCanvas({
   })
 
   useEffect(() => {
-    if (!playerPhotoSrc) {
-      playerImgRef.current = null
-      return
-    }
+    playerDrawCanvasRef.current = null
+    playerImgRef.current = null
+    if (!playerPhotoSrc) return
     const im = new Image()
     im.crossOrigin = 'anonymous'
     im.onload = () => {
       playerImgRef.current = im
+      try {
+        playerDrawCanvasRef.current = createProfileCanvasWithoutWhiteBg(im)
+      } catch {
+        playerDrawCanvasRef.current = null
+      }
     }
     im.src = playerPhotoSrc
   }, [playerPhotoSrc])
@@ -268,17 +351,16 @@ export function HomeRunCanvas({
 
       st.speed = BASE_SPEED + gameMs * SPEED_RAMP
       const teacherBoost = 1 + gameMs * 0.0000008
-      const catchUp = 0.018 * teacherBoost * (dt / 16)
+      const catchUp = 0.0125 * teacherBoost * (dt / 16)
       st.gap -= catchUp
       st.passiveMs += dt
 
-      if (jumpPressedRef.current) {
-        jumpPressedRef.current = false
-        if (st.jumpsLeft > 0) {
-          const isSecond = st.jumpsLeft === 1 && st.py < GROUND - PH - 4
-          st.vy = isSecond ? JUMP_V * JUMP2_MUL : JUMP_V
-          st.jumpsLeft--
-        }
+      if (jumpQueueRef.current > 0 && st.jumpsLeft > 0) {
+        jumpQueueRef.current -= 1
+        const inAir = st.py < GROUND - PH - 2
+        const isSecondJump = st.jumpsLeft === 1 && inAir
+        st.vy = isSecondJump ? JUMP_V * JUMP2_MUL : JUMP_V
+        st.jumpsLeft -= 1
       }
 
       if (slidePressedRef.current) {
@@ -408,8 +490,8 @@ export function HomeRunCanvas({
       ctx.fillStyle = '#8fbc6b'
       ctx.fillRect(0, GROUND + 2, W, H - GROUND)
 
-      const bob = Math.sin(st.runFrame) * 2.5
       const tBob = Math.sin(st.runFrame * 1.1 + 1) * 2
+      const onGround = st.py >= GROUND - PH - 1 && st.vy >= -0.01
 
       for (const o of st.obstacles) {
         if (o.kind === 'air') {
@@ -447,30 +529,51 @@ export function HomeRunCanvas({
         drawFallbackTeacher(ctx, teacherX + teacherW / 2, teacherY + teacherH / 2, Math.min(teacherW, teacherH))
       }
 
-      const pDrawY = st.py + (st.vy === 0 && !st.sliding ? bob : 0)
-      ctx.save()
+      const pDrawY = st.py
+      const feetY = pDrawY + PH
+      const jumpLift = Math.max(0, GROUND - feetY)
+      const anchorX = PLAYER_X + PW * 0.5
+      const anchorY = feetY - 3
+
+      drawPlayerGroundShadow(ctx, anchorX, GROUND, jumpLift, 95)
+
+      let lean = 0
+      let sx = 1
+      let sy = 1
       if (st.sliding) {
-        ctx.translate(PLAYER_X + PW / 2, pDrawY + PH)
-        ctx.scale(1, 0.55)
-        ctx.translate(-(PLAYER_X + PW / 2), -(pDrawY + PH * 0.5))
+        sy = 0.52
+        sx = 1.12
+        lean = 0.35
+      } else if (onGround) {
+        const phase = st.runFrame * 2.55
+        lean = Math.sin(phase) * 0.09
+        sx = 1 + Math.sin(phase) * 0.04
+        sy = 1 - Math.sin(phase) * 0.035
+      } else {
+        lean = Math.max(-0.22, Math.min(0.26, st.vy * 0.0115))
+        const stretch = Math.max(-0.1, Math.min(0.13, -st.vy * 0.019))
+        sy = 1 + stretch
+        sx = 1 - stretch * 0.45
       }
+
+      ctx.save()
+      ctx.translate(anchorX, anchorY)
+      ctx.rotate(lean)
+      ctx.scale(sx, sy)
+      ctx.translate(-anchorX, -anchorY)
+
+      const pCanvas = playerDrawCanvasRef.current
       const pim = playerImgRef.current
-      if (pim && pim.complete && pim.naturalWidth > 0) {
+      const drawSrc: CanvasImageSource | null =
+        pCanvas && pCanvas.width > 0 ? pCanvas : pim && pim.complete && pim.naturalWidth > 0 ? pim : null
+
+      if (drawSrc) {
         ctx.save()
-        const r = 8
         ctx.beginPath()
-        ctx.moveTo(PLAYER_X + r, pDrawY)
-        ctx.arcTo(PLAYER_X + PW, pDrawY, PLAYER_X + PW, pDrawY + PH, r)
-        ctx.arcTo(PLAYER_X + PW, pDrawY + PH, PLAYER_X, pDrawY + PH, r)
-        ctx.arcTo(PLAYER_X, pDrawY + PH, PLAYER_X, pDrawY, r)
-        ctx.arcTo(PLAYER_X, pDrawY, PLAYER_X + PW, pDrawY, r)
-        ctx.closePath()
+        ctx.ellipse(anchorX, pDrawY + PH * 0.48, PW * 0.46, PH * 0.47, 0, 0, Math.PI * 2)
         ctx.clip()
-        ctx.drawImage(pim, PLAYER_X, pDrawY, PW, PH)
+        ctx.drawImage(drawSrc, PLAYER_X, pDrawY, PW, PH)
         ctx.restore()
-        ctx.strokeStyle = '#1e3a5f'
-        ctx.lineWidth = 2
-        ctx.strokeRect(PLAYER_X + 1, pDrawY + 1, PW - 2, PH - 2)
       } else {
         ctx.fillStyle = '#3b82f6'
         const r0 = 8
@@ -490,7 +593,7 @@ export function HomeRunCanvas({
 
     rafRef.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [running, resetState, jumpPressedRef, slidePressedRef])
+  }, [running, resetState, jumpQueueRef, slidePressedRef])
 
   return (
     <canvas

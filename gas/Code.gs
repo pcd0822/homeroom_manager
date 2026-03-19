@@ -1635,11 +1635,48 @@ function saveClassGameScore(params) {
   if (isNaN(hits)) hits = 0;
   var sheet = getOrCreateClassGameScoresSheet();
   var now = new Date().toISOString();
-  var row = [gameId, sid, name, duration, now, timers, hits];
-  var r = sheet.getLastRow() + 1;
   var n = CLASS_GAME_SCORE_HEADERS.length;
-  sheet.getRange(r, 1, r, n).setValues([row]);
-  return { success: true, data: { saved: true } };
+  var data = sheet.getDataRange().getValues();
+  var headers = data.length ? data[0].map(String) : CLASS_GAME_SCORE_HEADERS;
+  var gameCol = headers.indexOf('game_id');
+  var sidCol = headers.indexOf('student_id');
+  var nameCol = headers.indexOf('student_name');
+  var durCol = headers.indexOf('duration_ms');
+  if (gameCol < 0) gameCol = 0;
+  if (sidCol < 0) sidCol = 1;
+  if (nameCol < 0) nameCol = 2;
+  if (durCol < 0) durCol = 3;
+
+  var prevName = name;
+  var bestDur = -1;
+  var rowsToDelete = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (String(row[gameCol] || '').trim() !== gameId) continue;
+    if (String(row[sidCol] || '').trim() !== sid) continue;
+    rowsToDelete.push(i + 1);
+    var d = Number(row[durCol] || 0);
+    if (isNaN(d)) d = 0;
+    if (d > bestDur) bestDur = d;
+    var nm = String(row[nameCol] || '').trim();
+    if (nm && !prevName) prevName = nm;
+  }
+
+  if (rowsToDelete.length > 0 && duration <= bestDur) {
+    return { success: true, data: { saved: true, updated: false, reason: 'not_best' } };
+  }
+
+  rowsToDelete.sort(function (a, b) {
+    return b - a;
+  });
+  for (var k = 0; k < rowsToDelete.length; k++) {
+    sheet.deleteRow(rowsToDelete[k]);
+  }
+
+  var rowOut = [gameId, sid, prevName || name, duration, now, timers, hits];
+  var r = sheet.getLastRow() + 1;
+  sheet.getRange(r, 1, r, n).setValues([rowOut]);
+  return { success: true, data: { saved: true, updated: true } };
 }
 
 function getClassGameRanking(gameId, limit) {
