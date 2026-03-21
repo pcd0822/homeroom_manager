@@ -328,42 +328,41 @@ export function StudentPoliciesPage() {
             </button>
 
             <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex min-w-0 gap-3">
-                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-gray-50">
-                    {policyLogoSrc(detail.logo_data) ? (
-                      <img src={policyLogoSrc(detail.logo_data)} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-3xl">🌱</div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="text-base font-bold text-gray-900">{detail.title}</h2>
-                    <p className="text-[11px] text-gray-500">목표: {detail.goal}</p>
-                  </div>
+              {/* 데스크톱에서 제목이 길면 가로 배치 시 버튼이 화면 밖으로 밀리므로, 로고+제목과 버튼 행을 분리 */}
+              <div className="flex gap-3">
+                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-gray-50">
+                  {policyLogoSrc(detail.logo_data) ? (
+                    <img src={policyLogoSrc(detail.logo_data)} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-3xl">🌱</div>
+                  )}
                 </div>
-                {canManage(detail) && (
-                  <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setEditOpen(true)}
-                      className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-sm"
-                    >
-                      정책 수정하기
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setScatterOpen(true)
-                        setSeedSearch('')
-                      }}
-                      className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm"
-                    >
-                      씨앗 뿌리기
-                    </button>
-                  </div>
-                )}
+                <div className="min-w-0 flex-1">
+                  <h2 className="break-words text-base font-bold text-gray-900">{detail.title}</h2>
+                  <p className="mt-0.5 break-words text-[11px] text-gray-500">목표: {detail.goal}</p>
+                </div>
               </div>
+              {canManage(detail) && (
+                <div className="mt-3 flex w-full flex-wrap gap-2 border-t border-emerald-100/80 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditOpen(true)}
+                    className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-sm"
+                  >
+                    정책 수정하기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScatterOpen(true)
+                      setSeedSearch('')
+                    }}
+                    className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm"
+                  >
+                    씨앗 뿌리기
+                  </button>
+                </div>
+              )}
               <dl className="mt-4 space-y-2 text-xs text-gray-700">
                 <div>
                   <dt className="font-semibold text-gray-800">세부 설명</dt>

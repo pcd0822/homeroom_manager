@@ -1830,7 +1830,7 @@ function savePolicy(params) {
   if (!creator) return { success: false, error: 'creator_student_id required' };
   if (!title) return { success: false, error: 'title required' };
   if (isNaN(seedsPer) || seedsPer < 0) seedsPer = 0;
-  if (logoData.length > 45000) logoData = logoData.slice(0, 45000);
+  if (logoData.length > 48000) logoData = logoData.slice(0, 48000);
   var coArr = [];
   if (coRegs && coRegs.length) {
     for (var i = 0; i < coRegs.length; i++) {

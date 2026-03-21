@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { Link, useNavigate } from 'react-router-dom'
 import { authStudent, getStudents, savePolicy } from '@/api/api'
+import { compressImageFileToPolicyLogoDataUrl } from '@/lib/compressPolicyLogo'
 import type { Student } from '@/types'
 
 const LOGIN_KEY = 'homeroom_login'
@@ -23,6 +24,7 @@ export function StudentPolicyRegisterPage() {
   const [seedsPer, setSeedsPer] = useState(1)
   const [logoData, setLogoData] = useState('')
   const [saving, setSaving] = useState(false)
+  const [logoBusy, setLogoBusy] = useState(false)
   const [err, setErr] = useState('')
 
   useEffect(() => {
@@ -101,15 +103,20 @@ export function StudentPolicyRegisterPage() {
     setCoIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   }
 
-  const onLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (!f || !f.type.startsWith('image/')) return
-    const r = new FileReader()
-    r.onload = () => {
-      const s = String(r.result || '')
-      setLogoData(s.length > 45000 ? s.slice(0, 45000) : s)
+    setErr('')
+    setLogoBusy(true)
+    try {
+      const dataUrl = await compressImageFileToPolicyLogoDataUrl(f)
+      setLogoData(dataUrl)
+    } catch (err) {
+      setErr(err instanceof Error ? err.message : '로고 이미지를 처리하지 못했습니다.')
+    } finally {
+      setLogoBusy(false)
+      e.target.value = ''
     }
-    r.readAsDataURL(f)
   }
 
   const submit = async (e: React.FormEvent) => {
@@ -236,7 +243,11 @@ export function StudentPolicyRegisterPage() {
         <form onSubmit={submit} className="space-y-4">
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-700">정책 로고</label>
-            <input type="file" accept="image/*" onChange={onLogo} className="text-xs" />
+            <p className="mb-1 text-[10px] text-gray-500">
+              큰 사진은 자동으로 줄여 저장됩니다. 처리에 잠시 걸릴 수 있어요.
+            </p>
+            <input type="file" accept="image/*" onChange={onLogo} disabled={logoBusy} className="text-xs" />
+            {logoBusy && <p className="text-[10px] text-emerald-700">이미지 압축 중...</p>}
             {logoData && (
               <img src={logoData} alt="" className="mt-2 h-20 w-20 rounded-lg border object-cover" />
             )}

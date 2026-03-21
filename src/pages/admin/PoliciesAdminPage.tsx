@@ -10,6 +10,8 @@ import {
 } from '@/api/api'
 import type { Policy, PolicyParticipant, PolicyTreeDashboard, Student } from '@/types'
 import { policyLogoSrc } from '@/lib/policyImage'
+import { compressImageFileToPolicyLogoDataUrl } from '@/lib/compressPolicyLogo'
+import { cn } from '@/lib/utils'
 
 const TEACHER_ACTOR = '__teacher__'
 
@@ -39,6 +41,9 @@ export function PoliciesAdminPage() {
   const [saving, setSaving] = useState(false)
   const [classStudents, setClassStudents] = useState<Student[]>([])
   const [paySearch, setPaySearch] = useState('')
+  const [manageChoiceOpen, setManageChoiceOpen] = useState(false)
+  const [managedPolicyId, setManagedPolicyId] = useState<string | null>(null)
+  const [logoCompressing, setLogoCompressing] = useState(false)
 
   const loadPolicies = async () => {
     setLoading(true)
@@ -73,6 +78,13 @@ export function PoliciesAdminPage() {
     return list.slice(0, 25)
   }, [classStudents, draft, paySearch])
 
+  const openPolicyManage = async (pid: string) => {
+    setErr('')
+    setManagedPolicyId(pid)
+    await openCard(pid)
+    setManageChoiceOpen(true)
+  }
+
   const openCard = async (pid: string) => {
     setErr('')
     const d = await getPolicyDetail(pid)
@@ -98,6 +110,7 @@ export function PoliciesAdminPage() {
   const saveTeacherEdit = async () => {
     if (!detail) return
     setSaving(true)
+    const logoPayload = (eLogo && String(eLogo).trim()) || detail.logo_data || ''
     const res = await savePolicy({
       policy_id: detail.policy_id,
       title: eTitle.trim(),
@@ -105,7 +118,7 @@ export function PoliciesAdminPage() {
       description: eDesc.trim(),
       expected_effect: eExp.trim(),
       seeds_per_participation: Math.max(0, eSeeds),
-      logo_data: eLogo,
+      logo_data: logoPayload,
       creator_student_id: detail.creator_student_id,
       co_registrants: detail.co_registrants || [],
       actor_student_id: TEACHER_ACTOR,
@@ -114,6 +127,7 @@ export function PoliciesAdminPage() {
     setSaving(false)
     if (res.success) {
       setEditOpen(false)
+      setManagedPolicyId(null)
       await loadPolicies()
       await loadTree()
       await openCard(detail.policy_id)
@@ -139,8 +153,16 @@ export function PoliciesAdminPage() {
     }
     setSaving(false)
     setPayOpen(false)
+    setManagedPolicyId(null)
     await loadTree()
     await openCard(detail.policy_id)
+  }
+
+  const closeDetail = () => {
+    setDetail(null)
+    setParts([])
+    setManageChoiceOpen(false)
+    setManagedPolicyId(null)
   }
 
   return (
@@ -180,17 +202,21 @@ export function PoliciesAdminPage() {
           {loading ? (
             <p className="text-sm text-gray-500">불러오는 중...</p>
           ) : (
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
               {policies.map((p) => (
                 <PolicyCompactCard
                   key={p.policy_id}
                   policy={p}
                   classStudents={classStudents}
                   onOpen={() => openCard(p.policy_id)}
-                  onEdit={(e) => {
+                  onManageClick={(e) => {
                     e.stopPropagation()
-                    void openCard(p.policy_id).then(() => setEditOpen(true))
+                    void openPolicyManage(p.policy_id)
                   }}
+                  isManageActive={
+                    managedPolicyId === p.policy_id &&
+                    (manageChoiceOpen || editOpen || payOpen)
+                  }
                 />
               ))}
             </div>
@@ -250,35 +276,30 @@ export function PoliciesAdminPage() {
               <h2 className="min-w-0 flex-1 truncate text-base font-bold text-gray-900">{detail.title}</h2>
               <button
                 type="button"
-                onClick={() => {
-                  setDetail(null)
-                  setParts([])
-                }}
+                onClick={closeDetail}
                 className="rounded p-2 text-gray-500 hover:bg-gray-100"
               >
                 ✕
               </button>
             </div>
             <div className="space-y-3 p-4">
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEditOpen(true)}
-                  className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white"
-                >
-                  정책 수정하기
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPayOpen(true)
-                    setPaySearch('')
-                  }}
-                  className="rounded-lg bg-amber-500 px-3 py-2 text-xs font-semibold text-white"
-                >
-                  씨앗 지급 / 회수
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (detail) {
+                    setManagedPolicyId(detail.policy_id)
+                    setManageChoiceOpen(true)
+                  }
+                }}
+                className={cn(
+                  'w-full rounded-lg px-3 py-2.5 text-xs font-semibold shadow-sm transition sm:w-auto',
+                  manageChoiceOpen && managedPolicyId === detail?.policy_id
+                    ? 'bg-emerald-600 text-white ring-2 ring-emerald-300'
+                    : 'bg-slate-700 text-white hover:bg-slate-800'
+                )}
+              >
+                정책 관리하기
+              </button>
               <p className="text-xs text-gray-600 whitespace-pre-wrap">{detail.description}</p>
               <h3 className="text-sm font-bold">참여 학생</h3>
               <div className="overflow-x-auto rounded border">
@@ -316,6 +337,48 @@ export function PoliciesAdminPage() {
                 </table>
                 {parts.length === 0 && <p className="p-3 text-xs text-gray-400">기록된 학생이 없습니다.</p>}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {manageChoiceOpen && detail && (
+        <div className="fixed inset-0 z-[58] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="mb-1 text-lg font-bold text-gray-900">정책 관리</h3>
+            <p className="mb-5 line-clamp-2 text-sm text-gray-600">{detail.title}</p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setManageChoiceOpen(false)
+                  setEditOpen(true)
+                }}
+                className="rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white shadow hover:bg-blue-700"
+              >
+                정책 수정하기
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setManageChoiceOpen(false)
+                  setPayOpen(true)
+                  setPaySearch('')
+                }}
+                className="rounded-xl bg-amber-500 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600"
+              >
+                씨앗 지급 / 회수
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setManageChoiceOpen(false)
+                  setManagedPolicyId(null)
+                }}
+                className="rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                닫기
+              </button>
             </div>
           </div>
         </div>
@@ -373,25 +436,42 @@ export function PoliciesAdminPage() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-700">정책 로고 (이미지 변경)</label>
+                <p className="mb-1 text-[10px] text-gray-500">큰 사진은 자동으로 압축됩니다.</p>
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => {
+                  disabled={logoCompressing}
+                  onChange={async (e) => {
                     const f = e.target.files?.[0]
                     if (!f) return
-                    const r = new FileReader()
-                    r.onload = () => setELogo(String(r.result || '').slice(0, 45000))
-                    r.readAsDataURL(f)
+                    setLogoCompressing(true)
+                    try {
+                      const dataUrl = await compressImageFileToPolicyLogoDataUrl(f)
+                      setELogo(dataUrl)
+                    } catch {
+                      setErr('이미지 처리에 실패했습니다.')
+                    } finally {
+                      setLogoCompressing(false)
+                      e.target.value = ''
+                    }
                   }}
                   className="text-xs"
                 />
+                {logoCompressing && <p className="text-[10px] text-gray-500">압축 중...</p>}
                 {policyLogoSrc(eLogo) && (
                   <img src={policyLogoSrc(eLogo)} alt="" className="mt-2 h-16 w-16 rounded-lg border object-cover" />
                 )}
               </div>
             </div>
             <div className="mt-6 flex gap-2">
-              <button type="button" onClick={() => setEditOpen(false)} className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditOpen(false)
+                  setManagedPolicyId(null)
+                }}
+                className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium"
+              >
                 취소
               </button>
               <button
@@ -462,7 +542,14 @@ export function PoliciesAdminPage() {
               <p className="text-xs text-gray-400">씨앗 기록이 있는 학생이 없습니다. 학생 화면에서 먼저 씨앗이 지급되면 표시됩니다.</p>
             )}
             <div className="mt-4 flex gap-2">
-              <button type="button" onClick={() => setPayOpen(false)} className="flex-1 rounded border py-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPayOpen(false)
+                  setManagedPolicyId(null)
+                }}
+                className="flex-1 rounded border py-2"
+              >
                 취소
               </button>
               <button
@@ -555,80 +642,111 @@ function PolicyCompactCard({
   policy,
   classStudents,
   onOpen,
-  onEdit,
+  onManageClick,
+  isManageActive,
 }: {
   policy: Policy
   classStudents: Student[]
   onOpen: () => void
-  onEdit: (e: MouseEvent) => void
+  onManageClick: (e: MouseEvent) => void
+  isManageActive: boolean
 }) {
-  const creator = classStudents.find((s) => s.student_id === policy.creator_student_id)
+  const cid = String(policy.creator_student_id ?? '').trim()
+  const creator = classStudents.find((s) => String(s.student_id).trim() === cid)
   const co = (policy.co_registrants || [])
-    .map((id) => classStudents.find((s) => s.student_id === id))
+    .map((id) => classStudents.find((s) => String(s.student_id).trim() === String(id).trim()))
     .filter((x): x is Student => Boolean(x))
   const logo = policyLogoSrc(policy.logo_data)
+  const creatorTooltip = creator
+    ? `${creator.name} (${String(creator.student_id)})`
+    : cid
+    ? `학번 ${cid} (학생 목록에 없음)`
+    : ''
 
   return (
-    <div className="flex flex-col rounded-xl border border-gray-100 bg-white p-2 shadow-sm">
-      <button type="button" onClick={onOpen} className="flex gap-2 text-left">
-        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-gray-50">
-          {logo ? (
-            <img src={logo} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-lg">🌱</div>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="line-clamp-1 text-sm font-bold leading-tight text-gray-900">{policy.title}</p>
-          <p className="line-clamp-1 text-[10px] leading-tight text-gray-500">{policy.goal || '\u00A0'}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-            {creator && (
-              <span className="inline-flex max-w-full items-center gap-1 text-[10px] text-gray-600">
-                <span className="shrink-0 text-gray-400">등록</span>
-                <span className="inline-flex h-6 w-6 shrink-0 overflow-hidden rounded-full bg-gray-100">
+    <div className="w-full max-w-[168px] justify-self-start">
+      <div className="flex flex-col rounded-xl border border-gray-100 bg-white p-1.5 shadow-sm">
+        <button type="button" onClick={onOpen} className="flex gap-1.5 text-left">
+          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-gray-50">
+            {logo ? (
+              <img src={logo} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-base">🌱</div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="line-clamp-2 text-[11px] font-bold leading-tight text-gray-900">{policy.title}</p>
+            <p className="line-clamp-2 text-[9px] leading-tight text-gray-500">{policy.goal || '\u00A0'}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-1 gap-y-0.5">
+              <span className="shrink-0 text-[9px] text-gray-400">등록</span>
+              {creator ? (
+                <span
+                  className="inline-flex h-6 w-6 shrink-0 cursor-default overflow-hidden rounded-full bg-gray-100 ring-1 ring-gray-200"
+                  title={creatorTooltip}
+                >
                   {creator.photo_data ? (
-                    <img src={photoSrc(creator.photo_data)} alt="" className="h-full w-full object-cover" />
+                    <img
+                      src={photoSrc(creator.photo_data)}
+                      alt=""
+                      title={creatorTooltip}
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
-                    <span className="flex h-full w-full items-center justify-center text-[9px] font-medium text-gray-500">
+                    <span
+                      className="flex h-full w-full items-center justify-center text-[8px] font-medium text-gray-500"
+                      title={creatorTooltip}
+                    >
                       {(creator.name || '?').charAt(0)}
                     </span>
                   )}
                 </span>
-                <span className="truncate font-medium">{creator.name}</span>
-              </span>
-            )}
-            {co.length > 0 && (
-              <span className="inline-flex flex-wrap items-center gap-1 text-[10px] text-gray-600">
-                <span className="shrink-0 text-gray-400">공동</span>
-                {co.map((s) => (
-                  <span
-                    key={s.student_id}
-                    className="inline-flex items-center gap-0.5"
-                    title={`${s.name} (${s.student_id})`}
-                  >
-                    <span className="inline-flex h-6 w-6 shrink-0 overflow-hidden rounded-full bg-gray-100 ring-1 ring-white">
-                      {s.photo_data ? (
-                        <img src={photoSrc(s.photo_data)} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="flex h-full w-full items-center justify-center text-[9px] font-medium text-gray-500">
-                          {(s.name || '?').charAt(0)}
-                        </span>
-                      )}
-                    </span>
-                  </span>
-                ))}
-              </span>
-            )}
+              ) : (
+                <span className="text-[9px] text-gray-500" title={creatorTooltip}>
+                  {cid || '?'}
+                </span>
+              )}
+              {co.length > 0 && (
+                <>
+                  <span className="shrink-0 text-[9px] text-gray-400">·공동</span>
+                  {co.map((s) => {
+                    const tip = `${s.name} (${String(s.student_id)})`
+                    return (
+                      <span
+                        key={s.student_id}
+                        className="inline-flex h-6 w-6 shrink-0 cursor-default overflow-hidden rounded-full bg-gray-100 ring-1 ring-white"
+                        title={tip}
+                      >
+                        {s.photo_data ? (
+                          <img src={photoSrc(s.photo_data)} alt="" title={tip} className="h-full w-full object-cover" />
+                        ) : (
+                          <span
+                            className="flex h-full w-full items-center justify-center text-[8px] font-medium text-gray-500"
+                            title={tip}
+                          >
+                            {(s.name || '?').charAt(0)}
+                          </span>
+                        )}
+                      </span>
+                    )
+                  })}
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      </button>
-      <button
-        type="button"
-        onClick={onEdit}
-        className="mt-1.5 w-full rounded-md bg-gray-100 py-1.5 text-[10px] font-medium text-gray-800 hover:bg-gray-200"
-      >
-        정책 수정하기
-      </button>
+        </button>
+        <button
+          type="button"
+          onClick={onManageClick}
+          className={cn(
+            'mt-1.5 w-full rounded-md py-1.5 text-[10px] font-semibold transition',
+            isManageActive
+              ? 'bg-emerald-600 text-white shadow ring-2 ring-emerald-300 ring-offset-1'
+              : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+          )}
+        >
+          정책 관리하기
+        </button>
+      </div>
     </div>
   )
 }
