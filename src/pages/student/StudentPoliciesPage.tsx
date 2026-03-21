@@ -148,8 +148,15 @@ export function StudentPoliciesPage() {
     } else setErr(res.error || '인증 실패')
   }
 
-  const canManage = (p: Policy) =>
-    p.creator_student_id === studentId || (p.co_registrants || []).includes(studentId)
+  /** API·시트에서 학번이 숫자로 올 수 있어 문자열로 통일 (데스크톱에서만 버튼이 안 보이는 현상 방지) */
+  const canManage = (p: Policy) => {
+    const sid = String(studentId ?? '').trim()
+    if (!sid) return false
+    const creator = String(p.creator_student_id ?? '').trim()
+    if (creator === sid) return true
+    const co = p.co_registrants || []
+    return co.some((id) => String(id).trim() === sid)
+  }
 
   const saveEdit = async () => {
     if (!detail) return
@@ -196,10 +203,12 @@ export function StudentPoliciesPage() {
 
   const filteredForScatter = useMemo(() => {
     const q = seedSearch.trim().toLowerCase()
-    const base = students.filter((s) => !(s.student_id in seedDraft))
+    const draftKeys = new Set(Object.keys(seedDraft).map(String))
+    const base = students.filter((s) => !draftKeys.has(String(s.student_id)))
     if (!q) return base
     return base.filter(
-      (s) => s.student_id.toLowerCase().includes(q) || (s.name || '').toLowerCase().includes(q)
+      (s) =>
+        String(s.student_id).toLowerCase().includes(q) || (s.name || '').toLowerCase().includes(q)
     )
   }, [students, seedDraft, seedSearch])
 
@@ -328,14 +337,15 @@ export function StudentPoliciesPage() {
             </button>
 
             <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow">
-              {/* 데스크톱에서 제목이 길면 가로 배치 시 버튼이 화면 밖으로 밀리므로, 로고+제목과 버튼 행을 분리 */}
-              <div className="flex gap-3">
-                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-gray-50">
-                  {policyLogoSrc(detail.logo_data) ? (
-                    <img src={policyLogoSrc(detail.logo_data)} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-3xl">🌱</div>
-                  )}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                <div className="flex shrink-0 gap-3">
+                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-gray-50">
+                    {policyLogoSrc(detail.logo_data) ? (
+                      <img src={policyLogoSrc(detail.logo_data)} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-3xl">🌱</div>
+                    )}
+                  </div>
                 </div>
                 <div className="min-w-0 flex-1">
                   <h2 className="break-words text-base font-bold text-gray-900">{detail.title}</h2>
@@ -343,11 +353,11 @@ export function StudentPoliciesPage() {
                 </div>
               </div>
               {canManage(detail) && (
-                <div className="mt-3 flex w-full flex-wrap gap-2 border-t border-emerald-100/80 pt-3">
+                <div className="relative z-10 mt-3 flex w-full min-w-0 flex-col gap-2 border-t border-emerald-100/80 pt-3 sm:flex-row sm:flex-wrap">
                   <button
                     type="button"
                     onClick={() => setEditOpen(true)}
-                    className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-sm"
+                    className="inline-flex min-h-[2.5rem] shrink-0 items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition active:scale-[0.98] sm:w-auto"
                   >
                     정책 수정하기
                   </button>
@@ -357,9 +367,9 @@ export function StudentPoliciesPage() {
                       setScatterOpen(true)
                       setSeedSearch('')
                     }}
-                    className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm"
+                    className="inline-flex min-h-[2.5rem] shrink-0 items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition active:scale-[0.98] sm:w-auto"
                   >
-                    씨앗 뿌리기
+                    씨앗 지급하기
                   </button>
                 </div>
               )}
@@ -490,16 +500,27 @@ export function StudentPoliciesPage() {
                 </div>
               </div>
               <div className="mt-4 flex gap-2">
-                <button type="button" onClick={() => setEditOpen(false)} className="flex-1 rounded border py-2 text-sm">
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(false)}
+                  className="flex-1 rounded border py-2 text-sm transition active:scale-[0.99]"
+                >
                   취소
                 </button>
                 <button
                   type="button"
                   disabled={saving}
                   onClick={saveEdit}
-                  className="flex-1 rounded bg-blue-600 py-2 text-sm font-semibold text-white"
+                  className="flex-1 rounded bg-blue-600 py-2 text-sm font-semibold text-white transition active:scale-[0.98] disabled:opacity-70"
                 >
-                  저장
+                  {saving ? (
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      저장 중…
+                    </span>
+                  ) : (
+                    '저장'
+                  )}
                 </button>
               </div>
             </div>
@@ -509,7 +530,7 @@ export function StudentPoliciesPage() {
         {scatterOpen && detail && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
             <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4 shadow-xl">
-              <h3 className="mb-2 font-bold">씨앗 뿌리기</h3>
+              <h3 className="mb-2 font-bold">씨앗 지급하기</h3>
               <p className="mb-3 text-[11px] text-gray-500">
                 학생별 누적 씨앗 수를 입력하고 저장합니다. 새 학생을 추가하려면 아래에서 선택하세요.
               </p>
@@ -536,7 +557,7 @@ export function StudentPoliciesPage() {
               </div>
               <div className="space-y-2">
                 {Object.keys(seedDraft).map((sid) => {
-                  const st = students.find((x) => x.student_id === sid)
+                  const st = students.find((x) => String(x.student_id) === String(sid))
                   return (
                     <div key={sid} className="flex items-center gap-2 text-xs">
                       <span className="w-24 truncate font-medium">{st?.name || sid}</span>
@@ -555,16 +576,27 @@ export function StudentPoliciesPage() {
                 })}
               </div>
               <div className="mt-4 flex gap-2">
-                <button type="button" onClick={() => setScatterOpen(false)} className="flex-1 rounded border py-2 text-sm">
+                <button
+                  type="button"
+                  onClick={() => setScatterOpen(false)}
+                  className="flex-1 rounded border py-2 text-sm transition active:scale-[0.99]"
+                >
                   취소
                 </button>
                 <button
                   type="button"
                   disabled={saving}
                   onClick={saveScatter}
-                  className="flex-1 rounded bg-emerald-600 py-2 text-sm font-semibold text-white"
+                  className="flex-1 rounded bg-emerald-600 py-2 text-sm font-semibold text-white transition active:scale-[0.98] disabled:opacity-70"
                 >
-                  저장
+                  {saving ? (
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      저장 중…
+                    </span>
+                  ) : (
+                    '저장'
+                  )}
                 </button>
               </div>
             </div>

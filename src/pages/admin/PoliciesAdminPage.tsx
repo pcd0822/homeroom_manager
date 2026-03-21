@@ -43,6 +43,11 @@ export function PoliciesAdminPage() {
   const [paySearch, setPaySearch] = useState('')
   const [manageChoiceOpen, setManageChoiceOpen] = useState(false)
   const [managedPolicyId, setManagedPolicyId] = useState<string | null>(null)
+  const [manageLoading, setManageLoading] = useState(false)
+  /** 상세 슬라이드 패널 표시 (카드 본문 클릭 시 true, '정책 관리하기'만 열 때는 false로 중복 모달 방지) */
+  const [detailPanelOpen, setDetailPanelOpen] = useState(false)
+  /** 상세 패널에서 '정책 관리하기'를 연 경우 닫기 시 패널 복귀 */
+  const [manageOpenedFromDetail, setManageOpenedFromDetail] = useState(false)
   const [logoCompressing, setLogoCompressing] = useState(false)
 
   const loadPolicies = async () => {
@@ -81,12 +86,20 @@ export function PoliciesAdminPage() {
   const openPolicyManage = async (pid: string) => {
     setErr('')
     setManagedPolicyId(pid)
-    await openCard(pid)
+    setManageOpenedFromDetail(false)
+    setManageLoading(true)
     setManageChoiceOpen(true)
+    const ok = await openCard(pid, { showPanel: false })
+    setManageLoading(false)
+    if (!ok) {
+      setManageChoiceOpen(false)
+      setManagedPolicyId(null)
+    }
   }
 
-  const openCard = async (pid: string) => {
+  const openCard = async (pid: string, opts?: { showPanel?: boolean }): Promise<boolean> => {
     setErr('')
+    const showPanel = opts?.showPanel !== false
     const d = await getPolicyDetail(pid)
     const p = await getPolicyParticipants(pid)
     if (d.success && d.data) {
@@ -104,7 +117,11 @@ export function PoliciesAdminPage() {
       setEExp(d.data.expected_effect || '')
       setESeeds(Number(d.data.seeds_per_participation) || 0)
       setELogo(d.data.logo_data || '')
+      setDetailPanelOpen(showPanel)
+      return true
     }
+    setErr(d.error || '불러오기 실패')
+    return false
   }
 
   const saveTeacherEdit = async () => {
@@ -128,9 +145,10 @@ export function PoliciesAdminPage() {
     if (res.success) {
       setEditOpen(false)
       setManagedPolicyId(null)
+      setManageOpenedFromDetail(false)
       await loadPolicies()
       await loadTree()
-      await openCard(detail.policy_id)
+      await openCard(detail.policy_id, { showPanel: true })
     } else setErr(res.error || '저장 실패')
   }
 
@@ -154,8 +172,9 @@ export function PoliciesAdminPage() {
     setSaving(false)
     setPayOpen(false)
     setManagedPolicyId(null)
+    setManageOpenedFromDetail(false)
     await loadTree()
-    await openCard(detail.policy_id)
+    await openCard(detail.policy_id, { showPanel: true })
   }
 
   const closeDetail = () => {
@@ -163,6 +182,21 @@ export function PoliciesAdminPage() {
     setParts([])
     setManageChoiceOpen(false)
     setManagedPolicyId(null)
+    setDetailPanelOpen(false)
+    setManageOpenedFromDetail(false)
+    setManageLoading(false)
+  }
+
+  const closeManageChoice = () => {
+    setManageChoiceOpen(false)
+    if (manageOpenedFromDetail) {
+      setDetailPanelOpen(true)
+    } else {
+      setDetail(null)
+      setParts([])
+      setManagedPolicyId(null)
+    }
+    setManageOpenedFromDetail(false)
   }
 
   return (
@@ -215,8 +249,9 @@ export function PoliciesAdminPage() {
                   }}
                   isManageActive={
                     managedPolicyId === p.policy_id &&
-                    (manageChoiceOpen || editOpen || payOpen)
+                    (manageChoiceOpen || editOpen || payOpen || manageLoading)
                   }
+                  isManageLoading={managedPolicyId === p.policy_id && manageLoading}
                 />
               ))}
             </div>
@@ -262,7 +297,7 @@ export function PoliciesAdminPage() {
         </section>
       )}
 
-      {detail && (
+      {detail && detailPanelOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center">
           <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl">
             <div className="sticky top-0 flex items-center gap-3 border-b bg-white px-4 py-3">
@@ -288,11 +323,13 @@ export function PoliciesAdminPage() {
                 onClick={() => {
                   if (detail) {
                     setManagedPolicyId(detail.policy_id)
+                    setManageOpenedFromDetail(true)
+                    setDetailPanelOpen(false)
                     setManageChoiceOpen(true)
                   }
                 }}
                 className={cn(
-                  'w-full rounded-lg px-3 py-2.5 text-xs font-semibold shadow-sm transition sm:w-auto',
+                  'w-full rounded-lg px-3 py-2.5 text-xs font-semibold shadow-sm transition active:scale-[0.98] sm:w-auto',
                   manageChoiceOpen && managedPolicyId === detail?.policy_id
                     ? 'bg-emerald-600 text-white ring-2 ring-emerald-300'
                     : 'bg-slate-700 text-white hover:bg-slate-800'
@@ -342,44 +379,55 @@ export function PoliciesAdminPage() {
         </div>
       )}
 
-      {manageChoiceOpen && detail && (
+      {manageChoiceOpen && (
         <div className="fixed inset-0 z-[58] flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="mb-1 text-lg font-bold text-gray-900">정책 관리</h3>
-            <p className="mb-5 line-clamp-2 text-sm text-gray-600">{detail.title}</p>
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setManageChoiceOpen(false)
-                  setEditOpen(true)
-                }}
-                className="rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white shadow hover:bg-blue-700"
-              >
-                정책 수정하기
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setManageChoiceOpen(false)
-                  setPayOpen(true)
-                  setPaySearch('')
-                }}
-                className="rounded-xl bg-amber-500 py-3 text-sm font-semibold text-white shadow hover:bg-amber-600"
-              >
-                씨앗 지급 / 회수
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setManageChoiceOpen(false)
-                  setManagedPolicyId(null)
-                }}
-                className="rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                닫기
-              </button>
-            </div>
+            {manageLoading && !detail ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-10">
+                <span
+                  className="inline-block h-10 w-10 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent"
+                  aria-hidden
+                />
+                <p className="text-sm font-medium text-gray-700">정책을 불러오는 중…</p>
+              </div>
+            ) : detail ? (
+              <>
+                <h3 className="mb-1 text-lg font-bold text-gray-900">정책 관리</h3>
+                <p className="mb-5 line-clamp-2 text-sm text-gray-600">{detail.title}</p>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    disabled={manageLoading}
+                    onClick={() => {
+                      setManageChoiceOpen(false)
+                      setEditOpen(true)
+                    }}
+                    className="rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white shadow transition hover:bg-blue-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    정책 수정하기
+                  </button>
+                  <button
+                    type="button"
+                    disabled={manageLoading}
+                    onClick={() => {
+                      setManageChoiceOpen(false)
+                      setPayOpen(true)
+                      setPaySearch('')
+                    }}
+                    className="rounded-xl bg-amber-500 py-3 text-sm font-semibold text-white shadow transition hover:bg-amber-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    씨앗 지급 / 회수
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeManageChoice}
+                    className="rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 active:scale-[0.99]"
+                  >
+                    닫기
+                  </button>
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
       )}
@@ -469,8 +517,15 @@ export function PoliciesAdminPage() {
                 onClick={() => {
                   setEditOpen(false)
                   setManagedPolicyId(null)
+                  if (manageOpenedFromDetail) {
+                    setDetailPanelOpen(true)
+                    setManageOpenedFromDetail(false)
+                  } else {
+                    setDetail(null)
+                    setParts([])
+                  }
                 }}
-                className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium"
+                className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium transition active:scale-[0.99]"
               >
                 취소
               </button>
@@ -478,9 +533,16 @@ export function PoliciesAdminPage() {
                 type="button"
                 disabled={saving}
                 onClick={saveTeacherEdit}
-                className="flex-1 rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white"
+                className="flex-1 rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white transition active:scale-[0.98] disabled:opacity-70"
               >
-                저장
+                {saving ? (
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    저장 중…
+                  </span>
+                ) : (
+                  '저장'
+                )}
               </button>
             </div>
           </div>
@@ -547,8 +609,15 @@ export function PoliciesAdminPage() {
                 onClick={() => {
                   setPayOpen(false)
                   setManagedPolicyId(null)
+                  if (manageOpenedFromDetail) {
+                    setDetailPanelOpen(true)
+                    setManageOpenedFromDetail(false)
+                  } else {
+                    setDetail(null)
+                    setParts([])
+                  }
                 }}
-                className="flex-1 rounded border py-2"
+                className="flex-1 rounded border py-2 transition active:scale-[0.99]"
               >
                 취소
               </button>
@@ -556,9 +625,16 @@ export function PoliciesAdminPage() {
                 type="button"
                 disabled={saving}
                 onClick={applySeeds}
-                className="flex-1 rounded bg-amber-500 py-2 font-semibold text-white"
+                className="flex-1 rounded bg-amber-500 py-2 font-semibold text-white transition active:scale-[0.98] disabled:opacity-70"
               >
-                저장
+                {saving ? (
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    저장 중…
+                  </span>
+                ) : (
+                  '저장'
+                )}
               </button>
             </div>
           </div>
@@ -644,12 +720,14 @@ function PolicyCompactCard({
   onOpen,
   onManageClick,
   isManageActive,
+  isManageLoading,
 }: {
   policy: Policy
   classStudents: Student[]
   onOpen: () => void
   onManageClick: (e: MouseEvent) => void
   isManageActive: boolean
+  isManageLoading?: boolean
 }) {
   const cid = String(policy.creator_student_id ?? '').trim()
   const creator = classStudents.find((s) => String(s.student_id).trim() === cid)
@@ -664,7 +742,7 @@ function PolicyCompactCard({
     : ''
 
   return (
-    <div className="w-full max-w-[168px] justify-self-start">
+    <div className="w-full max-w-[220px] justify-self-start">
       <div className="flex flex-col rounded-xl border border-gray-100 bg-white p-1.5 shadow-sm">
         <button type="button" onClick={onOpen} className="flex gap-1.5 text-left">
           <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-gray-50">
@@ -736,15 +814,24 @@ function PolicyCompactCard({
         </button>
         <button
           type="button"
+          disabled={isManageLoading}
           onClick={onManageClick}
           className={cn(
-            'mt-1.5 w-full rounded-md py-1.5 text-[10px] font-semibold transition',
+            'mt-1.5 w-full rounded-md py-1.5 text-[10px] font-semibold transition active:scale-[0.97] disabled:cursor-wait',
             isManageActive
               ? 'bg-emerald-600 text-white shadow ring-2 ring-emerald-300 ring-offset-1'
-              : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+              : 'bg-gray-100 text-gray-800 hover:bg-gray-200',
+            isManageLoading && 'opacity-80'
           )}
         >
-          정책 관리하기
+          {isManageLoading ? (
+            <span className="inline-flex items-center justify-center gap-1.5">
+              <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              불러오는 중
+            </span>
+          ) : (
+            '정책 관리하기'
+          )}
         </button>
       </div>
     </div>
