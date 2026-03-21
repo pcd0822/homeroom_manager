@@ -2142,6 +2142,7 @@ function getPolicyTreeDashboard() {
     return a.total_seeds - b.total_seeds;
   });
   var lowPolicies = lowPol.slice(0, 5);
+  var allStudentsSorted = studentListFromMap(byStudent, true);
   return {
     success: true,
     data: {
@@ -2149,7 +2150,9 @@ function getPolicyTreeDashboard() {
       top_students: topStudents,
       lowest_students: lowStudents,
       top_policies: topPolicies,
-      lowest_policies: lowPolicies
+      lowest_policies: lowPolicies,
+      all_students: allStudentsSorted,
+      all_policies: policyArr
     }
   };
 }

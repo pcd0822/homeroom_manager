@@ -26,6 +26,8 @@ export function PoliciesAdminPage() {
   const [tab, setTab] = useState<'cards' | 'tree'>('cards')
   const [policies, setPolicies] = useState<Policy[]>([])
   const [tree, setTree] = useState<PolicyTreeDashboard | null>(null)
+  const [treeAllStudentsOpen, setTreeAllStudentsOpen] = useState(false)
+  const [treeAllPoliciesOpen, setTreeAllPoliciesOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
 
@@ -284,6 +286,11 @@ export function PoliciesAdminPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             <RankBox
               title="가장 참여가 많은 학생 Top5"
+              onViewAll={
+                tree.all_students && tree.all_students.length > 0
+                  ? () => setTreeAllStudentsOpen(true)
+                  : undefined
+              }
               items={tree.top_students.map((s) => ({
                 id: s.student_id,
                 name: s.student_name,
@@ -300,12 +307,126 @@ export function PoliciesAdminPage() {
                 photo: s.photo_data,
               }))}
             />
-            <PolicyRankBox title="참여도가 가장 높은 정책 Top5" policies={tree.top_policies} />
+            <PolicyRankBox
+              title="참여도가 가장 높은 정책 Top5"
+              onViewAll={
+                tree.all_policies && tree.all_policies.length > 0
+                  ? () => setTreeAllPoliciesOpen(true)
+                  : undefined
+              }
+              policies={tree.top_policies}
+            />
             <PolicyRankBox title="참여도가 가장 낮은 정책 Top5" policies={tree.lowest_policies} />
           </div>
 
           <PolicyTreeIllustration total={tree.total_seeds_class} />
         </section>
+      )}
+
+      {treeAllStudentsOpen && tree && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+          <div className="flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+              <h3 className="text-sm font-bold text-gray-900">학생별 씨앗 누적 (전체)</h3>
+              <button
+                type="button"
+                onClick={() => setTreeAllStudentsOpen(false)}
+                className="rounded p-2 text-gray-500 hover:bg-gray-100"
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="overflow-y-auto p-4">
+              <p className="mb-3 text-[11px] text-gray-500">
+                모든 정책에서 받은 씨앗을 합산한 누적 개수입니다. (많은 순)
+              </p>
+              <ul className="space-y-2">
+                {(tree.all_students ?? []).map((s, i) => (
+                  <li key={s.student_id} className="flex items-center gap-2 rounded-lg bg-gray-50 px-2 py-1.5">
+                    <span className="w-6 shrink-0 text-center text-[11px] font-bold text-amber-600">{i + 1}</span>
+                    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white">
+                      {s.photo_data ? (
+                        <img src={photoSrc(s.photo_data)} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
+                          {(s.student_name || '?').charAt(0)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium text-gray-900">{s.student_name}</p>
+                      <p className="text-[10px] text-gray-500">{s.student_id}</p>
+                    </div>
+                    <span className="text-sm font-bold text-emerald-600">{s.total_seeds}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="border-t border-gray-100 p-3">
+              <button
+                type="button"
+                onClick={() => setTreeAllStudentsOpen(false)}
+                className="w-full rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {treeAllPoliciesOpen && tree && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+          <div className="flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+              <h3 className="text-sm font-bold text-gray-900">정책별 누적 씨앗 (전체)</h3>
+              <button
+                type="button"
+                onClick={() => setTreeAllPoliciesOpen(false)}
+                className="rounded p-2 text-gray-500 hover:bg-gray-100"
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="overflow-y-auto p-4">
+              <p className="mb-3 text-[11px] text-gray-500">
+                각 정책에 기록된 씨앗 합계입니다. (많은 순)
+              </p>
+              <ul className="space-y-2">
+                {(tree.all_policies ?? []).map((p, i) => {
+                  const src = policyLogoSrc(p.logo_data || p.policy_logo_data)
+                  return (
+                    <li key={p.policy_id} className="flex items-center gap-2 rounded-lg bg-gray-50 px-2 py-1.5">
+                      <span className="w-6 shrink-0 text-center text-[11px] font-bold text-sky-600">{i + 1}</span>
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-white">
+                        {src ? (
+                          <img src={src} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-lg">🌱</div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-medium text-gray-900">{p.title}</p>
+                      </div>
+                      <span className="text-sm font-bold text-emerald-600">{p.total_seeds}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+            <div className="border-t border-gray-100 p-3">
+              <button
+                type="button"
+                onClick={() => setTreeAllPoliciesOpen(false)}
+                className="w-full rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {detail && detailPanelOpen && (
@@ -674,13 +795,26 @@ export function PoliciesAdminPage() {
 function RankBox({
   title,
   items,
+  onViewAll,
 }: {
   title: string
   items: Array<{ id: string; name: string; value: number; photo?: string }>
+  onViewAll?: () => void
 }) {
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-      <h3 className="mb-3 text-xs font-bold text-gray-800">{title}</h3>
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <h3 className="text-xs font-bold leading-snug text-gray-800">{title}</h3>
+        {onViewAll && (
+          <button
+            type="button"
+            onClick={onViewAll}
+            className="shrink-0 text-[10px] font-semibold text-emerald-700 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-900"
+          >
+            전체보기
+          </button>
+        )}
+      </div>
       <ul className="space-y-2">
         {items.map((s, i) => (
           <li key={s.id} className="flex items-center gap-2 rounded-lg bg-gray-50 px-2 py-1.5">
@@ -709,13 +843,26 @@ function RankBox({
 function PolicyRankBox({
   title,
   policies,
+  onViewAll,
 }: {
   title: string
   policies: Array<{ policy_id: string; title: string; total_seeds: number; logo_data?: string; policy_logo_data?: string }>
+  onViewAll?: () => void
 }) {
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-      <h3 className="mb-3 text-xs font-bold text-gray-800">{title}</h3>
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <h3 className="text-xs font-bold leading-snug text-gray-800">{title}</h3>
+        {onViewAll && (
+          <button
+            type="button"
+            onClick={onViewAll}
+            className="shrink-0 text-[10px] font-semibold text-emerald-700 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-900"
+          >
+            전체보기
+          </button>
+        )}
+      </div>
       <ul className="space-y-2">
         {policies.map((p, i) => {
           const src = policyLogoSrc(p.logo_data || p.policy_logo_data)

@@ -233,4 +233,20 @@ export interface PolicyTreeDashboard {
     logo_data?: string
     total_seeds: number
   }>
+  /** 정책 참여로 받은 씨앗 누적 — 학생 전체(다수→소수). GAS 최신 배포 시 포함 */
+  all_students?: Array<{
+    student_id: string
+    student_name: string
+    photo_data?: string
+    total_seeds: number
+  }>
+  /** 정책별 누적 씨앗 합계 — 전체(다수→소수). GAS 최신 배포 시 포함 */
+  all_policies?: Array<{
+    policy_id: string
+    title: string
+    policy_title?: string
+    policy_logo_data?: string
+    logo_data?: string
+    total_seeds: number
+  }>
 }
