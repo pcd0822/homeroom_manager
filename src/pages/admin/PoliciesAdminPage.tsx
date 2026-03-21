@@ -13,6 +13,7 @@ import { policyLogoSrc } from '@/lib/policyImage'
 import { compressImageFileToPolicyLogoDataUrl } from '@/lib/compressPolicyLogo'
 import { cn } from '@/lib/utils'
 import { existingSeedsFor } from '@/lib/policySeeds'
+import { PolicyTreeIllustration } from '@/components/PolicyTreeIllustration'
 
 const TEACHER_ACTOR = '__teacher__'
 
@@ -110,7 +111,7 @@ export function PoliciesAdminPage() {
     const p = await getPolicyParticipants(pid)
     if (d.success && d.data) {
       setDetail(d.data)
-      const list = p.success && p.data ? p.data : []
+      const list = (p.success && p.data ? p.data : []).filter((x) => Number(x.seeds_count) > 0)
       setParts(list)
       /* 씨앗 지급 모달은 '이번에 추가하는 학생'만 다룸 — openCard 시 빈 초기화 (저장된 내역은 목록에 안 띄움) */
       setDraft({})
@@ -864,32 +865,3 @@ function PolicyCompactCard({
   )
 }
 
-/** 나무 일러스트 이미지 + 성장도 바 (기하학적 클립 채움 대신) */
-function PolicyTreeIllustration({ total }: { total: number }) {
-  const max = 500
-  const ratio = Math.min(1, Math.max(0, total / max))
-  const fillPercent = Math.round(ratio * 100)
-  return (
-    <div className="rounded-3xl border-2 border-emerald-200 bg-gradient-to-b from-sky-50 to-emerald-50 p-6 text-center shadow-inner">
-      <h3 className="mb-4 text-sm font-bold text-emerald-900">🌳 정책 나무</h3>
-      <div className="relative mx-auto max-w-sm">
-        <img
-          src={`${import.meta.env.BASE_URL}tree-policy.svg`}
-          alt=""
-          className="mx-auto h-56 w-full max-w-xs object-contain drop-shadow-md"
-          style={{ filter: `saturate(${0.75 + ratio * 0.25})` }}
-        />
-      </div>
-      <div className="mx-auto mt-4 h-3 max-w-xs overflow-hidden rounded-full bg-emerald-100/90 ring-1 ring-emerald-200/80">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-emerald-600 via-green-500 to-lime-400 transition-[width] duration-500 ease-out"
-          style={{ width: `${fillPercent}%` }}
-        />
-      </div>
-      <p className="mt-3 text-xs text-emerald-800">
-        나무 성장도 <span className="font-semibold">{fillPercent}%</span> (목표 {max}개 중 {total}개)
-      </p>
-      <p className="mt-1 text-[10px] text-emerald-700/85">학급 씨앗이 모일수록 나무가 더 푸르게 보여요 🌱</p>
-    </div>
-  )
-}

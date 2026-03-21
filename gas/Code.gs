@@ -1970,6 +1970,7 @@ function getPolicyParticipants(policyId) {
     var sid = String(row[sCol] || '').trim();
     var sc = Number(row[cCol] || 0);
     if (isNaN(sc)) sc = 0;
+    if (sc <= 0) continue;
     list.push({
       student_id: sid,
       student_name: nameMap[sid] || '',
@@ -2006,16 +2007,22 @@ function setPolicySeeds(params) {
   if (cCol < 0) cCol = 2;
   var now = new Date().toISOString();
   var found = false;
+  var foundRow = -1;
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][pCol] || '').trim() === policyId && String(data[i][sCol] || '').trim() === studentId) {
-      var r = i + 1;
-      sheet.getRange(r, cCol + 1).setValue(newTotal);
-      sheet.getRange(r, uCol + 1).setValue(now);
       found = true;
+      foundRow = i + 1;
       break;
     }
   }
-  if (!found) {
+  if (found) {
+    if (newTotal <= 0) {
+      sheet.deleteRow(foundRow);
+    } else {
+      sheet.getRange(foundRow, cCol + 1).setValue(newTotal);
+      sheet.getRange(foundRow, uCol + 1).setValue(now);
+    }
+  } else if (newTotal > 0) {
     var last = sheet.getLastRow();
     sheet.getRange(last + 1, 1, 1, POLICY_SEEDS_HEADERS.length).setValues([[policyId, studentId, newTotal, now]]);
   }

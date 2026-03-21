@@ -42,6 +42,9 @@ export function StudentPoliciesPage() {
   const [seedSearch, setSeedSearch] = useState('')
   const [seedDraft, setSeedDraft] = useState<Record<string, number>>({})
   const [saving, setSaving] = useState(false)
+  const [detailOpening, setDetailOpening] = useState(false)
+  const [openingPolicyId, setOpeningPolicyId] = useState<string | null>(null)
+  const [loginLoading, setLoginLoading] = useState(false)
 
   const [eTitle, setETitle] = useState('')
   const [eGoal, setEGoal] = useState('')
@@ -104,19 +107,27 @@ export function StudentPoliciesPage() {
 
   const openDetail = useCallback(async (pid: string) => {
     setErr('')
-    const d = await getPolicyDetail(pid)
-    const p = await getPolicyParticipants(pid)
-    if (d.success && d.data) {
-      setDetail(d.data)
-      setParts(p.success && p.data ? p.data : [])
-      /* 씨앗 지급 모달은 매번 '새로 추가하는 학생'만 — 저장된 지급 내역은 모달에 채우지 않음 */
-      setSeedDraft({})
-      setETitle(d.data.title)
-      setEGoal(d.data.goal || '')
-      setEDesc(d.data.description || '')
-      setEExp(d.data.expected_effect || '')
-      setESeeds(Number(d.data.seeds_per_participation) || 0)
-      setELogo(d.data.logo_data || '')
+    setDetailOpening(true)
+    setOpeningPolicyId(pid)
+    try {
+      const d = await getPolicyDetail(pid)
+      const p = await getPolicyParticipants(pid)
+      if (d.success && d.data) {
+        setDetail(d.data)
+        const raw = p.success && p.data ? p.data : []
+        setParts(raw.filter((row) => Number(row.seeds_count) > 0))
+        /* 씨앗 지급 모달은 매번 '새로 추가하는 학생'만 — 저장된 지급 내역은 모달에 채우지 않음 */
+        setSeedDraft({})
+        setETitle(d.data.title)
+        setEGoal(d.data.goal || '')
+        setEDesc(d.data.description || '')
+        setEExp(d.data.expected_effect || '')
+        setESeeds(Number(d.data.seeds_per_participation) || 0)
+        setELogo(d.data.logo_data || '')
+      } else setErr(d.error || '불러오기 실패')
+    } finally {
+      setDetailOpening(false)
+      setOpeningPolicyId(null)
     }
   }, [])
 
@@ -135,15 +146,20 @@ export function StudentPoliciesPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setErr('')
-    const res = await authStudent(studentId.trim(), authCode.trim())
-    if (res.success && res.data) {
-      setName(res.data.name || '')
-      setLoggedIn(true)
-      localStorage.setItem(
-        LOGIN_KEY,
-        JSON.stringify({ student_id: studentId.trim(), auth_code: authCode.trim() })
-      )
-    } else setErr(res.error || '인증 실패')
+    setLoginLoading(true)
+    try {
+      const res = await authStudent(studentId.trim(), authCode.trim())
+      if (res.success && res.data) {
+        setName(res.data.name || '')
+        setLoggedIn(true)
+        localStorage.setItem(
+          LOGIN_KEY,
+          JSON.stringify({ student_id: studentId.trim(), auth_code: authCode.trim() })
+        )
+      } else setErr(res.error || '인증 실패')
+    } finally {
+      setLoginLoading(false)
+    }
   }
 
   /** API·시트에서 학번이 숫자로 올 수 있어 문자열로 통일 (데스크톱에서만 버튼이 안 보이는 현상 방지) */
@@ -261,8 +277,19 @@ export function StudentPoliciesPage() {
               onChange={(e) => setAuthCode(e.target.value)}
             />
             {err && <p className="text-xs text-red-600">{err}</p>}
-            <button type="submit" className="w-full rounded-lg bg-blue-600 py-2 text-white">
-              입장
+            <button
+              type="submit"
+              disabled={loginLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2 text-white transition active:scale-[0.99] disabled:opacity-70"
+            >
+              {loginLoading ? (
+                <>
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  확인 중…
+                </>
+              ) : (
+                '입장'
+              )}
             </button>
           </form>
           <Link to="/student/dashboard" className="mt-3 block text-center text-xs text-blue-600">
@@ -311,28 +338,36 @@ export function StudentPoliciesPage() {
               <p className="text-sm text-gray-600">등록된 정책이 없습니다. 정책 등록 링크로 새로 등록해 보세요.</p>
             ) : (
               <ul className="space-y-3">
-                {policies.map((p) => (
-                  <li key={p.policy_id}>
-                    <button
-                      type="button"
-                      onClick={() => openDetail(p.policy_id)}
-                      className="flex w-full items-center gap-3 rounded-2xl border border-white bg-white p-3 text-left shadow-md transition hover:ring-2 hover:ring-emerald-200"
-                    >
-                      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gray-100">
-                        {policyLogoSrc(p.logo_data) ? (
-                          <img src={policyLogoSrc(p.logo_data)} alt="" className="h-full w-full object-cover" />
+                {policies.map((p) => {
+                  const opening = detailOpening && openingPolicyId === p.policy_id
+                  return (
+                    <li key={p.policy_id}>
+                      <button
+                        type="button"
+                        disabled={detailOpening}
+                        onClick={() => void openDetail(p.policy_id)}
+                        className="flex w-full items-center gap-3 rounded-2xl border border-white bg-white p-3 text-left shadow-md transition hover:ring-2 hover:ring-emerald-200 disabled:opacity-70"
+                      >
+                        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                          {policyLogoSrc(p.logo_data) ? (
+                            <img src={policyLogoSrc(p.logo_data)} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-2xl">🌱</div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold text-gray-900">{p.title}</p>
+                          <p className="truncate text-[11px] text-gray-500">{p.goal}</p>
+                        </div>
+                        {opening ? (
+                          <span className="inline-block h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-2xl">🌱</div>
+                          <span className="text-gray-300">›</span>
                         )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-semibold text-gray-900">{p.title}</p>
-                        <p className="truncate text-[11px] text-gray-500">{p.goal}</p>
-                      </div>
-                      <span className="text-gray-300">›</span>
-                    </button>
-                  </li>
-                ))}
+                      </button>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </>
@@ -342,14 +377,24 @@ export function StudentPoliciesPage() {
           <div className="space-y-4">
             <button
               type="button"
+              disabled={detailOpening}
               onClick={() => {
                 setDetail(null)
                 setParts([])
               }}
-              className="text-xs text-blue-600"
+              className="text-xs text-blue-600 disabled:opacity-50"
             >
               ← 목록으로
             </button>
+            {detailOpening && (
+              <p className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 ring-1 ring-emerald-100">
+                <span
+                  className="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent"
+                  aria-hidden
+                />
+                정책 정보를 불러오는 중…
+              </p>
+            )}
 
             <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
@@ -371,19 +416,21 @@ export function StudentPoliciesPage() {
                 <div className="relative z-10 mt-3 flex w-full min-w-0 flex-col gap-2 border-t border-emerald-100/80 pt-3 sm:flex-row sm:flex-wrap">
                   <button
                     type="button"
+                    disabled={detailOpening || saving}
                     onClick={() => setEditOpen(true)}
-                    className="inline-flex min-h-[2.5rem] shrink-0 items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition active:scale-[0.98] sm:w-auto"
+                    className="inline-flex min-h-[2.5rem] shrink-0 items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60 sm:w-auto"
                   >
                     정책 수정하기
                   </button>
                   <button
                     type="button"
+                    disabled={detailOpening || saving}
                     onClick={() => {
                       setSeedDraft({})
                       setScatterOpen(true)
                       setSeedSearch('')
                     }}
-                    className="inline-flex min-h-[2.5rem] shrink-0 items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition active:scale-[0.98] sm:w-auto"
+                    className="inline-flex min-h-[2.5rem] shrink-0 items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60 sm:w-auto"
                   >
                     씨앗 지급하기
                   </button>
