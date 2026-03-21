@@ -108,11 +108,8 @@ export function StudentPoliciesPage() {
     if (d.success && d.data) {
       setDetail(d.data)
       setParts(p.success && p.data ? p.data : [])
-      const draft: Record<string, number> = {}
-      ;(p.data || []).forEach((x) => {
-        draft[x.student_id] = x.seeds_count
-      })
-      setSeedDraft(draft)
+      /* 씨앗 지급 모달은 매번 '새로 추가하는 학생'만 — 저장된 지급 내역은 모달에 채우지 않음 */
+      setSeedDraft({})
       setETitle(d.data.title)
       setEGoal(d.data.goal || '')
       setEDesc(d.data.description || '')
@@ -183,8 +180,14 @@ export function StudentPoliciesPage() {
 
   const saveScatter = async () => {
     if (!detail) return
+    const entries = Object.entries(seedDraft)
+    if (entries.length === 0) {
+      setErr('이번에 지급할 학생을 한 명 이상 추가해 주세요.')
+      return
+    }
+    setErr('')
     setSaving(true)
-    const items = Object.entries(seedDraft).map(([sid, seeds_count]) => ({ student_id: sid, seeds_count }))
+    const items = entries.map(([sid, seeds_count]) => ({ student_id: sid, seeds_count }))
     const res = await batchSetPolicySeeds({
       policy_id: detail.policy_id,
       items,
@@ -198,19 +201,25 @@ export function StudentPoliciesPage() {
   }
 
   const addStudentToSeeds = (sid: string) => {
-    if (!seedDraft[sid]) setSeedDraft((d) => ({ ...d, [sid]: detail?.seeds_per_participation || 0 }))
+    const k = String(sid).trim()
+    if (seedDraft[k] === undefined)
+      setSeedDraft((d) => ({ ...d, [k]: detail?.seeds_per_participation || 0 }))
   }
 
   const filteredForScatter = useMemo(() => {
     const q = seedSearch.trim().toLowerCase()
     const draftKeys = new Set(Object.keys(seedDraft).map(String))
-    const base = students.filter((s) => !draftKeys.has(String(s.student_id)))
+    const alreadySeededIds = new Set(parts.map((p) => String(p.student_id).trim()))
+    const base = students.filter((s) => {
+      const sid = String(s.student_id).trim()
+      return !draftKeys.has(sid) && !alreadySeededIds.has(sid)
+    })
     if (!q) return base
     return base.filter(
       (s) =>
         String(s.student_id).toLowerCase().includes(q) || (s.name || '').toLowerCase().includes(q)
     )
-  }, [students, seedDraft, seedSearch])
+  }, [students, seedDraft, seedSearch, parts])
 
   if (!sessionChecked) {
     return (
@@ -364,6 +373,7 @@ export function StudentPoliciesPage() {
                   <button
                     type="button"
                     onClick={() => {
+                      setSeedDraft({})
                       setScatterOpen(true)
                       setSeedSearch('')
                     }}
@@ -532,7 +542,8 @@ export function StudentPoliciesPage() {
             <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4 shadow-xl">
               <h3 className="mb-2 font-bold">씨앗 지급하기</h3>
               <p className="mb-3 text-[11px] text-gray-500">
-                학생별 누적 씨앗 수를 입력하고 저장합니다. 새 학생을 추가하려면 아래에서 선택하세요.
+                이미 지급·저장된 학생은 여기에 나오지 않습니다. <span className="font-semibold text-gray-700">새로 지급할 학생만</span>{' '}
+                검색해 추가한 뒤 수량을 입력하고 저장하세요.
               </p>
               <input
                 type="search"
@@ -575,6 +586,11 @@ export function StudentPoliciesPage() {
                   )
                 })}
               </div>
+              {Object.keys(seedDraft).length === 0 && (
+                <p className="mt-2 text-xs text-gray-400">
+                  아래 목록에서 학생을 추가하세요. (이 정책에 이미 씨앗이 기록된 학생은 선택할 수 없습니다.)
+                </p>
+              )}
               <div className="mt-4 flex gap-2">
                 <button
                   type="button"
@@ -585,7 +601,7 @@ export function StudentPoliciesPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={saving}
+                  disabled={saving || Object.keys(seedDraft).length === 0}
                   onClick={saveScatter}
                   className="flex-1 rounded bg-emerald-600 py-2 text-sm font-semibold text-white transition active:scale-[0.98] disabled:opacity-70"
                 >

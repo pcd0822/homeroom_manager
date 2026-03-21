@@ -71,17 +71,23 @@ export function PoliciesAdminPage() {
     })
   }, [])
 
+  /** 이미 이 정책에 씨앗이 기록된 학생은 '추가 지급' 후보에서 제외 (새로 지급할 학생만 선택) */
   const payAddCandidates = useMemo(() => {
     const q = paySearch.trim().toLowerCase()
-    const ids = new Set(Object.keys(draft))
-    let list = classStudents.filter((s) => !ids.has(s.student_id))
+    const draftIds = new Set(Object.keys(draft).map(String))
+    const alreadySeededIds = new Set(parts.map((p) => String(p.student_id).trim()))
+    let list = classStudents.filter((s) => {
+      const sid = String(s.student_id).trim()
+      return !draftIds.has(sid) && !alreadySeededIds.has(sid)
+    })
     if (q) {
       list = list.filter(
-        (s) => s.student_id.toLowerCase().includes(q) || (s.name || '').toLowerCase().includes(q)
+        (s) =>
+          String(s.student_id).toLowerCase().includes(q) || (s.name || '').toLowerCase().includes(q)
       )
     }
     return list.slice(0, 25)
-  }, [classStudents, draft, paySearch])
+  }, [classStudents, draft, paySearch, parts])
 
   const openPolicyManage = async (pid: string) => {
     setErr('')
@@ -106,11 +112,8 @@ export function PoliciesAdminPage() {
       setDetail(d.data)
       const list = p.success && p.data ? p.data : []
       setParts(list)
-      const dr: Record<string, number> = {}
-      list.forEach((x) => {
-        dr[x.student_id] = x.seeds_count
-      })
-      setDraft(dr)
+      /* 씨앗 지급 모달은 '이번에 추가하는 학생'만 다룸 — openCard 시 빈 초기화 (저장된 내역은 목록에 안 띄움) */
+      setDraft({})
       setETitle(d.data.title)
       setEGoal(d.data.goal || '')
       setEDesc(d.data.description || '')
@@ -154,6 +157,11 @@ export function PoliciesAdminPage() {
 
   const applySeeds = async () => {
     if (!detail) return
+    if (Object.keys(draft).length === 0) {
+      setErr('이번에 지급할 학생을 한 명 이상 추가해 주세요.')
+      return
+    }
+    setErr('')
     setSaving(true)
     for (const sid of Object.keys(draft)) {
       const r = await setPolicySeeds({
@@ -411,6 +419,7 @@ export function PoliciesAdminPage() {
                     disabled={manageLoading}
                     onClick={() => {
                       setManageChoiceOpen(false)
+                      setDraft({})
                       setPayOpen(true)
                       setPaySearch('')
                     }}
@@ -553,7 +562,11 @@ export function PoliciesAdminPage() {
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
           <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4">
             <h3 className="mb-2 font-bold">씨앗 지급 · 회수</h3>
-            <p className="mb-3 text-[11px] text-gray-500">학생별 씨앗 수를 숫자로 수정한 뒤 저장합니다. 새 학생을 아래에서 추가할 수 있습니다.</p>
+            <p className="mb-3 text-[11px] text-gray-500">
+              이미 지급·저장된 학생은 여기에 표시되지 않습니다.{' '}
+              <span className="font-semibold text-gray-700">새로 지급할 학생만</span> 검색해 추가한 뒤
+              수량을 입력하고 저장하세요.
+            </p>
             <input
               type="search"
               placeholder="학생 검색 후 추가"
@@ -566,12 +579,13 @@ export function PoliciesAdminPage() {
                 <button
                   key={s.student_id}
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    const sid = String(s.student_id).trim()
                     setDraft((d) => ({
                       ...d,
-                      [s.student_id]: Math.max(0, Number(detail.seeds_per_participation) || 0),
+                      [sid]: Math.max(0, Number(detail.seeds_per_participation) || 0),
                     }))
-                  }
+                  }}
                   className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-[11px] hover:bg-amber-50"
                 >
                   <span className="font-medium">{s.name}</span>
@@ -601,7 +615,9 @@ export function PoliciesAdminPage() {
               })}
             </div>
             {Object.keys(draft).length === 0 && (
-              <p className="text-xs text-gray-400">씨앗 기록이 있는 학생이 없습니다. 학생 화면에서 먼저 씨앗이 지급되면 표시됩니다.</p>
+              <p className="text-xs text-gray-400">
+                아래에서 학생을 검색해 추가하세요. (이미 이 정책에 씨앗이 기록된 학생은 목록에 나오지 않습니다.)
+              </p>
             )}
             <div className="mt-4 flex gap-2">
               <button
@@ -623,7 +639,7 @@ export function PoliciesAdminPage() {
               </button>
               <button
                 type="button"
-                disabled={saving}
+                disabled={saving || Object.keys(draft).length === 0}
                 onClick={applySeeds}
                 className="flex-1 rounded bg-amber-500 py-2 font-semibold text-white transition active:scale-[0.98] disabled:opacity-70"
               >
@@ -742,24 +758,24 @@ function PolicyCompactCard({
     : ''
 
   return (
-    <div className="w-full max-w-[220px] justify-self-start">
-      <div className="flex flex-col rounded-xl border border-gray-100 bg-white p-1.5 shadow-sm">
-        <button type="button" onClick={onOpen} className="flex gap-1.5 text-left">
-          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-gray-50">
+    <div className="w-full max-w-[330px] justify-self-start">
+      <div className="flex flex-col rounded-xl border border-gray-100 bg-white p-2.5 shadow-sm">
+        <button type="button" onClick={onOpen} className="flex gap-2 text-left">
+          <div className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-xl bg-gray-50">
             {logo ? (
               <img src={logo} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-base">🌱</div>
+              <div className="flex h-full w-full items-center justify-center text-2xl">🌱</div>
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="line-clamp-2 text-[11px] font-bold leading-tight text-gray-900">{policy.title}</p>
-            <p className="line-clamp-2 text-[9px] leading-tight text-gray-500">{policy.goal || '\u00A0'}</p>
-            <div className="mt-1 flex flex-wrap items-center gap-x-1 gap-y-0.5">
-              <span className="shrink-0 text-[9px] text-gray-400">등록</span>
+            <p className="line-clamp-2 text-[13px] font-bold leading-tight text-gray-900">{policy.title}</p>
+            <p className="line-clamp-2 text-[10px] leading-tight text-gray-500">{policy.goal || '\u00A0'}</p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+              <span className="shrink-0 text-[10px] text-gray-400">등록</span>
               {creator ? (
                 <span
-                  className="inline-flex h-6 w-6 shrink-0 cursor-default overflow-hidden rounded-full bg-gray-100 ring-1 ring-gray-200"
+                  className="inline-flex h-9 w-9 shrink-0 cursor-default overflow-hidden rounded-full bg-gray-100 ring-2 ring-gray-200"
                   title={creatorTooltip}
                 >
                   {creator.photo_data ? (
@@ -771,7 +787,7 @@ function PolicyCompactCard({
                     />
                   ) : (
                     <span
-                      className="flex h-full w-full items-center justify-center text-[8px] font-medium text-gray-500"
+                      className="flex h-full w-full items-center justify-center text-[11px] font-medium text-gray-500"
                       title={creatorTooltip}
                     >
                       {(creator.name || '?').charAt(0)}
@@ -779,26 +795,26 @@ function PolicyCompactCard({
                   )}
                 </span>
               ) : (
-                <span className="text-[9px] text-gray-500" title={creatorTooltip}>
+                <span className="text-[10px] text-gray-500" title={creatorTooltip}>
                   {cid || '?'}
                 </span>
               )}
               {co.length > 0 && (
                 <>
-                  <span className="shrink-0 text-[9px] text-gray-400">·공동</span>
+                  <span className="shrink-0 text-[10px] text-gray-400">·공동</span>
                   {co.map((s) => {
                     const tip = `${s.name} (${String(s.student_id)})`
                     return (
                       <span
                         key={s.student_id}
-                        className="inline-flex h-6 w-6 shrink-0 cursor-default overflow-hidden rounded-full bg-gray-100 ring-1 ring-white"
+                        className="inline-flex h-9 w-9 shrink-0 cursor-default overflow-hidden rounded-full bg-gray-100 ring-2 ring-white"
                         title={tip}
                       >
                         {s.photo_data ? (
                           <img src={photoSrc(s.photo_data)} alt="" title={tip} className="h-full w-full object-cover" />
                         ) : (
                           <span
-                            className="flex h-full w-full items-center justify-center text-[8px] font-medium text-gray-500"
+                            className="flex h-full w-full items-center justify-center text-[11px] font-medium text-gray-500"
                             title={tip}
                           >
                             {(s.name || '?').charAt(0)}
@@ -817,7 +833,7 @@ function PolicyCompactCard({
           disabled={isManageLoading}
           onClick={onManageClick}
           className={cn(
-            'mt-1.5 w-full rounded-md py-1.5 text-[10px] font-semibold transition active:scale-[0.97] disabled:cursor-wait',
+            'mt-2 w-full rounded-lg py-2 text-[11px] font-semibold transition active:scale-[0.97] disabled:cursor-wait',
             isManageActive
               ? 'bg-emerald-600 text-white shadow ring-2 ring-emerald-300 ring-offset-1'
               : 'bg-gray-100 text-gray-800 hover:bg-gray-200',
