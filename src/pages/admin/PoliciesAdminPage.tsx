@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState, type MouseEvent } from 'react'
+import { useEffect, useMemo, useState, type MouseEvent } from 'react'
 import {
   getPolicies,
   getPolicyDetail,
@@ -12,6 +12,7 @@ import type { Policy, PolicyParticipant, PolicyTreeDashboard, Student } from '@/
 import { policyLogoSrc } from '@/lib/policyImage'
 import { compressImageFileToPolicyLogoDataUrl } from '@/lib/compressPolicyLogo'
 import { cn } from '@/lib/utils'
+import { existingSeedsFor } from '@/lib/policySeeds'
 
 const TEACHER_ACTOR = '__teacher__'
 
@@ -71,14 +72,13 @@ export function PoliciesAdminPage() {
     })
   }, [])
 
-  /** 이미 이 정책에 씨앗이 기록된 학생은 '추가 지급' 후보에서 제외 (새로 지급할 학생만 선택) */
+  /** 이번 회차 목록에 아직 넣지 않은 학생만 (이미 지급 이력이 있어도 다시 추가 가능 — 독립 시행) */
   const payAddCandidates = useMemo(() => {
     const q = paySearch.trim().toLowerCase()
     const draftIds = new Set(Object.keys(draft).map(String))
-    const alreadySeededIds = new Set(parts.map((p) => String(p.student_id).trim()))
     let list = classStudents.filter((s) => {
       const sid = String(s.student_id).trim()
-      return !draftIds.has(sid) && !alreadySeededIds.has(sid)
+      return !draftIds.has(sid)
     })
     if (q) {
       list = list.filter(
@@ -87,7 +87,7 @@ export function PoliciesAdminPage() {
       )
     }
     return list.slice(0, 25)
-  }, [classStudents, draft, paySearch, parts])
+  }, [classStudents, draft, paySearch])
 
   const openPolicyManage = async (pid: string) => {
     setErr('')
@@ -164,10 +164,12 @@ export function PoliciesAdminPage() {
     setErr('')
     setSaving(true)
     for (const sid of Object.keys(draft)) {
+      const increment = Math.max(0, Number(draft[sid]) || 0)
+      const prev = existingSeedsFor(sid, parts)
       const r = await setPolicySeeds({
         policy_id: detail.policy_id,
         student_id: sid,
-        seeds_count: draft[sid],
+        seeds_count: prev + increment,
         actor_student_id: TEACHER_ACTOR,
         is_teacher: true,
       })
@@ -563,9 +565,9 @@ export function PoliciesAdminPage() {
           <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4">
             <h3 className="mb-2 font-bold">씨앗 지급 · 회수</h3>
             <p className="mb-3 text-[11px] text-gray-500">
-              이미 지급·저장된 학생은 여기에 표시되지 않습니다.{' '}
-              <span className="font-semibold text-gray-700">새로 지급할 학생만</span> 검색해 추가한 뒤
-              수량을 입력하고 저장하세요.
+              회차마다 독립적으로 지급합니다. 학생을 추가한 뒤{' '}
+              <span className="font-semibold text-gray-700">이번에 더할 씨앗 수</span>를 입력하면, 저장 시{' '}
+              <span className="font-semibold text-emerald-800">기존 누적에 더해집니다</span>.
             </p>
             <input
               type="search"
@@ -596,28 +598,36 @@ export function PoliciesAdminPage() {
             </div>
             <div className="max-h-64 space-y-2 overflow-y-auto">
               {Object.keys(draft).map((sid) => {
-                const row = parts.find((p) => p.student_id === sid)
-                const st = classStudents.find((x) => x.student_id === sid)
+                const row = parts.find((p) => String(p.student_id).trim() === String(sid).trim())
+                const st = classStudents.find((x) => String(x.student_id).trim() === String(sid).trim())
+                const prev = existingSeedsFor(sid, parts)
                 return (
-                  <div key={sid} className="flex items-center gap-2 text-xs">
-                    <span className="flex-1 truncate">{row?.student_name || st?.name || sid}</span>
-                    <input
-                      type="number"
-                      min={0}
-                      className="w-24 rounded border px-2 py-1"
-                      value={draft[sid]}
-                      onChange={(e) =>
-                        setDraft((d) => ({ ...d, [sid]: Math.max(0, Number(e.target.value) || 0) }))
-                      }
-                    />
+                  <div key={sid} className="rounded-lg border border-amber-100 bg-amber-50/50 px-2 py-1.5 text-xs">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="truncate font-medium text-gray-900">{row?.student_name || st?.name || sid}</span>
+                      {prev > 0 && (
+                        <span className="shrink-0 text-[10px] text-gray-600">누적 {prev}개</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-16 shrink-0 text-[10px] text-gray-600">이번 지급</span>
+                      <input
+                        type="number"
+                        min={0}
+                        className="w-24 rounded border border-amber-200 bg-white px-2 py-1"
+                        value={draft[sid]}
+                        onChange={(e) =>
+                          setDraft((d) => ({ ...d, [sid]: Math.max(0, Number(e.target.value) || 0) }))
+                        }
+                      />
+                      <span className="text-[10px] text-gray-500">→ 저장 후 {prev + (Number(draft[sid]) || 0)}개</span>
+                    </div>
                   </div>
                 )
               })}
             </div>
             {Object.keys(draft).length === 0 && (
-              <p className="text-xs text-gray-400">
-                아래에서 학생을 검색해 추가하세요. (이미 이 정책에 씨앗이 기록된 학생은 목록에 나오지 않습니다.)
-              </p>
+              <p className="text-xs text-gray-400">학생을 검색해 추가하세요. (기존에 지급한 학생도 다시 추가할 수 있습니다.)</p>
             )}
             <div className="mt-4 flex gap-2">
               <button
@@ -854,58 +864,32 @@ function PolicyCompactCard({
   )
 }
 
-/** 총 씨앗 500일 때 나무가 가득 차도록, 아래에서 위로 채움 */
+/** 나무 일러스트 이미지 + 성장도 바 (기하학적 클립 채움 대신) */
 function PolicyTreeIllustration({ total }: { total: number }) {
-  const uid = useId().replace(/:/g, '')
   const max = 500
   const ratio = Math.min(1, Math.max(0, total / max))
   const fillPercent = Math.round(ratio * 100)
   return (
-    <div className="rounded-3xl border-2 border-emerald-200 bg-gradient-to-b from-sky-50 to-emerald-50 p-8 text-center shadow-inner">
+    <div className="rounded-3xl border-2 border-emerald-200 bg-gradient-to-b from-sky-50 to-emerald-50 p-6 text-center shadow-inner">
       <h3 className="mb-4 text-sm font-bold text-emerald-900">🌳 정책 나무</h3>
-      <div className="relative mx-auto w-52">
-        <svg viewBox="0 0 200 240" className="h-64 w-full drop-shadow-md">
-          <defs>
-            <linearGradient id={`${uid}-treeFill`} x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor="#34d399" />
-              <stop offset="100%" stopColor="#6ee7b7" />
-            </linearGradient>
-            <clipPath id={`${uid}-foliageClip`}>
-              <rect x="0" y={200 - 165 * ratio} width="200" height="200" />
-            </clipPath>
-            <clipPath id={`${uid}-trunkClip`}>
-              <rect x="86" y={200 - 62 * ratio} width="28" height={62 * ratio} />
-            </clipPath>
-          </defs>
-          <ellipse cx="100" cy="228" rx="70" ry="12" fill="#bbf7d0" opacity="0.8" />
-          {/* 줄기 테두리 */}
-          <rect x="86" y="138" width="28" height="62" rx="6" fill="none" stroke="#065f46" strokeWidth="3" />
-          {/* 줄기 채움 */}
-          <rect x="86" y="138" width="28" height="62" rx="6" fill="#10b981" clipPath={`url(#${uid}-trunkClip)`} />
-          {/* 수관 테두리 */}
-          <path
-            d="M100 38 C38 38 18 98 48 128 C28 148 38 188 100 200 C162 188 172 148 152 128 C182 98 162 38 100 38 Z"
-            fill="none"
-            stroke="#047857"
-            strokeWidth="3"
-          />
-          {/* 수관 채움 */}
-          <path
-            d="M100 38 C38 38 18 98 48 128 C28 148 38 188 100 200 C162 188 172 148 152 128 C182 98 162 38 100 38 Z"
-            fill={`url(#${uid}-treeFill)`}
-            fillOpacity="0.9"
-            clipPath={`url(#${uid}-foliageClip)`}
-          />
-          <circle cx="100" cy="108" r="9" fill="#fef3c7" />
-          <circle cx="96" cy="106" r="1.5" fill="#1f2937" />
-          <circle cx="104" cy="106" r="1.5" fill="#1f2937" />
-          <path d="M96 112 Q100 116 104 112" fill="none" stroke="#1f2937" strokeWidth="1" />
-        </svg>
+      <div className="relative mx-auto max-w-sm">
+        <img
+          src={`${import.meta.env.BASE_URL}tree-policy.svg`}
+          alt=""
+          className="mx-auto h-56 w-full max-w-xs object-contain drop-shadow-md"
+          style={{ filter: `saturate(${0.75 + ratio * 0.25})` }}
+        />
       </div>
-      <p className="mt-2 text-xs text-emerald-800">
-        나무 성장도 <strong>{fillPercent}%</strong> (목표 {max}개 중 {total}개)
+      <div className="mx-auto mt-4 h-3 max-w-xs overflow-hidden rounded-full bg-emerald-100/90 ring-1 ring-emerald-200/80">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-emerald-600 via-green-500 to-lime-400 transition-[width] duration-500 ease-out"
+          style={{ width: `${fillPercent}%` }}
+        />
+      </div>
+      <p className="mt-3 text-xs text-emerald-800">
+        나무 성장도 <span className="font-semibold">{fillPercent}%</span> (목표 {max}개 중 {total}개)
       </p>
-      <p className="mt-1 text-[10px] text-emerald-700/80">씨앗이 모일수록 나무가 아래에서 위로 푸르게 자라요 🌱</p>
+      <p className="mt-1 text-[10px] text-emerald-700/85">학급 씨앗이 모일수록 나무가 더 푸르게 보여요 🌱</p>
     </div>
   )
 }

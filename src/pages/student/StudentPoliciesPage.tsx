@@ -12,6 +12,7 @@ import {
 } from '@/api/api'
 import type { Policy, PolicyParticipant, Student } from '@/types'
 import { policyLogoSrc } from '@/lib/policyImage'
+import { existingSeedsFor } from '@/lib/policySeeds'
 
 const LOGIN_KEY = 'homeroom_login'
 
@@ -187,7 +188,13 @@ export function StudentPoliciesPage() {
     }
     setErr('')
     setSaving(true)
-    const items = entries.map(([sid, seeds_count]) => ({ student_id: sid, seeds_count }))
+    const items = entries.map(([sid, inc]) => {
+      const prev = existingSeedsFor(sid, parts)
+      return {
+        student_id: sid,
+        seeds_count: prev + Math.max(0, Number(inc) || 0),
+      }
+    })
     const res = await batchSetPolicySeeds({
       policy_id: detail.policy_id,
       items,
@@ -209,17 +216,16 @@ export function StudentPoliciesPage() {
   const filteredForScatter = useMemo(() => {
     const q = seedSearch.trim().toLowerCase()
     const draftKeys = new Set(Object.keys(seedDraft).map(String))
-    const alreadySeededIds = new Set(parts.map((p) => String(p.student_id).trim()))
     const base = students.filter((s) => {
       const sid = String(s.student_id).trim()
-      return !draftKeys.has(sid) && !alreadySeededIds.has(sid)
+      return !draftKeys.has(sid)
     })
     if (!q) return base
     return base.filter(
       (s) =>
         String(s.student_id).toLowerCase().includes(q) || (s.name || '').toLowerCase().includes(q)
     )
-  }, [students, seedDraft, seedSearch, parts])
+  }, [students, seedDraft, seedSearch])
 
   if (!sessionChecked) {
     return (
@@ -542,8 +548,8 @@ export function StudentPoliciesPage() {
             <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4 shadow-xl">
               <h3 className="mb-2 font-bold">씨앗 지급하기</h3>
               <p className="mb-3 text-[11px] text-gray-500">
-                이미 지급·저장된 학생은 여기에 나오지 않습니다. <span className="font-semibold text-gray-700">새로 지급할 학생만</span>{' '}
-                검색해 추가한 뒤 수량을 입력하고 저장하세요.
+                회차마다 독립적으로 지급합니다. <span className="font-semibold text-gray-800">이번에 더할 씨앗</span>을 입력하면 저장 시{' '}
+                <span className="font-semibold text-emerald-800">기존 누적에 더해집니다</span>. 이미 지급한 학생도 다시 추가할 수 있습니다.
               </p>
               <input
                 type="search"
@@ -569,26 +575,34 @@ export function StudentPoliciesPage() {
               <div className="space-y-2">
                 {Object.keys(seedDraft).map((sid) => {
                   const st = students.find((x) => String(x.student_id) === String(sid))
+                  const prev = existingSeedsFor(sid, parts)
+                  const inc = Math.max(0, Number(seedDraft[sid]) || 0)
                   return (
-                    <div key={sid} className="flex items-center gap-2 text-xs">
-                      <span className="w-24 truncate font-medium">{st?.name || sid}</span>
-                      <input
-                        type="number"
-                        min={0}
-                        className="w-24 rounded border px-2 py-1"
-                        value={seedDraft[sid]}
-                        onChange={(e) =>
-                          setSeedDraft((d) => ({ ...d, [sid]: Math.max(0, Number(e.target.value) || 0) }))
-                        }
-                      />
-                      <span className="text-gray-400">씨앗</span>
+                    <div key={sid} className="rounded-lg border border-emerald-100 bg-emerald-50/40 px-2 py-1.5 text-xs">
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <span className="truncate font-medium text-gray-900">{st?.name || sid}</span>
+                        {prev > 0 && <span className="shrink-0 text-[10px] text-gray-600">누적 {prev}개</span>}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] text-gray-600">이번 지급</span>
+                        <input
+                          type="number"
+                          min={0}
+                          className="w-24 rounded border border-emerald-200 bg-white px-2 py-1"
+                          value={seedDraft[sid]}
+                          onChange={(e) =>
+                            setSeedDraft((d) => ({ ...d, [sid]: Math.max(0, Number(e.target.value) || 0) }))
+                          }
+                        />
+                        <span className="text-[10px] text-gray-500">→ 저장 후 {prev + inc}개</span>
+                      </div>
                     </div>
                   )
                 })}
               </div>
               {Object.keys(seedDraft).length === 0 && (
                 <p className="mt-2 text-xs text-gray-400">
-                  아래 목록에서 학생을 추가하세요. (이 정책에 이미 씨앗이 기록된 학생은 선택할 수 없습니다.)
+                  아래에서 학생을 검색해 추가하세요. (기존에 지급한 학생도 다시 추가할 수 있습니다.)
                 </p>
               )}
               <div className="mt-4 flex gap-2">
