@@ -143,6 +143,20 @@ export function AdminLayout() {
               급식알림판
             </NavLink>
             <NavLink
+              to="/admin/policies"
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                )
+              }
+            >
+              <SproutIcon className="h-5 w-5 shrink-0" />
+              학급 정책 · 씨앗
+            </NavLink>
+            <NavLink
               to="/admin/cleaning-zones"
               className={({ isActive }) =>
                 cn(
@@ -294,6 +308,19 @@ function MealIcon({ className }: { className?: string }) {
       {/* 게시판 내용 라인 */}
       <path d="M8 10h8" />
       <path d="M8 13h5" />
+    </svg>
+  )
+}
+
+function SproutIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 22v-6m0 0c-2-3-6-4-6-9a6 6 0 0112 0c0 5-4 6-6 9z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 10h.01M15 10h.01" />
     </svg>
   )
 }

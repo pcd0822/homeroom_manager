@@ -29,7 +29,9 @@ var SHEETS = {
   CLEANING_HELPER: 'CleaningHelper',
   NIGHT_STUDY: 'NightStudy',
   NIGHT_STUDY_MESSAGES: 'NightStudyMessages',
-  CLASS_GAME_SCORES: 'ClassGameScores'
+  CLASS_GAME_SCORES: 'ClassGameScores',
+  POLICIES: 'Policies',
+  POLICY_SEEDS: 'PolicySeeds'
 };
 
 // 생기부 record 시트 헤더 (순서 유지)
@@ -201,6 +203,30 @@ function handleRequest(e, method) {
         break;
       case 'GET_CLASS_GAME_RANKING':
         result = getClassGameRanking(params.game_id, params.limit);
+        break;
+      case 'SAVE_POLICY':
+        result = savePolicy(params);
+        break;
+      case 'GET_POLICIES':
+        result = getPolicies();
+        break;
+      case 'GET_POLICIES_FOR_STUDENT':
+        result = getPoliciesForStudent(params.student_id);
+        break;
+      case 'GET_POLICY_DETAIL':
+        result = getPolicyDetail(params.policy_id);
+        break;
+      case 'GET_POLICY_PARTICIPANTS':
+        result = getPolicyParticipants(params.policy_id);
+        break;
+      case 'SET_POLICY_SEEDS':
+        result = setPolicySeeds(params);
+        break;
+      case 'GET_POLICY_TREE_DASHBOARD':
+        result = getPolicyTreeDashboard();
+        break;
+      case 'BATCH_SET_POLICY_SEEDS':
+        result = batchSetPolicySeeds(params);
         break;
       default:
         result.error = 'Unknown action: ' + action;
@@ -1722,4 +1748,398 @@ function getClassGameRanking(gameId, limit) {
     return b.duration_ms - a.duration_ms;
   });
   return { success: true, data: list.slice(0, lim) };
+}
+
+// ----- 학생 정책 (Policies / PolicySeeds) -----
+var POLICY_HEADERS = [
+  'policy_id',
+  'title',
+  'goal',
+  'description',
+  'expected_effect',
+  'seeds_per_participation',
+  'logo_data',
+  'creator_student_id',
+  'co_registrants_json',
+  'created_at',
+  'updated_at'
+];
+
+var POLICY_SEEDS_HEADERS = ['policy_id', 'student_id', 'seeds_count', 'updated_at'];
+
+function getOrCreatePoliciesSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.POLICIES);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.POLICIES);
+    sheet.getRange(1, 1, 1, POLICY_HEADERS.length).setValues([POLICY_HEADERS]);
+  }
+  return sheet;
+}
+
+function getOrCreatePolicySeedsSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.POLICY_SEEDS);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.POLICY_SEEDS);
+    sheet.getRange(1, 1, 1, POLICY_SEEDS_HEADERS.length).setValues([POLICY_SEEDS_HEADERS]);
+  }
+  return sheet;
+}
+
+function generatePolicyId() {
+  return 'p' + new Date().getTime() + '_' + Math.random().toString(36).slice(2, 9);
+}
+
+function parseCoRegs(jsonStr) {
+  try {
+    var arr = JSON.parse(String(jsonStr || '[]'));
+    if (!arr || !arr.length) return [];
+    return arr.map(function (x) {
+      return String(x).trim();
+    }).filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+}
+
+function studentCanEditPolicy(actorId, creatorId, coJson) {
+  var a = String(actorId || '').trim();
+  if (!a) return false;
+  if (a === String(creatorId || '').trim()) return true;
+  var regs = parseCoRegs(coJson);
+  for (var i = 0; i < regs.length; i++) {
+    if (regs[i] === a) return true;
+  }
+  return false;
+}
+
+function savePolicy(params) {
+  var isTeacher = params && params.is_teacher === true;
+  var actor = params && params.actor_student_id != null ? String(params.actor_student_id).trim() : '';
+  var policyId = params && params.policy_id != null ? String(params.policy_id).trim() : '';
+  var title = params && params.title != null ? String(params.title).trim() : '';
+  var goal = params && params.goal != null ? String(params.goal).trim() : '';
+  var description = params && params.description != null ? String(params.description).trim() : '';
+  var expectedEffect = params && params.expected_effect != null ? String(params.expected_effect).trim() : '';
+  var seedsPer = params && params.seeds_per_participation != null ? Number(params.seeds_per_participation) : 0;
+  var logoData = params && params.logo_data != null ? String(params.logo_data) : '';
+  var creator = params && params.creator_student_id != null ? String(params.creator_student_id).trim() : '';
+  var coRegs = params && params.co_registrants ? params.co_registrants : [];
+  if (!creator) return { success: false, error: 'creator_student_id required' };
+  if (!title) return { success: false, error: 'title required' };
+  if (isNaN(seedsPer) || seedsPer < 0) seedsPer = 0;
+  if (logoData.length > 45000) logoData = logoData.slice(0, 45000);
+  var coArr = [];
+  if (coRegs && coRegs.length) {
+    for (var i = 0; i < coRegs.length; i++) {
+      var sid = String(coRegs[i] || '').trim();
+      if (sid && coArr.indexOf(sid) < 0) coArr.push(sid);
+    }
+  }
+  var coJson = JSON.stringify(coArr);
+  var sheet = getOrCreatePoliciesSheet();
+  var now = new Date().toISOString();
+  var n = POLICY_HEADERS.length;
+
+  if (policyId) {
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0].map(String);
+    var idCol = headers.indexOf('policy_id');
+    if (idCol < 0) idCol = 0;
+    var rowIdx = -1;
+    var oldCreator = '';
+    var oldCo = '';
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][idCol] || '').trim() === policyId) {
+        rowIdx = r + 1;
+        var cCol = headers.indexOf('creator_student_id');
+        var coCol = headers.indexOf('co_registrants_json');
+        oldCreator = String(data[r][cCol] || '').trim();
+        oldCo = String(data[r][coCol] || '');
+        break;
+      }
+    }
+    if (rowIdx < 0) return { success: false, error: 'policy not found' };
+    if (!isTeacher && !studentCanEditPolicy(actor, oldCreator, oldCo)) return { success: false, error: 'no permission' };
+    var upd = [[policyId, title, goal, description, expectedEffect, seedsPer, logoData, creator, coJson, data[rowIdx - 1][headers.indexOf('created_at')] || now, now]];
+    sheet.getRange(rowIdx, 1, rowIdx, n).setValues(upd);
+    return { success: true, data: { policy_id: policyId } };
+  }
+
+  if (actor !== creator) return { success: false, error: 'actor must be creator for new policy' };
+  var newId = generatePolicyId();
+  var row = [newId, title, goal, description, expectedEffect, seedsPer, logoData, creator, coJson, now, now];
+  var last = sheet.getLastRow();
+  sheet.getRange(last + 1, 1, 1, n).setValues([row]);
+  return { success: true, data: { policy_id: newId } };
+}
+
+function policyRowToObj(row, headers) {
+  var o = {};
+  for (var i = 0; i < headers.length; i++) {
+    o[headers[i]] = row[i];
+  }
+  o.co_registrants = parseCoRegs(o.co_registrants_json);
+  return o;
+}
+
+function getPolicies() {
+  var sheet = getOrCreatePoliciesSheet();
+  if (sheet.getLastRow() < 2) return { success: true, data: [] };
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var list = [];
+  for (var i = 1; i < data.length; i++) {
+    list.push(policyRowToObj(data[i], headers));
+  }
+  return { success: true, data: list };
+}
+
+function getPoliciesForStudent(studentId) {
+  var sid = studentId != null ? String(studentId).trim() : '';
+  if (!sid) return { success: false, error: 'student_id required' };
+  var res = getPolicies();
+  if (!res.success) return res;
+  var list = [];
+  var rows = res.data || [];
+  for (var i = 0; i < rows.length; i++) {
+    var p = rows[i];
+    if (String(p.creator_student_id || '').trim() === sid) {
+      list.push(p);
+      continue;
+    }
+    var co = p.co_registrants || [];
+    for (var j = 0; j < co.length; j++) {
+      if (String(co[j]).trim() === sid) {
+        list.push(p);
+        break;
+      }
+    }
+  }
+  return { success: true, data: list };
+}
+
+function getPolicyDetail(policyId) {
+  var pid = policyId != null ? String(policyId).trim() : '';
+  if (!pid) return { success: false, error: 'policy_id required' };
+  var sheet = getOrCreatePoliciesSheet();
+  if (sheet.getLastRow() < 2) return { success: false, error: 'not found' };
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var idCol = headers.indexOf('policy_id');
+  if (idCol < 0) idCol = 0;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol] || '').trim() === pid) {
+      return { success: true, data: policyRowToObj(data[i], headers) };
+    }
+  }
+  return { success: false, error: 'not found' };
+}
+
+function getPolicyParticipants(policyId) {
+  var pid = policyId != null ? String(policyId).trim() : '';
+  if (!pid) return { success: false, error: 'policy_id required' };
+  var sheet = getOrCreatePolicySeedsSheet();
+  if (sheet.getLastRow() < 2) return { success: true, data: [] };
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var pCol = headers.indexOf('policy_id');
+  var sCol = headers.indexOf('student_id');
+  var cCol = headers.indexOf('seeds_count');
+  if (pCol < 0) pCol = 0;
+  if (sCol < 0) sCol = 1;
+  if (cCol < 0) cCol = 2;
+  var studentsRes = getStudents();
+  var nameMap = {};
+  var photoMap = {};
+  if (studentsRes.success && studentsRes.data) {
+    studentsRes.data.forEach(function (s) {
+      var sid = String(s.student_id);
+      nameMap[sid] = String(s.name || '');
+      photoMap[sid] = s.photo_data != null ? String(s.photo_data) : '';
+    });
+  }
+  var list = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (String(row[pCol] || '').trim() !== pid) continue;
+    var sid = String(row[sCol] || '').trim();
+    var sc = Number(row[cCol] || 0);
+    if (isNaN(sc)) sc = 0;
+    list.push({
+      student_id: sid,
+      student_name: nameMap[sid] || '',
+      photo_data: photoMap[sid] || '',
+      seeds_count: sc
+    });
+  }
+  return { success: true, data: list };
+}
+
+function setPolicySeeds(params) {
+  var policyId = params && params.policy_id != null ? String(params.policy_id).trim() : '';
+  var studentId = params && params.student_id != null ? String(params.student_id).trim() : '';
+  var newTotal = params && params.seeds_count != null ? Number(params.seeds_count) : 0;
+  var actor = params && params.actor_student_id != null ? String(params.actor_student_id).trim() : '';
+  var isTeacher = params && params.is_teacher === true;
+  if (!policyId || !studentId) return { success: false, error: 'policy_id and student_id required' };
+  if (isNaN(newTotal) || newTotal < 0) newTotal = 0;
+  var det = getPolicyDetail(policyId);
+  if (!det.success || !det.data) return { success: false, error: 'policy not found' };
+  var p = det.data;
+  if (!isTeacher && !studentCanEditPolicy(actor, p.creator_student_id, p.co_registrants_json)) {
+    return { success: false, error: 'no permission' };
+  }
+  var sheet = getOrCreatePolicySeedsSheet();
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var pCol = headers.indexOf('policy_id');
+  var sCol = headers.indexOf('student_id');
+  var cCol = headers.indexOf('seeds_count');
+  var uCol = headers.indexOf('updated_at');
+  if (pCol < 0) pCol = 0;
+  if (sCol < 0) sCol = 1;
+  if (cCol < 0) cCol = 2;
+  var now = new Date().toISOString();
+  var found = false;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][pCol] || '').trim() === policyId && String(data[i][sCol] || '').trim() === studentId) {
+      var r = i + 1;
+      sheet.getRange(r, cCol + 1).setValue(newTotal);
+      sheet.getRange(r, uCol + 1).setValue(now);
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    var last = sheet.getLastRow();
+    sheet.getRange(last + 1, 1, 1, POLICY_SEEDS_HEADERS.length).setValues([[policyId, studentId, newTotal, now]]);
+  }
+  return { success: true, data: { saved: true } };
+}
+
+function batchSetPolicySeeds(params) {
+  var policyId = params && params.policy_id != null ? String(params.policy_id).trim() : '';
+  var items = params && params.items ? params.items : [];
+  var actor = params && params.actor_student_id != null ? String(params.actor_student_id).trim() : '';
+  var isTeacher = params && params.is_teacher === true;
+  if (!policyId) return { success: false, error: 'policy_id required' };
+  if (!items || !items.length) return { success: false, error: 'items required' };
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    var sid = it && it.student_id != null ? String(it.student_id).trim() : '';
+    var sc = it && it.seeds_count != null ? Number(it.seeds_count) : 0;
+    if (!sid) continue;
+    if (isNaN(sc) || sc < 0) sc = 0;
+    var one = setPolicySeeds({
+      policy_id: policyId,
+      student_id: sid,
+      seeds_count: sc,
+      actor_student_id: actor,
+      is_teacher: isTeacher
+    });
+    if (!one.success) return one;
+  }
+  return { success: true, data: { saved: true } };
+}
+
+function getPolicyTreeDashboard() {
+  var policiesRes = getPolicies();
+  var policies = policiesRes.success && policiesRes.data ? policiesRes.data : [];
+  var policyMap = {};
+  for (var i = 0; i < policies.length; i++) {
+    policyMap[policies[i].policy_id] = policies[i];
+  }
+  var sheet = getOrCreatePolicySeedsSheet();
+  var totalSeeds = 0;
+  var byStudent = {};
+  var byPolicy = {};
+  if (sheet.getLastRow() >= 2) {
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0].map(String);
+    var pCol = headers.indexOf('policy_id');
+    var sCol = headers.indexOf('student_id');
+    var cCol = headers.indexOf('seeds_count');
+    if (pCol < 0) pCol = 0;
+    if (sCol < 0) sCol = 1;
+    if (cCol < 0) cCol = 2;
+    for (var r = 1; r < data.length; r++) {
+      var row = data[r];
+      var pid = String(row[pCol] || '').trim();
+      var sid = String(row[sCol] || '').trim();
+      var sc = Number(row[cCol] || 0);
+      if (isNaN(sc)) sc = 0;
+      totalSeeds += sc;
+      if (!byStudent[sid]) byStudent[sid] = 0;
+      byStudent[sid] += sc;
+      if (!byPolicy[pid]) byPolicy[pid] = 0;
+      byPolicy[pid] += sc;
+    }
+  }
+  var studentsRes = getStudents();
+  var nameMap = {};
+  var photoMap = {};
+  if (studentsRes.success && studentsRes.data) {
+    studentsRes.data.forEach(function (s) {
+      var sid = String(s.student_id);
+      nameMap[sid] = String(s.name || '');
+      photoMap[sid] = s.photo_data != null ? String(s.photo_data) : '';
+      if (byStudent[sid] === undefined) byStudent[sid] = 0;
+    });
+  }
+  function studentListFromMap(map, desc) {
+    var arr = [];
+    for (var k in map) {
+      if (map.hasOwnProperty(k))
+        arr.push({
+          student_id: k,
+          student_name: nameMap[k] || '',
+          photo_data: photoMap[k] || '',
+          total_seeds: map[k]
+        });
+    }
+    arr.sort(function (a, b) {
+      return desc ? b.total_seeds - a.total_seeds : a.total_seeds - b.total_seeds;
+    });
+    return arr;
+  }
+  var topStudents = studentListFromMap(byStudent, true).slice(0, 5);
+  var lowStudents = studentListFromMap(byStudent, false).slice(0, 5);
+  for (var pi = 0; pi < policies.length; pi++) {
+    var ppid = policies[pi].policy_id;
+    if (byPolicy[ppid] === undefined) byPolicy[ppid] = 0;
+  }
+  var policyArr = [];
+  for (var pk in byPolicy) {
+    if (byPolicy.hasOwnProperty(pk)) {
+      var pol = policyMap[pk] || {};
+      policyArr.push({
+        policy_id: pk,
+        title: pol.title || '',
+        policy_title: pol.title || '',
+        policy_logo_data: pol.logo_data || '',
+        logo_data: pol.logo_data || '',
+        total_seeds: byPolicy[pk]
+      });
+    }
+  }
+  policyArr.sort(function (a, b) {
+    return b.total_seeds - a.total_seeds;
+  });
+  var topPolicies = policyArr.slice(0, 5);
+  var lowPol = policyArr.slice().sort(function (a, b) {
+    return a.total_seeds - b.total_seeds;
+  });
+  var lowPolicies = lowPol.slice(0, 5);
+  return {
+    success: true,
+    data: {
+      total_seeds_class: totalSeeds,
+      top_students: topStudents,
+      lowest_students: lowStudents,
+      top_policies: topPolicies,
+      lowest_policies: lowPolicies
+    }
+  };
 }

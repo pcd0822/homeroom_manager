@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Helmet } from 'react-helmet-async'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { authStudent, getStudents, getAssignmentsByStudent, getForm, getNightStudyForStudent } from '@/api/api'
 import type { AssignmentRow, Student, Form, NightStudyForStudent } from '@/types'
 
@@ -346,7 +346,13 @@ export function StudentMealBoardPage() {
         <meta property="og:description" content={MEAL_BOARD_SHARE_DESC} />
       </Helmet>
       <div className="mx-auto flex max-w-md flex-col gap-4">
-        <header className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-sm">
+        <header className="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-3 shadow-sm">
+          <Link
+            to="/student/dashboard"
+            className="w-full rounded-lg bg-sky-50 px-3 py-2 text-center text-[11px] font-medium text-sky-800 ring-1 ring-sky-200 hover:bg-sky-100 sm:w-auto"
+          >
+            🏠 학생 대시보드(급식·정책 선택)
+          </Link>
           {stu && (
             <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gray-100">
               {stu.photo_data ? (

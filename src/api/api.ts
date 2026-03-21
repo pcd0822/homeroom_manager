@@ -16,6 +16,9 @@ import type {
   NightStudyConfig,
   NightStudyForStudent,
   ClassGameRankingRow,
+  Policy,
+  PolicyParticipant,
+  PolicyTreeDashboard,
 } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_GAS_API_URL || 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
@@ -308,6 +311,62 @@ export function getClassGameRanking(gameId: string, limit = 50) {
     game_id: gameId,
     limit,
   })
+}
+
+// ----- 학생 정책(씨앗) -----
+export function savePolicy(params: {
+  policy_id?: string
+  title: string
+  goal: string
+  description: string
+  expected_effect: string
+  seeds_per_participation: number
+  logo_data: string
+  creator_student_id: string
+  co_registrants: string[]
+  actor_student_id: string
+  is_teacher?: boolean
+}) {
+  return request<{ policy_id: string }>('SAVE_POLICY', 'POST', params as Record<string, unknown>)
+}
+
+export function getPolicies() {
+  return request<Policy[]>('GET_POLICIES', 'POST')
+}
+
+export function getPoliciesForStudent(studentId: string) {
+  return request<Policy[]>('GET_POLICIES_FOR_STUDENT', 'POST', { student_id: studentId })
+}
+
+export function getPolicyDetail(policyId: string) {
+  return request<Policy>('GET_POLICY_DETAIL', 'POST', { policy_id: policyId })
+}
+
+export function getPolicyParticipants(policyId: string) {
+  return request<PolicyParticipant[]>('GET_POLICY_PARTICIPANTS', 'POST', { policy_id: policyId })
+}
+
+export function setPolicySeeds(params: {
+  policy_id: string
+  student_id: string
+  seeds_count: number
+  actor_student_id: string
+  is_teacher?: boolean
+}) {
+  return request<{ saved: boolean }>('SET_POLICY_SEEDS', 'POST', params as Record<string, unknown>)
+}
+
+export function batchSetPolicySeeds(params: {
+  policy_id: string
+  items: Array<{ student_id: string; seeds_count: number }>
+  actor_student_id: string
+  is_teacher?: boolean
+}) {
+  return request<{ saved: boolean }>('BATCH_SET_POLICY_SEEDS', 'POST', params as Record<string, unknown>)
+}
+
+export function getPolicyTreeDashboard() {
+  return request<PolicyTreeDashboard>('GET_POLICY_TREE_DASHBOARD', 'POST')
 }
 
 // ----- Helper: Form with parsed schema -----

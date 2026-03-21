@@ -179,3 +179,58 @@ export interface ClassGameRankingRow {
   duration_ms: number
   played_at: string
 }
+
+/** 학생 정책(씨앗) */
+export interface Policy {
+  policy_id: string
+  title: string
+  goal: string
+  description: string
+  expected_effect: string
+  seeds_per_participation: number
+  logo_data: string
+  creator_student_id: string
+  co_registrants: string[]
+  co_registrants_json?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface PolicyParticipant {
+  student_id: string
+  student_name: string
+  photo_data?: string
+  seeds_count: number
+}
+
+export interface PolicyTreeDashboard {
+  total_seeds_class: number
+  top_students: Array<{
+    student_id: string
+    student_name: string
+    photo_data?: string
+    total_seeds: number
+  }>
+  lowest_students: Array<{
+    student_id: string
+    student_name: string
+    photo_data?: string
+    total_seeds: number
+  }>
+  top_policies: Array<{
+    policy_id: string
+    title: string
+    policy_title?: string
+    policy_logo_data?: string
+    logo_data?: string
+    total_seeds: number
+  }>
+  lowest_policies: Array<{
+    policy_id: string
+    title: string
+    policy_title?: string
+    policy_logo_data?: string
+    logo_data?: string
+    total_seeds: number
+  }>
+}
