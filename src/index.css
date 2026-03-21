@@ -84,6 +84,20 @@
   transform-origin: 50% 92%;
 }
 
+@keyframes policy-tree-celebrate {
+  0%,
+  100% {
+    transform: scale(1) rotate(-1deg);
+  }
+  50% {
+    transform: scale(1.05) rotate(1deg);
+  }
+}
+.policy-tree-motion-fruit {
+  animation: policy-tree-celebrate 2.2s ease-in-out infinite;
+  transform-origin: 50% 90%;
+}
+
 /* 생기부 대시보드 A3 가로 인쇄, 배율 50%: 메뉴 숨김, 기록 단위로 페이지 구분 */
 @page {
   size: A3 landscape;
