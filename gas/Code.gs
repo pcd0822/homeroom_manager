@@ -30,8 +30,9 @@ var SHEETS = {
   NIGHT_STUDY: 'NightStudy',
   NIGHT_STUDY_MESSAGES: 'NightStudyMessages',
   CLASS_GAME_SCORES: 'ClassGameScores',
-  POLICIES: 'Policies',
-  POLICY_SEEDS: 'PolicySeeds'
+  /** 기존 스프레드시트에 'Policies' 등 이름이 겹치면 insertSheet 실패하므로 고유 이름 사용 */
+  POLICIES: 'HomeroomPolicies',
+  POLICY_SEEDS: 'HomeroomPolicySeeds'
 };
 
 // 생기부 record 시트 헤더 (순서 유지)

@@ -27,6 +27,7 @@ export function StudentPoliciesPage() {
   const [authCode, setAuthCode] = useState('')
   const [name, setName] = useState('')
   const [loggedIn, setLoggedIn] = useState(false)
+  const [sessionChecked, setSessionChecked] = useState(false)
   const [policies, setPolicies] = useState<Policy[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
@@ -57,23 +58,35 @@ export function StudentPoliciesPage() {
   }, [studentId])
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LOGIN_KEY)
-      if (raw) {
-        const p = JSON.parse(raw)
-        if (p.student_id && p.auth_code) {
-          setStudentId(p.student_id)
-          setAuthCode(p.auth_code)
-          authStudent(p.student_id, p.auth_code).then((r) => {
-            if (r.success && r.data) {
-              setName(r.data.name || '')
-              setLoggedIn(true)
-            }
-          })
+    let cancelled = false
+    ;(async () => {
+      try {
+        const raw = localStorage.getItem(LOGIN_KEY)
+        if (!raw) {
+          if (!cancelled) setSessionChecked(true)
+          return
         }
+        const p = JSON.parse(raw) as { student_id?: string; auth_code?: string }
+        if (!p.student_id || !p.auth_code) {
+          if (!cancelled) setSessionChecked(true)
+          return
+        }
+        setStudentId(p.student_id)
+        setAuthCode(p.auth_code)
+        const r = await authStudent(p.student_id, p.auth_code)
+        if (cancelled) return
+        if (r.success && r.data) {
+          setName(r.data.name || '')
+          setLoggedIn(true)
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setSessionChecked(true)
       }
-    } catch {
-      // ignore
+    })()
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -189,6 +202,17 @@ export function StudentPoliciesPage() {
     )
   }, [students, seedDraft, seedSearch])
 
+  if (!sessionChecked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <Helmet>
+          <title>정책 관리</title>
+        </Helmet>
+        <p className="text-sm text-gray-500">로그인 확인 중...</p>
+      </div>
+    )
+  }
+
   if (!loggedIn) {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-8">
@@ -230,19 +254,26 @@ export function StudentPoliciesPage() {
         <title>정책 관리 | {name}</title>
       </Helmet>
       <div className="mx-auto max-w-lg space-y-4">
-        <header className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">🌿 정책 관리하기</h1>
-            <p className="text-xs text-gray-500">{name} ({studentId})</p>
-          </div>
-          <div className="flex flex-col items-end gap-1 text-xs">
-            <Link to="/student/dashboard" className="text-blue-600">
-              대시보드
+        <header className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Link
+              to="/student/dashboard"
+              title="홈"
+              aria-label="학생 대시보드 홈"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-lg text-sky-800 ring-1 ring-sky-200 hover:bg-sky-100"
+            >
+              🏠
             </Link>
-            <Link to="/student/policy/register" className="text-emerald-700">
-              + 정책 새로 등록
-            </Link>
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold text-gray-900">🌿 정책 관리하기</h1>
+              <p className="text-xs text-gray-500">
+                {name} ({studentId})
+              </p>
+            </div>
           </div>
+          <Link to="/student/policy/register" className="shrink-0 text-[11px] font-medium text-emerald-700">
+            + 정책 등록
+          </Link>
         </header>
 
         {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{err}</p>}

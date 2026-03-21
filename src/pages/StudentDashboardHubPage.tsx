@@ -12,19 +12,38 @@ type AuthState = 'idle' | 'loading' | 'success' | 'error'
 export function StudentDashboardHubPage() {
   const [studentId, setStudentId] = useState('')
   const [authCode, setAuthCode] = useState('')
-  const [authState, setAuthState] = useState<AuthState>('idle')
+  const [authState, setAuthState] = useState<AuthState>('loading')
   const [authError, setAuthError] = useState('')
-  const [remember, setRemember] = useState(true)
+  const [authSubmitting, setAuthSubmitting] = useState(false)
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LOGIN_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (parsed.student_id) setStudentId(parsed.student_id)
-        if (parsed.auth_code) setAuthCode(parsed.auth_code)
+    let cancelled = false
+    ;(async () => {
+      try {
+        const raw = localStorage.getItem(LOGIN_KEY)
+        if (!raw) {
+          if (!cancelled) setAuthState('idle')
+          return
+        }
+        const parsed = JSON.parse(raw) as { student_id?: string; auth_code?: string }
+        if (!parsed.student_id || !parsed.auth_code) {
+          if (!cancelled) setAuthState('idle')
+          return
+        }
+        setStudentId(parsed.student_id)
+        setAuthCode(parsed.auth_code)
+        const res = await authStudent(parsed.student_id, parsed.auth_code)
+        if (cancelled) return
+        if (res.success && res.data) {
+          setAuthState('success')
+        } else {
+          setAuthState('idle')
+        }
+      } catch {
+        if (!cancelled) setAuthState('idle')
       }
-    } catch {
-      // ignore
+    })()
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -34,25 +53,35 @@ export function StudentDashboardHubPage() {
       setAuthError('학번과 개인코드를 입력해 주세요.')
       return
     }
-    setAuthState('loading')
+    setAuthSubmitting(true)
     setAuthError('')
     const res = await authStudent(studentId.trim(), authCode.trim())
+    setAuthSubmitting(false)
     if (res.success && res.data) {
       setAuthState('success')
-      if (remember) {
-        try {
-          localStorage.setItem(
-            LOGIN_KEY,
-            JSON.stringify({ student_id: studentId.trim(), auth_code: authCode.trim() })
-          )
-        } catch {
-          // ignore
-        }
+      try {
+        localStorage.setItem(
+          LOGIN_KEY,
+          JSON.stringify({ student_id: studentId.trim(), auth_code: authCode.trim() })
+        )
+      } catch {
+        // ignore
       }
     } else {
       setAuthState('error')
       setAuthError(res.error || '인증에 실패했습니다.')
     }
+  }
+
+  if (authState === 'loading') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-sky-50 to-white px-4">
+        <Helmet>
+          <title>{HUB_TITLE}</title>
+        </Helmet>
+        <p className="text-sm text-gray-500">로그인 확인 중...</p>
+      </div>
+    )
   }
 
   if (authState !== 'success') {
@@ -85,22 +114,13 @@ export function StudentDashboardHubPage() {
                 className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm shadow-inner"
               />
             </div>
-            <label className="flex items-center gap-2 text-xs text-gray-600">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600"
-              />
-              이 기기에서 로그인 정보 저장
-            </label>
             {authError && <p className="text-xs text-red-600">{authError}</p>}
             <button
               type="submit"
-              disabled={authState === 'loading'}
+              disabled={authSubmitting}
               className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white shadow-md hover:bg-blue-700 disabled:opacity-60"
             >
-              {authState === 'loading' ? '확인 중...' : '입장하기'}
+              {authSubmitting ? '확인 중...' : '입장하기'}
             </button>
           </form>
         </div>
@@ -163,8 +183,14 @@ export function StudentDashboardHubPage() {
           </NavLink>
         </div>
 
+        <NavLink
+          to="/student/policy/register"
+          className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50/50 px-4 py-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+        >
+          📝 정책 새로 등록하기
+        </NavLink>
         <p className="text-center text-[11px] text-gray-400">
-          정책을 새로 등록하려면 교사가 안내한 <strong>정책 등록하기</strong> 링크를 이용해 주세요.
+          급식·과제·정책 등록·관리 모두 이 대시보드에서 한 번 로그인하면 이용할 수 있어요.
         </p>
       </div>
     </div>

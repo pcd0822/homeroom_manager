@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { Link, useNavigate } from 'react-router-dom'
 import { authStudent, getStudents, getAssignmentsByStudent, getForm, getNightStudyForStudent } from '@/api/api'
@@ -134,10 +134,11 @@ export function StudentMealBoardPage() {
   const [studentId, setStudentId] = useState('')
   const [authCode, setAuthCode] = useState('')
   const [studentName, setStudentName] = useState('')
-  const [authState, setAuthState] = useState<AuthState>('idle')
+  /** 초기값 loading: 저장된 로그인 세션 확인 후 idle 또는 success */
+  const [authState, setAuthState] = useState<AuthState>('loading')
   const [authError, setAuthError] = useState('')
-  const [remember, setRemember] = useState(true)
-
+  /** 수동 로그인 폼 제출 중 (세션 복원 loading과 구분) */
+  const [authSubmitting, setAuthSubmitting] = useState(false)
   const [date, setDate] = useState(() => new Date())
   const [meals, setMeals] = useState<MealItem[] | null>(null)
   const [mealError, setMealError] = useState('')
@@ -153,18 +154,55 @@ export function StudentMealBoardPage() {
   const [showAllergyModal, setShowAllergyModal] = useState(false)
   const [selectedAllergyNum, setSelectedAllergyNum] = useState<number | null>(null)
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LOGIN_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (parsed.student_id) setStudentId(parsed.student_id)
-        if (parsed.auth_code) setAuthCode(parsed.auth_code)
-      }
-    } catch {
-      // ignore
+  const loadAssignmentsData = useCallback(async (sid: string) => {
+    const assignRes = await getAssignmentsByStudent(sid)
+    if (assignRes.success && assignRes.data) {
+      setAllAssignments(assignRes.data)
+      const ids = Array.from(new Set(assignRes.data.map((a) => a.form_id)))
+      const results = await Promise.all(ids.map((id) => getForm(id)))
+      const map: Record<string, Form> = {}
+      results.forEach((res, idx) => {
+        if (res.success && res.data) {
+          map[ids[idx]] = res.data
+        }
+      })
+      setFormMap(map)
     }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const raw = localStorage.getItem(LOGIN_KEY)
+        if (!raw) {
+          if (!cancelled) setAuthState('idle')
+          return
+        }
+        const parsed = JSON.parse(raw) as { student_id?: string; auth_code?: string }
+        if (!parsed.student_id || !parsed.auth_code) {
+          if (!cancelled) setAuthState('idle')
+          return
+        }
+        setStudentId(parsed.student_id)
+        setAuthCode(parsed.auth_code)
+        const res = await authStudent(parsed.student_id, parsed.auth_code)
+        if (cancelled) return
+        if (res.success && res.data) {
+          setStudentName(res.data.name || '')
+          setAuthState('success')
+          await loadAssignmentsData(parsed.student_id)
+        } else {
+          setAuthState('idle')
+        }
+      } catch {
+        if (!cancelled) setAuthState('idle')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [loadAssignmentsData])
 
   useEffect(() => {
     if (!studentId) return
@@ -203,33 +241,19 @@ export function StudentMealBoardPage() {
       setAuthError('학번과 개인코드를 입력해 주세요.')
       return
     }
-    setAuthState('loading')
+    setAuthSubmitting(true)
     setAuthError('')
     const res = await authStudent(studentId.trim(), authCode.trim())
+    setAuthSubmitting(false)
     if (res.success && res.data) {
       setStudentName(res.data.name || '')
       setAuthState('success')
-      if (remember) {
-        try {
-          localStorage.setItem(LOGIN_KEY, JSON.stringify({ student_id: studentId.trim(), auth_code: authCode.trim() }))
-        } catch {
-          // ignore
-        }
+      try {
+        localStorage.setItem(LOGIN_KEY, JSON.stringify({ student_id: studentId.trim(), auth_code: authCode.trim() }))
+      } catch {
+        // ignore
       }
-      const assignRes = await getAssignmentsByStudent(studentId.trim())
-      if (assignRes.success && assignRes.data) {
-        setAllAssignments(assignRes.data)
-        const ids = Array.from(new Set(assignRes.data.map((a) => a.form_id)))
-        Promise.all(ids.map((id) => getForm(id))).then((results) => {
-          const map: Record<string, Form> = {}
-          results.forEach((res, idx) => {
-            if (res.success && res.data) {
-              map[ids[idx]] = res.data
-            }
-          })
-          setFormMap(map)
-        })
-      }
+      await loadAssignmentsData(studentId.trim())
     } else {
       setAuthState('error')
       setAuthError(res.error || '인증에 실패했습니다.')
@@ -281,6 +305,17 @@ export function StudentMealBoardPage() {
 
   const getStudent = () => students.find((s) => s.student_id === studentId)
 
+  if (authState === 'loading') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+        <Helmet>
+          <title>{MEAL_BOARD_SHARE_TITLE}</title>
+        </Helmet>
+        <p className="text-sm text-gray-500">로그인 확인 중...</p>
+      </div>
+    )
+  }
+
   if (authState !== 'success') {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-6">
@@ -312,22 +347,13 @@ export function StudentMealBoardPage() {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
             </div>
-            <label className="flex items-center gap-2 text-xs text-gray-600">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                className="h-4 w-4 text-blue-600"
-              />
-              이 기기에서 로그인 정보 저장
-            </label>
             {authError && <p className="text-xs text-red-600">{authError}</p>}
             <button
               type="submit"
-              disabled={authState === 'loading'}
+              disabled={authSubmitting}
               className="mt-1 w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
             >
-              {authState === 'loading' ? '확인 중...' : '입장하기'}
+              {authSubmitting ? '확인 중...' : '입장하기'}
             </button>
           </form>
         </div>
@@ -346,12 +372,14 @@ export function StudentMealBoardPage() {
         <meta property="og:description" content={MEAL_BOARD_SHARE_DESC} />
       </Helmet>
       <div className="mx-auto flex max-w-md flex-col gap-4">
-        <header className="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-3 shadow-sm">
+        <header className="flex flex-wrap items-center gap-2 rounded-2xl bg-white p-3 shadow-sm">
           <Link
             to="/student/dashboard"
-            className="w-full rounded-lg bg-sky-50 px-3 py-2 text-center text-[11px] font-medium text-sky-800 ring-1 ring-sky-200 hover:bg-sky-100 sm:w-auto"
+            title="홈"
+            aria-label="학생 대시보드 홈"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-lg text-sky-800 ring-1 ring-sky-200 transition hover:bg-sky-100"
           >
-            🏠 학생 대시보드(급식·정책 선택)
+            🏠
           </Link>
           {stu && (
             <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gray-100">

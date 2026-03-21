@@ -11,6 +11,8 @@ export function StudentPolicyRegisterPage() {
   const [studentId, setStudentId] = useState('')
   const [authCode, setAuthCode] = useState('')
   const [loggedIn, setLoggedIn] = useState(false)
+  const [sessionChecked, setSessionChecked] = useState(false)
+  const [authName, setAuthName] = useState('')
   const [students, setStudents] = useState<Student[]>([])
   const [search, setSearch] = useState('')
   const [coIds, setCoIds] = useState<string[]>([])
@@ -24,18 +26,35 @@ export function StudentPolicyRegisterPage() {
   const [err, setErr] = useState('')
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LOGIN_KEY)
-      if (raw) {
-        const p = JSON.parse(raw)
-        if (p.student_id && p.auth_code) {
-          setStudentId(p.student_id)
-          setAuthCode(p.auth_code)
+    let cancelled = false
+    ;(async () => {
+      try {
+        const raw = localStorage.getItem(LOGIN_KEY)
+        if (!raw) {
+          if (!cancelled) setSessionChecked(true)
+          return
+        }
+        const p = JSON.parse(raw) as { student_id?: string; auth_code?: string }
+        if (!p.student_id || !p.auth_code) {
+          if (!cancelled) setSessionChecked(true)
+          return
+        }
+        setStudentId(p.student_id)
+        setAuthCode(p.auth_code)
+        const res = await authStudent(p.student_id, p.auth_code)
+        if (cancelled) return
+        if (res.success && res.data) {
+          setAuthName(res.data.name || '')
           setLoggedIn(true)
         }
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setSessionChecked(true)
       }
-    } catch {
-      // ignore
+    })()
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -45,21 +64,27 @@ export function StudentPolicyRegisterPage() {
     })
   }, [])
 
+  /** 등록자 본인은 공동 등록 목록에서 제외 (본인만 상단 프로필로 표시) */
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return students
-    return students.filter(
+    const sid = studentId.trim()
+    const others = students.filter((s) => s.student_id !== sid)
+    if (!q) return others
+    return others.filter(
       (s) =>
         s.student_id.toLowerCase().includes(q) ||
         (s.name || '').toLowerCase().includes(q)
     )
-  }, [students, search])
+  }, [students, search, studentId])
+
+  const myProfile = useMemo(() => students.find((s) => s.student_id === studentId.trim()), [students, studentId])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setErr('')
     const res = await authStudent(studentId.trim(), authCode.trim())
     if (res.success && res.data) {
+      setAuthName(res.data.name || '')
       setLoggedIn(true)
       try {
         localStorage.setItem(
@@ -73,7 +98,6 @@ export function StudentPolicyRegisterPage() {
   }
 
   const toggleCo = (id: string) => {
-    if (id === studentId) return
     setCoIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   }
 
@@ -104,13 +128,24 @@ export function StudentPolicyRegisterPage() {
       seeds_per_participation: Math.max(0, seedsPer),
       logo_data: logoData,
       creator_student_id: studentId.trim(),
-      co_registrants: coIds,
+      co_registrants: coIds.filter((id) => id !== studentId.trim()),
       actor_student_id: studentId.trim(),
     })
     setSaving(false)
     if (res.success && res.data?.policy_id) {
       navigate(`/student/policies?open=${encodeURIComponent(res.data.policy_id)}`)
     } else setErr(res.error || '저장 실패')
+  }
+
+  if (!sessionChecked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <Helmet>
+          <title>정책 등록하기</title>
+        </Helmet>
+        <p className="text-sm text-gray-500">로그인 확인 중...</p>
+      </div>
+    )
   }
 
   if (!loggedIn) {
@@ -154,12 +189,49 @@ export function StudentPolicyRegisterPage() {
         <title>정책 등록하기</title>
       </Helmet>
       <div className="mx-auto max-w-lg space-y-5">
-        <header className="flex items-center justify-between">
-          <h1 className="text-lg font-bold text-gray-900">🌱 정책 등록하기</h1>
-          <Link to="/student/policies" className="text-xs text-blue-600">
+        <header className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Link
+              to="/student/dashboard"
+              title="홈"
+              aria-label="학생 대시보드 홈"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-lg text-sky-800 ring-1 ring-sky-200 hover:bg-sky-100"
+            >
+              🏠
+            </Link>
+            <h1 className="text-lg font-bold text-gray-900">🌱 정책 등록하기</h1>
+          </div>
+          <Link to="/student/policies" className="shrink-0 text-xs text-blue-600">
             내 정책 목록
           </Link>
         </header>
+
+        <div className="rounded-2xl border-2 border-emerald-200 bg-gradient-to-r from-emerald-50 to-white p-4 shadow-sm">
+          <p className="mb-2 text-[11px] font-semibold text-emerald-900">정책 등록자 (본인)</p>
+          <div className="flex items-center gap-3">
+            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-white bg-gray-100 shadow">
+              {myProfile?.photo_data ? (
+                <img
+                  src={
+                    myProfile.photo_data.startsWith('data:')
+                      ? myProfile.photo_data
+                      : `data:image/jpeg;base64,${myProfile.photo_data}`
+                  }
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-lg font-bold text-gray-400">
+                  {(authName || myProfile?.name || '?').charAt(0)}
+                </div>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-base font-bold text-gray-900">{authName || myProfile?.name || '학생'}</p>
+              <p className="text-sm text-gray-600">학번 {studentId}</p>
+            </div>
+          </div>
+        </div>
 
         <form onSubmit={submit} className="space-y-4">
           <div>
@@ -219,7 +291,7 @@ export function StudentPolicyRegisterPage() {
           <section className="rounded-xl border border-emerald-100 bg-white p-3">
             <h2 className="mb-2 text-xs font-bold text-gray-800">공동 등록자 (선택)</h2>
             <p className="mb-2 text-[11px] text-gray-500">
-              문서 과제 배당과 같이 카드를 눌러 선택합니다. 학번·이름으로 검색할 수 있어요.
+              본인을 제외한 학생만 선택할 수 있습니다. 문서 과제 배당과 같이 카드를 눌러 선택하고, 학번·이름으로 검색할 수 있어요.
             </p>
             <input
               type="search"
@@ -231,19 +303,15 @@ export function StudentPolicyRegisterPage() {
             <div className="max-h-48 space-y-1 overflow-y-auto rounded border border-gray-100 p-2">
               {filtered.map((s) => {
                 const sel = coIds.includes(s.student_id)
-                const isSelf = s.student_id === studentId
                 return (
                   <button
                     key={s.student_id}
                     type="button"
-                    disabled={isSelf}
                     onClick={() => toggleCo(s.student_id)}
                     className={`flex w-full items-center gap-2 rounded border px-2 py-1.5 text-left text-[11px] ${
-                      isSelf
-                        ? 'cursor-not-allowed border-gray-100 bg-gray-50 opacity-60'
-                        : sel
-                          ? 'border-blue-500 bg-blue-50 text-blue-900'
-                          : 'border-gray-200 bg-white hover:bg-gray-50'
+                      sel
+                        ? 'border-blue-500 bg-blue-50 text-blue-900'
+                        : 'border-gray-200 bg-white hover:bg-gray-50'
                     }`}
                   >
                     <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-gray-100">
@@ -268,7 +336,6 @@ export function StudentPolicyRegisterPage() {
                       <p className="text-[10px] text-gray-500">{s.student_id}</p>
                     </div>
                     {sel && <span className="rounded bg-blue-600 px-1.5 py-0.5 text-[10px] text-white">공동</span>}
-                    {isSelf && <span className="text-[10px] text-gray-400">등록자(본인)</span>}
                   </button>
                 )
               })}
