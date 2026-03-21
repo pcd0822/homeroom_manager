@@ -29,13 +29,19 @@ function policyTreeAssetUrl(file: string) {
   return `${import.meta.env.BASE_URL}policy-tree/${file}`
 }
 
-/** 어떤 이미지 키를 쓸지 (디버그·다른 UI에서 재사용 가능) */
+/** 구간: 0~50 씨앗, 51~100 새싹, 101~250 묘목, 251~450 나무, 451~ 열매 나무 */
 export function getPolicyTreeImageKey(total: number): keyof typeof FILE_NAMES {
-  if (total >= MAX_SEEDS) return 'fruit'
-  if (total <= 0) return 'seed'
-  if (total < 130) return 'sprout'
-  if (total < 300) return 'sapling'
-  return 'tree'
+  const t = Math.max(0, total)
+  if (t <= 50) return 'seed'
+  if (t <= 100) return 'sprout'
+  if (t <= 250) return 'sapling'
+  if (t <= 450) return 'tree'
+  return 'fruit'
+}
+
+/** 500개 달성 배지 표시 여부 */
+export function showPolicyTree500Badge(total: number): boolean {
+  return total >= MAX_SEEDS
 }
 
 /** @deprecated 이미지 키 기준으로 단계 번호만 필요할 때 */
@@ -54,13 +60,14 @@ export function PolicyTreeIllustration({ total }: Props) {
   const src = policyTreeAssetUrl(FILE_NAMES[key])
   const label = STAGE_LABELS[key]
   const motionClass = MOTION[key]
+  const show500Badge = showPolicyTree500Badge(total)
 
   return (
     <div className="rounded-3xl border-2 border-emerald-200 bg-gradient-to-b from-sky-50 to-emerald-50 p-6 text-center shadow-inner">
       <h3 className="mb-1 text-sm font-bold text-emerald-900">🌳 정책 나무</h3>
       <p className="mb-4 text-[11px] font-medium text-emerald-800/90">
         지금 단계: <span className="text-emerald-700">{label}</span>
-        {key === 'fruit' && (
+        {show500Badge && (
           <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 ring-1 ring-amber-200">
             500개 달성
           </span>
@@ -77,18 +84,6 @@ export function PolicyTreeIllustration({ total }: Props) {
       </div>
       <p className="mt-3 text-xs text-emerald-800">
         나무 성장도 <span className="font-semibold">{fillPercent}%</span> (목표 {MAX_SEEDS}개 중 {total}개)
-      </p>
-      <p className="mt-1 text-[10px] text-emerald-700/85">
-        이미지는 <code className="rounded bg-emerald-100/80 px-1">public/policy-tree/</code> 폴더에 넣어 주세요. (
-        <a
-          className="underline"
-          href={`${import.meta.env.BASE_URL}policy-tree/README.txt`}
-          target="_blank"
-          rel="noreferrer"
-        >
-          파일명 안내
-        </a>
-        )
       </p>
     </div>
   )

@@ -276,7 +276,7 @@ export function PoliciesAdminPage() {
       {tab === 'tree' && tree && (
         <section className="space-y-6">
           <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-6 shadow-inner">
-            <h2 className="mb-2 text-sm font-bold text-emerald-900">학급 씨앗 총합</h2>
+            <h2 className="mb-2 text-sm font-bold text-emerald-900">🌱 학급 씨앗 총합</h2>
             <p className="text-4xl font-black text-emerald-700">{tree.total_seeds_class}</p>
             <p className="mt-1 text-xs text-emerald-800/80">모든 정책에서 지급·기록된 씨앗의 합계입니다.</p>
           </div>

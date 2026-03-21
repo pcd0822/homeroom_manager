@@ -4,13 +4,13 @@
 이 폴더(public/policy-tree/)에 아래 파일명으로 이미지를 넣어 주세요.
 권장: PNG 또는 WebP (배경 투명 가능). 가로 약 400~800px, 비율은 자유입니다.
 
-  파일명                    설명
+  파일명                    설명 (학급 총 씨앗 기준)
   ---------------------------------------------------------------------------
-  seed.png                  씨앗 단계 (학급 총 씨앗 0개)
-  sprout.png                새싹 (1 ~ 129개)
-  sapling.png               묘목 (130 ~ 299개)
-  tree.png                  나무 (300 ~ 499개)
-  tree-fruit.png            500개 달성 — 열매가 열린 나무 (500개 이상)
+  seed.png                  씨앗 (0 ~ 50개)
+  sprout.png                새싹 (51 ~ 100개)
+  sapling.png               묘목 (101 ~ 250개)
+  tree.png                  나무 (251 ~ 450개)
+  tree-fruit.png            열매 나무 (451개 이상) / 500개 달성 시 UI에 배지 표시
 
 ※ JPG를 쓰는 경우: 파일명을 그대로 두고 확장자만 바꾸면 안 됩니다.
    예) seed.jpg 로 넣었다면 src/components/PolicyTreeIllustration.tsx 의
