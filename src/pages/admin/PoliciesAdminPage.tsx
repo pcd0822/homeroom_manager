@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState, type MouseEvent } from 'react'
 import {
   getPolicies,
   getPolicyDetail,
@@ -9,6 +9,7 @@ import {
   setPolicySeeds,
 } from '@/api/api'
 import type { Policy, PolicyParticipant, PolicyTreeDashboard, Student } from '@/types'
+import { policyLogoSrc } from '@/lib/policyImage'
 
 const TEACHER_ACTOR = '__teacher__'
 
@@ -142,9 +143,6 @@ export function PoliciesAdminPage() {
     await openCard(detail.policy_id)
   }
 
-  const logoOf = (p: { logo_data?: string; policy_logo_data?: string }) =>
-    p.logo_data || p.policy_logo_data || ''
-
   return (
     <div className="space-y-6">
       <header>
@@ -182,40 +180,18 @@ export function PoliciesAdminPage() {
           {loading ? (
             <p className="text-sm text-gray-500">불러오는 중...</p>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {policies.map((p) => (
-                <div
+                <PolicyCompactCard
                   key={p.policy_id}
-                  className="flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-md"
-                >
-                  <button
-                    type="button"
-                    onClick={() => openCard(p.policy_id)}
-                    className="flex flex-1 flex-col items-start p-4 text-left"
-                  >
-                    <div className="mb-2 h-16 w-16 overflow-hidden rounded-xl bg-gray-50">
-                      {p.logo_data ? (
-                        <img src={p.logo_data} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-2xl">🌱</div>
-                      )}
-                    </div>
-                    <p className="line-clamp-2 font-bold text-gray-900">{p.title}</p>
-                    <p className="mt-1 line-clamp-2 text-[11px] text-gray-500">{p.goal}</p>
-                  </button>
-                  <div className="border-t border-gray-100 p-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        openCard(p.policy_id).then(() => setEditOpen(true))
-                      }}
-                      className="w-full rounded-lg bg-gray-100 py-2 text-xs font-medium text-gray-800 hover:bg-gray-200"
-                    >
-                      정책 수정하기
-                    </button>
-                  </div>
-                </div>
+                  policy={p}
+                  classStudents={classStudents}
+                  onOpen={() => openCard(p.policy_id)}
+                  onEdit={(e) => {
+                    e.stopPropagation()
+                    void openCard(p.policy_id).then(() => setEditOpen(true))
+                  }}
+                />
               ))}
             </div>
           )}
@@ -252,8 +228,8 @@ export function PoliciesAdminPage() {
                 photo: s.photo_data,
               }))}
             />
-            <PolicyRankBox title="참여도가 가장 높은 정책 Top5" policies={tree.top_policies} logoOf={logoOf} />
-            <PolicyRankBox title="참여도가 가장 낮은 정책 Top5" policies={tree.lowest_policies} logoOf={logoOf} />
+            <PolicyRankBox title="참여도가 가장 높은 정책 Top5" policies={tree.top_policies} />
+            <PolicyRankBox title="참여도가 가장 낮은 정책 Top5" policies={tree.lowest_policies} />
           </div>
 
           <PolicyTreeIllustration total={tree.total_seeds_class} />
@@ -263,8 +239,15 @@ export function PoliciesAdminPage() {
       {detail && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center">
           <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <div className="sticky top-0 flex items-center justify-between border-b bg-white px-4 py-3">
-              <h2 className="font-bold text-gray-900">{detail.title}</h2>
+            <div className="sticky top-0 flex items-center gap-3 border-b bg-white px-4 py-3">
+              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-gray-50">
+                {policyLogoSrc(detail.logo_data) ? (
+                  <img src={policyLogoSrc(detail.logo_data)} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xl">🌱</div>
+                )}
+              </div>
+              <h2 className="min-w-0 flex-1 truncate text-base font-bold text-gray-900">{detail.title}</h2>
               <button
                 type="button"
                 onClick={() => {
@@ -339,42 +322,83 @@ export function PoliciesAdminPage() {
       )}
 
       {editOpen && detail && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4">
-            <h3 className="mb-3 font-bold">정책 수정 (교사)</h3>
-            <div className="space-y-2 text-sm">
-              <input value={eTitle} onChange={(e) => setETitle(e.target.value)} className="w-full rounded border px-2 py-1.5" />
-              <textarea value={eGoal} onChange={(e) => setEGoal(e.target.value)} rows={2} className="w-full rounded border px-2 py-1.5" />
-              <textarea value={eDesc} onChange={(e) => setEDesc(e.target.value)} rows={3} className="w-full rounded border px-2 py-1.5" />
-              <textarea value={eExp} onChange={(e) => setEExp(e.target.value)} rows={2} className="w-full rounded border px-2 py-1.5" />
-              <input
-                type="number"
-                min={0}
-                value={eSeeds}
-                onChange={(e) => setESeeds(Number(e.target.value))}
-                className="w-full rounded border px-2 py-1.5"
-              />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (!f) return
-                  const r = new FileReader()
-                  r.onload = () => setELogo(String(r.result || '').slice(0, 45000))
-                  r.readAsDataURL(f)
-                }}
-              />
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-3 sm:p-4">
+          <div className="max-h-[95vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6">
+            <h3 className="mb-4 text-lg font-bold text-gray-900">정책 수정 (교사)</h3>
+            <div className="space-y-4 text-sm">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">정책명</label>
+                <input
+                  value={eTitle}
+                  onChange={(e) => setETitle(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">정책의 목표</label>
+                <textarea
+                  value={eGoal}
+                  onChange={(e) => setEGoal(e.target.value)}
+                  rows={2}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">세부 설명 (참여 방법 등)</label>
+                <textarea
+                  value={eDesc}
+                  onChange={(e) => setEDesc(e.target.value)}
+                  rows={4}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">정책 기대효과</label>
+                <textarea
+                  value={eExp}
+                  onChange={(e) => setEExp(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">1회 참여 시 지급 씨앗</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={eSeeds}
+                  onChange={(e) => setESeeds(Number(e.target.value))}
+                  className="w-40 rounded-lg border border-gray-200 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">정책 로고 (이미지 변경)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (!f) return
+                    const r = new FileReader()
+                    r.onload = () => setELogo(String(r.result || '').slice(0, 45000))
+                    r.readAsDataURL(f)
+                  }}
+                  className="text-xs"
+                />
+                {policyLogoSrc(eLogo) && (
+                  <img src={policyLogoSrc(eLogo)} alt="" className="mt-2 h-16 w-16 rounded-lg border object-cover" />
+                )}
+              </div>
             </div>
-            <div className="mt-4 flex gap-2">
-              <button type="button" onClick={() => setEditOpen(false)} className="flex-1 rounded border py-2">
+            <div className="mt-6 flex gap-2">
+              <button type="button" onClick={() => setEditOpen(false)} className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium">
                 취소
               </button>
               <button
                 type="button"
                 disabled={saving}
                 onClick={saveTeacherEdit}
-                className="flex-1 rounded bg-blue-600 py-2 font-semibold text-white"
+                className="flex-1 rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white"
               >
                 저장
               </button>
@@ -495,33 +519,116 @@ function RankBox({
 function PolicyRankBox({
   title,
   policies,
-  logoOf,
 }: {
   title: string
   policies: Array<{ policy_id: string; title: string; total_seeds: number; logo_data?: string; policy_logo_data?: string }>
-  logoOf: (p: { logo_data?: string; policy_logo_data?: string }) => string
 }) {
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
       <h3 className="mb-3 text-xs font-bold text-gray-800">{title}</h3>
       <ul className="space-y-2">
-        {policies.map((p, i) => (
-          <li key={p.policy_id} className="flex items-center gap-2 rounded-lg bg-gray-50 px-2 py-1.5">
-            <span className="w-5 text-center text-[11px] font-bold text-sky-600">{i + 1}</span>
-            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-white">
-              {logoOf(p) ? (
-                <img src={logoOf(p)} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-lg">🌱</div>
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium text-gray-900">{p.title}</p>
-            </div>
-            <span className="text-sm font-bold text-emerald-600">{p.total_seeds}</span>
-          </li>
-        ))}
+        {policies.map((p, i) => {
+          const src = policyLogoSrc(p.logo_data || p.policy_logo_data)
+          return (
+            <li key={p.policy_id} className="flex items-center gap-2 rounded-lg bg-gray-50 px-2 py-1.5">
+              <span className="w-5 text-center text-[11px] font-bold text-sky-600">{i + 1}</span>
+              <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-white">
+                {src ? (
+                  <img src={src} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-lg">🌱</div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium text-gray-900">{p.title}</p>
+              </div>
+              <span className="text-sm font-bold text-emerald-600">{p.total_seeds}</span>
+            </li>
+          )
+        })}
       </ul>
+    </div>
+  )
+}
+
+function PolicyCompactCard({
+  policy,
+  classStudents,
+  onOpen,
+  onEdit,
+}: {
+  policy: Policy
+  classStudents: Student[]
+  onOpen: () => void
+  onEdit: (e: MouseEvent) => void
+}) {
+  const creator = classStudents.find((s) => s.student_id === policy.creator_student_id)
+  const co = (policy.co_registrants || [])
+    .map((id) => classStudents.find((s) => s.student_id === id))
+    .filter((x): x is Student => Boolean(x))
+  const logo = policyLogoSrc(policy.logo_data)
+
+  return (
+    <div className="flex flex-col rounded-xl border border-gray-100 bg-white p-2 shadow-sm">
+      <button type="button" onClick={onOpen} className="flex gap-2 text-left">
+        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-gray-50">
+          {logo ? (
+            <img src={logo} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-lg">🌱</div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-1 text-sm font-bold leading-tight text-gray-900">{policy.title}</p>
+          <p className="line-clamp-1 text-[10px] leading-tight text-gray-500">{policy.goal || '\u00A0'}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+            {creator && (
+              <span className="inline-flex max-w-full items-center gap-1 text-[10px] text-gray-600">
+                <span className="shrink-0 text-gray-400">등록</span>
+                <span className="inline-flex h-6 w-6 shrink-0 overflow-hidden rounded-full bg-gray-100">
+                  {creator.photo_data ? (
+                    <img src={photoSrc(creator.photo_data)} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-[9px] font-medium text-gray-500">
+                      {(creator.name || '?').charAt(0)}
+                    </span>
+                  )}
+                </span>
+                <span className="truncate font-medium">{creator.name}</span>
+              </span>
+            )}
+            {co.length > 0 && (
+              <span className="inline-flex flex-wrap items-center gap-1 text-[10px] text-gray-600">
+                <span className="shrink-0 text-gray-400">공동</span>
+                {co.map((s) => (
+                  <span
+                    key={s.student_id}
+                    className="inline-flex items-center gap-0.5"
+                    title={`${s.name} (${s.student_id})`}
+                  >
+                    <span className="inline-flex h-6 w-6 shrink-0 overflow-hidden rounded-full bg-gray-100 ring-1 ring-white">
+                      {s.photo_data ? (
+                        <img src={photoSrc(s.photo_data)} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center text-[9px] font-medium text-gray-500">
+                          {(s.name || '?').charAt(0)}
+                        </span>
+                      )}
+                    </span>
+                  </span>
+                ))}
+              </span>
+            )}
+          </div>
+        </div>
+      </button>
+      <button
+        type="button"
+        onClick={onEdit}
+        className="mt-1.5 w-full rounded-md bg-gray-100 py-1.5 text-[10px] font-medium text-gray-800 hover:bg-gray-200"
+      >
+        정책 수정하기
+      </button>
     </div>
   )
 }

@@ -11,6 +11,7 @@ import {
   batchSetPolicySeeds,
 } from '@/api/api'
 import type { Policy, PolicyParticipant, Student } from '@/types'
+import { policyLogoSrc } from '@/lib/policyImage'
 
 const LOGIN_KEY = 'homeroom_login'
 
@@ -294,8 +295,8 @@ export function StudentPoliciesPage() {
                       className="flex w-full items-center gap-3 rounded-2xl border border-white bg-white p-3 text-left shadow-md transition hover:ring-2 hover:ring-emerald-200"
                     >
                       <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gray-100">
-                        {p.logo_data ? (
-                          <img src={p.logo_data} alt="" className="h-full w-full object-cover" />
+                        {policyLogoSrc(p.logo_data) ? (
+                          <img src={policyLogoSrc(p.logo_data)} alt="" className="h-full w-full object-cover" />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-2xl">🌱</div>
                         )}
@@ -327,20 +328,43 @@ export function StudentPoliciesPage() {
             </button>
 
             <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow">
-              <div className="mb-3 flex gap-3">
-                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-gray-50">
-                  {detail.logo_data ? (
-                    <img src={detail.logo_data} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-3xl">🌱</div>
-                  )}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 gap-3">
+                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-gray-50">
+                    {policyLogoSrc(detail.logo_data) ? (
+                      <img src={policyLogoSrc(detail.logo_data)} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-3xl">🌱</div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-base font-bold text-gray-900">{detail.title}</h2>
+                    <p className="text-[11px] text-gray-500">목표: {detail.goal}</p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <h2 className="text-base font-bold text-gray-900">{detail.title}</h2>
-                  <p className="text-[11px] text-gray-500">목표: {detail.goal}</p>
-                </div>
+                {canManage(detail) && (
+                  <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setEditOpen(true)}
+                      className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-sm"
+                    >
+                      정책 수정하기
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScatterOpen(true)
+                        setSeedSearch('')
+                      }}
+                      className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm"
+                    >
+                      씨앗 뿌리기
+                    </button>
+                  </div>
+                )}
               </div>
-              <dl className="space-y-2 text-xs text-gray-700">
+              <dl className="mt-4 space-y-2 text-xs text-gray-700">
                 <div>
                   <dt className="font-semibold text-gray-800">세부 설명</dt>
                   <dd className="whitespace-pre-wrap">{detail.description}</dd>
@@ -354,28 +378,6 @@ export function StudentPoliciesPage() {
                   <dd>{detail.seeds_per_participation}개</dd>
                 </div>
               </dl>
-
-              {canManage(detail) && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditOpen(true)}
-                    className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white"
-                  >
-                    정책 수정하기
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setScatterOpen(true)
-                      setSeedSearch('')
-                    }}
-                    className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white"
-                  >
-                    씨앗 뿌리기
-                  </button>
-                </div>
-              )}
             </div>
 
             <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow">
@@ -420,42 +422,73 @@ export function StudentPoliciesPage() {
         )}
 
         {editOpen && detail && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-            <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4 shadow-xl">
-              <h3 className="mb-3 font-bold">정책 수정</h3>
-              <div className="space-y-2 text-sm">
-                <label className="text-xs text-gray-600">정책명</label>
-                <input
-                  value={eTitle}
-                  onChange={(e) => setETitle(e.target.value)}
-                  className="w-full rounded border px-2 py-1.5"
-                />
-                <label className="text-xs text-gray-600">목표</label>
-                <textarea value={eGoal} onChange={(e) => setEGoal(e.target.value)} className="w-full rounded border px-2 py-1.5" rows={2} />
-                <label className="text-xs text-gray-600">세부 설명</label>
-                <textarea value={eDesc} onChange={(e) => setEDesc(e.target.value)} className="w-full rounded border px-2 py-1.5" rows={3} />
-                <label className="text-xs text-gray-600">기대효과</label>
-                <textarea value={eExp} onChange={(e) => setEExp(e.target.value)} className="w-full rounded border px-2 py-1.5" rows={2} />
-                <label className="text-xs text-gray-600">1회 씨앗</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={eSeeds}
-                  onChange={(e) => setESeeds(Number(e.target.value))}
-                  className="w-full rounded border px-2 py-1.5"
-                />
-                <label className="text-xs text-gray-600">로고 (이미지 다시 선택)</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (!f) return
-                    const r = new FileReader()
-                    r.onload = () => setELogo(String(r.result || '').slice(0, 45000))
-                    r.readAsDataURL(f)
-                  }}
-                />
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 sm:items-center">
+            <div className="max-h-[95vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6">
+              <h3 className="mb-4 text-lg font-bold text-gray-900">정책 수정</h3>
+              <div className="space-y-4 text-sm">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">정책명</label>
+                  <input
+                    value={eTitle}
+                    onChange={(e) => setETitle(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">정책의 목표</label>
+                  <textarea
+                    value={eGoal}
+                    onChange={(e) => setEGoal(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2"
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">세부 설명 (참여 방법 등)</label>
+                  <textarea
+                    value={eDesc}
+                    onChange={(e) => setEDesc(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2"
+                    rows={4}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">정책 기대효과</label>
+                  <textarea
+                    value={eExp}
+                    onChange={(e) => setEExp(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">1회 참여 시 지급 씨앗</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={eSeeds}
+                    onChange={(e) => setESeeds(Number(e.target.value))}
+                    className="w-40 rounded-lg border border-gray-200 px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">정책 로고 (이미지 변경)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (!f) return
+                      const r = new FileReader()
+                      r.onload = () => setELogo(String(r.result || '').slice(0, 45000))
+                      r.readAsDataURL(f)
+                    }}
+                    className="text-xs"
+                  />
+                  {policyLogoSrc(eLogo) && (
+                    <img src={policyLogoSrc(eLogo)} alt="" className="mt-2 h-16 w-16 rounded-lg border object-cover" />
+                  )}
+                </div>
               </div>
               <div className="mt-4 flex gap-2">
                 <button type="button" onClick={() => setEditOpen(false)} className="flex-1 rounded border py-2 text-sm">

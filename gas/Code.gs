@@ -1864,7 +1864,8 @@ function savePolicy(params) {
     if (rowIdx < 0) return { success: false, error: 'policy not found' };
     if (!isTeacher && !studentCanEditPolicy(actor, oldCreator, oldCo)) return { success: false, error: 'no permission' };
     var upd = [[policyId, title, goal, description, expectedEffect, seedsPer, logoData, creator, coJson, data[rowIdx - 1][headers.indexOf('created_at')] || now, now]];
-    sheet.getRange(rowIdx, 1, rowIdx, n).setValues(upd);
+    // getRange(row, col, numRows, numColumns) — 단일 행이면 numRows=1 (rowIdx를 넣으면 rowIdx행짜리 범위가 되어 setValues와 불일치)
+    sheet.getRange(rowIdx, 1, 1, n).setValues(upd);
     return { success: true, data: { policy_id: policyId } };
   }
 
@@ -1881,6 +1882,7 @@ function policyRowToObj(row, headers) {
   for (var i = 0; i < headers.length; i++) {
     o[headers[i]] = row[i];
   }
+  if (o.logo_data != null) o.logo_data = String(o.logo_data);
   o.co_registrants = parseCoRegs(o.co_registrants_json);
   return o;
 }
