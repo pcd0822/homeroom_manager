@@ -26,6 +26,7 @@ export function PolicyBoardSharedPage() {
 
   const [hypeCooldownUntil, setHypeCooldownUntil] = useState<number | null>(null)
   const [hypeErr, setHypeErr] = useState('')
+  const [hypeSuccess, setHypeSuccess] = useState('')
   const cooldownRemainingMs = hypeCooldownUntil ? Math.max(0, hypeCooldownUntil - Date.now()) : 0
 
   const shareHeaderTitle = useMemo(() => {
@@ -78,6 +79,7 @@ export function PolicyBoardSharedPage() {
 
   const openDetail = useCallback(async (pid: string) => {
     setHypeErr('')
+    setHypeSuccess('')
     setHypeCooldownUntil(null)
     setDetailLoading(true)
     const d = await getPolicyDetail(pid)
@@ -89,6 +91,7 @@ export function PolicyBoardSharedPage() {
   const doHype = useCallback(async () => {
     if (!detail) return
     setHypeErr('')
+    setHypeSuccess('')
     if (cooldownRemainingMs > 0) {
       setHypeErr(`이미 하입하셨습니다. ${formatCooldownMinutes(cooldownRemainingMs)}분 후 다시 해주세요.`)
       return
@@ -101,6 +104,9 @@ export function PolicyBoardSharedPage() {
       setPolicies((prev) =>
         prev.map((p) => (p.policy_id === detail.policy_id ? { ...p, hype_count: hypeCount } : p))
       )
+      setHypeSuccess('Hype했습니다!')
+      // GAS에서 30분 쿨다운을 적용하므로 프론트에서도 같은 UX로 제한
+      setHypeCooldownUntil(Date.now() + 30 * 60 * 1000)
     } else {
       const retryMs = (res as any)?.data?.retry_in_ms
       if (typeof retryMs === 'number' && retryMs > 0) {
@@ -113,6 +119,10 @@ export function PolicyBoardSharedPage() {
   }, [cooldownRemainingMs, detail, studentId])
 
   const participationLinks = useMemo(() => detail?.participation_links || [], [detail])
+
+  const top4Policies = useMemo(() => {
+    return [...policies].sort((a, b) => (b.hype_count ?? 0) - (a.hype_count ?? 0)).slice(0, 4)
+  }, [policies])
 
   if (!sessionChecked) {
     return (
@@ -172,42 +182,71 @@ export function PolicyBoardSharedPage() {
         ) : policies.length === 0 ? (
           <p className="text-sm text-gray-600">등록된 정책이 없습니다.</p>
         ) : (
-          <ul className="space-y-3">
-            {policies.map((p) => (
-              <li key={p.policy_id}>
-                <button
-                  type="button"
-                  onClick={() => openDetail(p.policy_id)}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-white bg-white p-3 text-left shadow-md transition hover:ring-2 hover:ring-emerald-200"
-                >
-                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gray-100">
-                    {policyLogoSrc(p.logo_data) ? (
-                      <img
-                        src={policyLogoSrc(p.logo_data)}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-2xl">🌱</div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold text-gray-900">{p.title}</p>
-                    <p className="truncate text-[11px] text-gray-500">{p.goal}</p>
-                    <p className="mt-0.5 text-[11px] font-semibold text-amber-600">
-                      🔥 {p.hype_count ?? 0}
-                    </p>
-                  </div>
-                  <span className="text-gray-300">›</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <>
+            {top4Policies.length > 0 && (
+              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
+                <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-amber-900">
+                  <span className="inline-block">🔥</span> 실시간 Top4
+                </h3>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {top4Policies.map((p, idx) => (
+                    <button
+                      key={p.policy_id}
+                      type="button"
+                      onClick={() => openDetail(p.policy_id)}
+                      className="group rounded-xl border border-amber-100 bg-white p-2 text-left shadow-sm transition hover:ring-2 hover:ring-amber-200 active:scale-[0.99]"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                          {policyLogoSrc(p.logo_data) ? (
+                            <img src={policyLogoSrc(p.logo_data)} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-base">🌱</div>
+                          )}
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className="text-[10px] font-bold text-amber-700">{idx + 1}등</div>
+                          <div className="text-[11px] font-semibold text-amber-600">🔥 {p.hype_count ?? 0}</div>
+                        </div>
+                      </div>
+                      <p className="mt-2 line-clamp-2 text-[11px] font-semibold text-gray-900">{p.title}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <ul className="space-y-3">
+              {policies.map((p) => (
+                <li key={p.policy_id}>
+                  <button
+                    type="button"
+                    onClick={() => openDetail(p.policy_id)}
+                    className="flex w-full items-center gap-3 rounded-2xl border border-white bg-white p-3 text-left shadow-md transition hover:ring-2 hover:ring-emerald-200"
+                  >
+                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                      {policyLogoSrc(p.logo_data) ? (
+                        <img src={policyLogoSrc(p.logo_data)} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-2xl">🌱</div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-gray-900">{p.title}</p>
+                      <p className="truncate text-[11px] text-gray-500">{p.goal}</p>
+                      <p className="mt-0.5 text-[11px] font-semibold text-amber-600">🔥 {p.hype_count ?? 0}</p>
+                    </div>
+                    <span className="text-gray-300">›</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
 
         {detail && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 sm:items-center">
-            <div className="max-h-[92vh] w-full overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6">
+            <div className="max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h2 className="break-words text-base font-bold text-gray-900">{detail.title}</h2>
@@ -260,6 +299,7 @@ export function PolicyBoardSharedPage() {
 
                 <div className="rounded-xl border border-amber-100 bg-amber-50 p-3">
                   <h3 className="mb-2 text-xs font-bold text-amber-900">Hype!로 순위 올리기</h3>
+                  {hypeSuccess && <p className="mb-2 text-xs font-semibold text-emerald-700">{hypeSuccess}</p>}
                   {hypeErr && <p className="mb-2 text-xs text-red-700">{hypeErr}</p>}
                   <button
                     type="button"

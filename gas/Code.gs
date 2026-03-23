@@ -2192,26 +2192,49 @@ function getOrCreateSeedProductsSheet() {
 function getStudentSeedBalance(studentId) {
   var sid = studentId != null ? String(studentId).trim() : '';
   if (!sid) return 0;
-  var sheet = getOrCreateSeedLedgerSheet();
-  if (sheet.getLastRow() < 2) return 0;
-  var data = sheet.getDataRange().getValues();
-  var headers = data[0].map(String);
-  var sCol = headers.indexOf('student_id');
-  var tCol = headers.indexOf('tx_type');
-  var aCol = headers.indexOf('amount');
-  if (sCol < 0) sCol = 0;
-  if (tCol < 0) tCol = 1;
-  if (aCol < 0) aCol = 5;
-  var bal = 0;
-  for (var i = 1; i < data.length; i++) {
-    var row = data[i];
-    if (String(row[sCol] || '').trim() !== sid) continue;
-    var txType = String(row[tCol] || '').trim();
-    var amt = Number(row[aCol] || 0);
-    if (isNaN(amt)) amt = 0;
-    if (txType === 'GAIN') bal += amt;
-    else if (txType === 'SPEND') bal -= amt;
+  // 획득(누적)은 정책 참여 누적(HomeroomPolicySeeds)에서 계산하고,
+  // 잔여는 지출(SPEND) ledger만 차감합니다.
+  var policyGain = 0;
+  var seedSheet = getOrCreatePolicySeedsSheet();
+  if (seedSheet.getLastRow() >= 2) {
+    var seedData = seedSheet.getDataRange().getValues();
+    var seedHeaders = seedData[0].map(String);
+    var sCol = seedHeaders.indexOf('student_id');
+    var cCol = seedHeaders.indexOf('seeds_count');
+    if (sCol < 0) sCol = 1;
+    if (cCol < 0) cCol = 2;
+    for (var i = 1; i < seedData.length; i++) {
+      var row = seedData[i];
+      if (String(row[sCol] || '').trim() !== sid) continue;
+      var sc = Number(row[cCol] || 0);
+      if (isNaN(sc)) sc = 0;
+      policyGain += sc;
+    }
   }
+
+  var spendTotal = 0;
+  var ledgerSheet = getOrCreateSeedLedgerSheet();
+  if (ledgerSheet.getLastRow() >= 2) {
+    var data = ledgerSheet.getDataRange().getValues();
+    var headers = data[0].map(String);
+    var sCol2 = headers.indexOf('student_id');
+    var tCol = headers.indexOf('tx_type');
+    var aCol = headers.indexOf('amount');
+    if (sCol2 < 0) sCol2 = 0;
+    if (tCol < 0) tCol = 1;
+    if (aCol < 0) aCol = 5;
+    for (var j = 1; j < data.length; j++) {
+      var row = data[j];
+      if (String(row[sCol2] || '').trim() !== sid) continue;
+      var txType = String(row[tCol] || '').trim();
+      if (txType !== 'SPEND') continue;
+      var amt = Number(row[aCol] || 0);
+      if (isNaN(amt)) amt = 0;
+      spendTotal += amt;
+    }
+  }
+
+  var bal = policyGain - spendTotal;
   if (bal < 0) bal = 0;
   return bal;
 }
@@ -2228,8 +2251,58 @@ function getStudentSeedLedger(params) {
     }
   }
 
+  // ledger에 기록이 없더라도, 정책 참여 누적(HomeroomPolicySeeds)은 존재할 수 있음.
+  var policyGainTotal = 0;
+  var seedSheetForGain = getOrCreatePolicySeedsSheet();
+  if (seedSheetForGain.getLastRow() >= 2) {
+    var seedDataForGain = seedSheetForGain.getDataRange().getValues();
+    var seedHeadersForGain = seedDataForGain[0].map(String);
+    var psCol = seedHeadersForGain.indexOf('student_id');
+    var pcCol = seedHeadersForGain.indexOf('seeds_count');
+    if (psCol < 0) psCol = 1;
+    if (pcCol < 0) pcCol = 2;
+    for (var si = 1; si < seedDataForGain.length; si++) {
+      var sr = seedDataForGain[si];
+      if (String(sr[psCol] || '').trim() !== sid) continue;
+      var sc = Number(sr[pcCol] || 0);
+      if (isNaN(sc)) sc = 0;
+      policyGainTotal += sc;
+    }
+  }
+
   if (sheet.getLastRow() < 2) {
-    return { success: true, data: { balance: 0, gains: [], spends: [], transactions: [] } };
+    var nowIso = new Date().toISOString();
+    return {
+      success: true,
+      data: {
+        balance: policyGainTotal,
+        gains: policyGainTotal > 0
+          ? [
+              {
+                created_at: nowIso,
+                policy_id: '__legacy__',
+                policy_title: '업데이트 이전 누적 씨앗',
+                amount: policyGainTotal,
+              },
+            ]
+          : [],
+        spends: [],
+        transactions:
+          policyGainTotal > 0
+            ? [
+                {
+                  created_at: nowIso,
+                  tx_type: 'GAIN',
+                  policy_title: '업데이트 이전 누적 씨앗',
+                  product_name: '',
+                  memo: '업데이트 이전 누적 씨앗',
+                  amount: policyGainTotal,
+                  remaining_after: policyGainTotal,
+                },
+              ]
+            : [],
+      },
+    };
   }
   var data = sheet.getDataRange().getValues();
   var headers = data[0].map(String);
@@ -2266,6 +2339,40 @@ function getStudentSeedLedger(params) {
     return a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0;
   });
 
+  // ledger에 없는 "업데이트 이전 누적 씨앗"이 있을 수 있으므로,
+  // 정책 참여 누적(HomeroomPolicySeeds)을 기반으로 초기 GAIN을 보정합니다.
+  var ledgerGainTotal = 0;
+  for (var lg = 0; lg < rows.length; lg++) {
+    if (rows[lg].tx_type === 'GAIN') {
+      var la = Number(rows[lg].amount || 0);
+      if (isNaN(la)) la = 0;
+      ledgerGainTotal += la;
+    }
+  }
+  var missingInitialGain = policyGainTotal - ledgerGainTotal;
+  if (missingInitialGain < 0) missingInitialGain = 0;
+  if (missingInitialGain > 0) {
+    var earliestMs = 0;
+    for (var em = 0; em < rows.length; em++) {
+      var dt = new Date(rows[em].created_at).getTime();
+      if (isNaN(dt)) continue;
+      if (earliestMs === 0 || dt < earliestMs) earliestMs = dt;
+    }
+    if (earliestMs === 0) earliestMs = new Date().getTime();
+    var initIso = new Date(earliestMs - 1).toISOString();
+    rows.push({
+      tx_type: 'GAIN',
+      policy_id: '__legacy__',
+      product_name: '',
+      memo: '업데이트 이전 누적 씨앗',
+      amount: missingInitialGain,
+      created_at: initIso,
+    });
+    rows.sort(function (a, b) {
+      return a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0;
+    });
+  }
+
   var bal = 0;
   var gains = [];
   var spends = [];
@@ -2280,7 +2387,7 @@ function getStudentSeedLedger(params) {
       gains.push({
         created_at: row.created_at,
         policy_id: row.policy_id,
-        policy_title: policyMap[row.policy_id] || '',
+        policy_title: row.policy_id === '__legacy__' ? '업데이트 이전 누적 씨앗' : policyMap[row.policy_id] || '',
         amount: amt,
       });
     } else if (row.tx_type === 'SPEND') {
@@ -2296,7 +2403,8 @@ function getStudentSeedLedger(params) {
     transactions.push({
       created_at: row.created_at,
       tx_type: row.tx_type,
-      policy_title: row.policy_id ? policyMap[row.policy_id] || '' : '',
+      policy_title:
+        row.policy_id === '__legacy__' ? '업데이트 이전 누적 씨앗' : row.policy_id ? policyMap[row.policy_id] || '' : '',
       product_name: row.product_name,
       memo: row.memo,
       amount: amt,
@@ -2393,52 +2501,57 @@ function spendSeeds(params) {
 function getClassSeedSummary() {
   var studentsRes = getStudents();
   var students = studentsRes.success && studentsRes.data ? studentsRes.data : [];
-  var sheet = getOrCreateSeedLedgerSheet();
-  if (sheet.getLastRow() < 2) {
-    var empty = [];
-    for (var si = 0; si < students.length; si++) {
-      var st = students[si];
-      empty.push({
-        student_id: String(st.student_id),
-        student_name: String(st.name || ''),
-        photo_data: st.photo_data != null ? String(st.photo_data) : '',
-        total_gained: 0,
-        total_spent: 0,
-        balance: 0,
-      });
+  // 획득(누적)은 정책 참여 누적(HomeroomPolicySeeds)에서 계산하고,
+  // 지출(SPEND)은 ledger에서 차감합니다.
+  var gainedMap = {};
+  var seedSheet = getOrCreatePolicySeedsSheet();
+  if (seedSheet.getLastRow() >= 2) {
+    var seedData = seedSheet.getDataRange().getValues();
+    var seedHeaders = seedData[0].map(String);
+    var psCol = seedHeaders.indexOf('student_id');
+    var pcCol = seedHeaders.indexOf('seeds_count');
+    if (psCol < 0) psCol = 1;
+    if (pcCol < 0) pcCol = 2;
+    for (var i = 1; i < seedData.length; i++) {
+      var row = seedData[i];
+      var sid = String(row[psCol] || '').trim();
+      if (!sid) continue;
+      var amt = Number(row[pcCol] || 0);
+      if (isNaN(amt)) amt = 0;
+      if (!gainedMap[sid]) gainedMap[sid] = 0;
+      gainedMap[sid] += amt;
     }
-    return { success: true, data: empty };
   }
-  var data = sheet.getDataRange().getValues();
-  var headers = data[0].map(String);
-  var sCol = headers.indexOf('student_id');
-  var tCol = headers.indexOf('tx_type');
-  var aCol = headers.indexOf('amount');
-  if (sCol < 0) sCol = 0;
-  if (tCol < 0) tCol = 1;
-  if (aCol < 0) aCol = 5;
-  var gainMap = {};
+
   var spendMap = {};
-  for (var i = 1; i < data.length; i++) {
-    var row = data[i];
-    var sid = String(row[sCol] || '').trim();
-    if (!sid) continue;
-    var txType = String(row[tCol] || '').trim();
-    var amt = Number(row[aCol] || 0);
-    if (isNaN(amt)) amt = 0;
-    if (txType === 'GAIN') {
-      if (!gainMap[sid]) gainMap[sid] = 0;
-      gainMap[sid] += amt;
-    } else if (txType === 'SPEND') {
+  var ledgerSheet = getOrCreateSeedLedgerSheet();
+  if (ledgerSheet.getLastRow() >= 2) {
+    var data = ledgerSheet.getDataRange().getValues();
+    var headers = data[0].map(String);
+    var sCol = headers.indexOf('student_id');
+    var tCol = headers.indexOf('tx_type');
+    var aCol = headers.indexOf('amount');
+    if (sCol < 0) sCol = 0;
+    if (tCol < 0) tCol = 1;
+    if (aCol < 0) aCol = 5;
+    for (var j = 1; j < data.length; j++) {
+      var row = data[j];
+      var sid = String(row[sCol] || '').trim();
+      if (!sid) continue;
+      var txType = String(row[tCol] || '').trim();
+      if (txType !== 'SPEND') continue;
+      var amt = Number(row[aCol] || 0);
+      if (isNaN(amt)) amt = 0;
       if (!spendMap[sid]) spendMap[sid] = 0;
       spendMap[sid] += amt;
     }
   }
+
   var out = [];
   for (var si2 = 0; si2 < students.length; si2++) {
     var st2 = students[si2];
     var sid2 = String(st2.student_id).trim();
-    var gained = gainMap[sid2] || 0;
+    var gained = gainedMap[sid2] || 0;
     var spent = spendMap[sid2] || 0;
     var bal = gained - spent;
     if (bal < 0) bal = 0;

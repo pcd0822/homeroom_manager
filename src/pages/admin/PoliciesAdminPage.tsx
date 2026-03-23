@@ -62,6 +62,8 @@ export function PoliciesAdminPage() {
   const [seedProducts, setSeedProducts] = useState<Array<{ product_id: string; product_name: string; seeds_required: number }>>([])
   const [seedProductsLoading, setSeedProductsLoading] = useState(false)
   const [seedAdminErr, setSeedAdminErr] = useState('')
+  const [seedAdminNotice, setSeedAdminNotice] = useState('')
+  const [seedAdminTimedOut, setSeedAdminTimedOut] = useState(false)
   const [seedClassSummary, setSeedClassSummary] = useState<
     Array<{
       student_id: string
@@ -117,12 +119,18 @@ export function PoliciesAdminPage() {
   useEffect(() => {
     if (tab !== 'seed') return
     setSeedAdminErr('')
+    setSeedAdminNotice('')
+    setSeedAdminTimedOut(false)
     setSeedAdminLoading(true)
-    ;(async () => {
+    setSeedProductsLoading(true)
+
+    const timeout = setTimeout(() => setSeedAdminTimedOut(true), 12000)
+
+    // 상품 로딩과 학생 누적집계 로딩을 분리해서,
+    // 누적집계가 오래 걸리거나 실패해도 상품 목록/저장 UX는 멈추지 않게 합니다.
+    void (async () => {
       try {
-        setSeedProductsLoading(true)
-        const [pRes, cRes] = await Promise.all([getSeedProducts(), getClassSeedSummary()])
-        setSeedProductsLoading(false)
+        const pRes = await getSeedProducts()
         if (pRes.success && pRes.data) {
           const products = pRes.data as any
           setSeedProducts(products)
@@ -130,20 +138,32 @@ export function PoliciesAdminPage() {
             setSpendProductId((prev) => (prev ? prev : products[0].product_id))
           }
         }
+      } catch {
+        // 상품 로딩 실패는 별도 표시(현재는 상단 seedAdminErr에 덮지 않음)
+      } finally {
+        setSeedProductsLoading(false)
+      }
+    })()
+
+    void (async () => {
+      try {
+        const cRes = await getClassSeedSummary()
         if (cRes.success && cRes.data) {
           const summary = cRes.data as any
           setSeedClassSummary(summary)
           if (summary.length > 0) {
             setSpendStudentId((prev) => (prev ? prev : summary[0].student_id))
           }
+        } else {
+          setSeedAdminErr(cRes.error || '학생 누적집계 불러오기에 실패했습니다.')
         }
       } catch {
-        setSeedAdminErr('씨앗 정보를 불러오지 못했습니다.')
+        setSeedAdminErr('학생 누적집계를 불러오지 못했습니다.')
       } finally {
-        setSeedProductsLoading(false)
         setSeedAdminLoading(false)
       }
     })()
+    return () => clearTimeout(timeout)
   }, [tab])
 
   const topHypeIdSet = useMemo(
@@ -431,6 +451,11 @@ export function PoliciesAdminPage() {
             <p className="mt-1 text-xs text-amber-900/70">상품(교환 대상)을 등록하고, 씨앗 지출 내역을 학생 가계부에 연결합니다.</p>
           </div>
 
+          {seedAdminNotice && (
+            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+              {seedAdminNotice}
+            </p>
+          )}
           {seedAdminErr && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{seedAdminErr}</p>}
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -462,13 +487,22 @@ export function PoliciesAdminPage() {
                   onClick={async () => {
                     setSeedSaveBusy(true)
                     setSeedAdminErr('')
+                    setSeedAdminNotice('')
                     try {
                       const r = await saveSeedProduct({ product_name: newProductName, seeds_required: Math.max(0, newProductSeedsRequired) })
                       if (r.success) {
                         setNewProductName('')
                         setNewProductSeedsRequired(0)
                         const pRes = await getSeedProducts()
-                        if (pRes.success && pRes.data) setSeedProducts(pRes.data as any)
+                        if (pRes.success && pRes.data) {
+                          const products = pRes.data as any
+                          setSeedProducts(products)
+                          if (products.length > 0) {
+                            setSpendProductId((prev) => (prev ? prev : products[0].product_id))
+                          }
+                        }
+                        setSeedAdminNotice('저장되었습니다!')
+                        setTimeout(() => setSeedAdminNotice(''), 2000)
                       } else {
                         setSeedAdminErr(r.error || '상품 저장 실패')
                       }
@@ -503,7 +537,39 @@ export function PoliciesAdminPage() {
             <div className="rounded-2xl border border-amber-100 bg-white p-4 shadow-sm">
               <h3 className="mb-3 text-sm font-bold text-amber-900">등록된 학생들의 씨앗 누적 집계 현황</h3>
               {seedAdminLoading ? (
-                <p className="text-sm text-gray-500">불러오는 중...</p>
+                !seedAdminTimedOut ? (
+                  <p className="text-sm text-gray-500">불러오는 중...</p>
+                ) : (
+                  <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                    <p>누적 집계 불러오기가 오래 걸리고 있어요.</p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setSeedAdminTimedOut(false)
+                        setSeedAdminLoading(true)
+                        setSeedAdminErr('')
+                        setSeedAdminNotice('')
+                        try {
+                          const cRes = await getClassSeedSummary()
+                          if (cRes.success && cRes.data) {
+                            const summary = cRes.data as any
+                            setSeedClassSummary(summary)
+                            if (summary.length > 0) setSpendStudentId((prev) => (prev ? prev : summary[0].student_id))
+                          } else {
+                            setSeedAdminErr(cRes.error || '학생 누적집계 불러오기에 실패했습니다.')
+                          }
+                        } catch {
+                          setSeedAdminErr('학생 누적집계를 불러오지 못했습니다.')
+                        } finally {
+                          setSeedAdminLoading(false)
+                        }
+                      }}
+                      className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-amber-900 hover:bg-amber-100"
+                    >
+                      다시 시도
+                    </button>
+                  </div>
+                )
               ) : seedClassSummary.length === 0 ? (
                 <p className="text-sm text-gray-500">학생 씨앗 데이터가 없습니다.</p>
               ) : (
@@ -632,6 +698,7 @@ export function PoliciesAdminPage() {
                     onClick={async () => {
                       setSpending(true)
                       setSeedAdminErr('')
+                      setSeedAdminNotice('')
                       try {
                         const r = await spendSeeds({
                           student_id: spendStudentId,
@@ -642,6 +709,8 @@ export function PoliciesAdminPage() {
                         })
                         if (r.success) {
                           setSpendOpen(false)
+                          setSeedAdminNotice('지출이 저장되었습니다!')
+                          setTimeout(() => setSeedAdminNotice(''), 2000)
                           // 지출 후 즉시 요약 갱신
                           const cRes = await getClassSeedSummary()
                           if (cRes.success && cRes.data) setSeedClassSummary(cRes.data as any)
