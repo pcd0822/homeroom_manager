@@ -26,6 +26,7 @@ export function StudentPolicyRegisterPage() {
   const [saving, setSaving] = useState(false)
   const [logoBusy, setLogoBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [participationLinks, setParticipationLinks] = useState<string[]>([''])
 
   useEffect(() => {
     let cancelled = false
@@ -136,6 +137,7 @@ export function StudentPolicyRegisterPage() {
       logo_data: logoData,
       creator_student_id: studentId.trim(),
       co_registrants: coIds.filter((id) => id !== studentId.trim()),
+      participation_links: participationLinks.map((l) => l.trim()).filter(Boolean),
       actor_student_id: studentId.trim(),
     })
     setSaving(false)
@@ -298,6 +300,45 @@ export function StudentPolicyRegisterPage() {
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
             />
           </div>
+
+          <section className="rounded-xl border border-sky-100 bg-white p-3">
+            <h2 className="mb-2 text-xs font-bold text-gray-800">정책 참여 링크 (선택)</h2>
+            <p className="mb-2 text-[11px] text-gray-500">추가 버튼으로 링크를 여러 개 등록할 수 있어요. (링크1, 링크2...)</p>
+            <div className="space-y-2">
+              {participationLinks.map((lnk, idx) => (
+                <div key={`${idx}-${lnk}`} className="flex items-center gap-2">
+                  <span className="shrink-0 text-[11px] font-semibold text-sky-700">{`링크${idx + 1}`}</span>
+                  <input
+                    value={lnk}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      setParticipationLinks((prev) => prev.map((x, i) => (i === idx ? v : x)))
+                    }}
+                    placeholder="https://..."
+                    className="min-w-0 flex-1 rounded border border-gray-200 px-2 py-1.5 text-xs"
+                  />
+                  {participationLinks.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setParticipationLinks((prev) => prev.filter((_, i) => i !== idx))}
+                      className="shrink-0 rounded border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50"
+                    >
+                      삭제
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={() => setParticipationLinks((prev) => [...prev, ''])}
+                className="text-[11px] font-semibold text-sky-700 hover:text-sky-900"
+              >
+                + 링크 추가
+              </button>
+            </div>
+          </section>
 
           <section className="rounded-xl border border-emerald-100 bg-white p-3">
             <h2 className="mb-2 text-xs font-bold text-gray-800">공동 등록자 (선택)</h2>

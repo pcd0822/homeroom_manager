@@ -32,7 +32,10 @@ var SHEETS = {
   CLASS_GAME_SCORES: 'ClassGameScores',
   /** 기존 스프레드시트에 'Policies' 등 이름이 겹치면 insertSheet 실패하므로 고유 이름 사용 */
   POLICIES: 'HomeroomPolicies',
-  POLICY_SEEDS: 'HomeroomPolicySeeds'
+  POLICY_SEEDS: 'HomeroomPolicySeeds',
+  POLICY_HYPE: 'HomeroomPolicyHype',
+  SEED_LEDGER: 'HomeroomSeedLedger',
+  SEED_PRODUCTS: 'HomeroomSeedProducts'
 };
 
 // 생기부 record 시트 헤더 (순서 유지)
@@ -222,6 +225,24 @@ function handleRequest(e, method) {
         break;
       case 'SET_POLICY_SEEDS':
         result = setPolicySeeds(params);
+        break;
+      case 'HYPE_POLICY':
+        result = hypePolicy(params);
+        break;
+      case 'GET_STUDENT_SEED_LEDGER':
+        result = getStudentSeedLedger(params);
+        break;
+      case 'GET_SEED_PRODUCTS':
+        result = getSeedProducts();
+        break;
+      case 'SAVE_SEED_PRODUCT':
+        result = saveSeedProduct(params);
+        break;
+      case 'SPEND_SEEDS':
+        result = spendSeeds(params);
+        break;
+      case 'GET_CLASS_SEED_SUMMARY':
+        result = getClassSeedSummary();
         break;
       case 'GET_POLICY_TREE_DASHBOARD':
         result = getPolicyTreeDashboard();
@@ -1763,7 +1784,8 @@ var POLICY_HEADERS = [
   'creator_student_id',
   'co_registrants_json',
   'created_at',
-  'updated_at'
+  'updated_at',
+  'participation_links_json'
 ];
 
 var POLICY_SEEDS_HEADERS = ['policy_id', 'student_id', 'seeds_count', 'updated_at'];
@@ -1773,6 +1795,9 @@ function getOrCreatePoliciesSheet() {
   var sheet = ss.getSheetByName(SHEETS.POLICIES);
   if (!sheet) {
     sheet = ss.insertSheet(SHEETS.POLICIES);
+    sheet.getRange(1, 1, 1, POLICY_HEADERS.length).setValues([POLICY_HEADERS]);
+  } else {
+    // 기존 시트가 있더라도 최신 헤더 구조를 반영
     sheet.getRange(1, 1, 1, POLICY_HEADERS.length).setValues([POLICY_HEADERS]);
   }
   return sheet;
@@ -1804,6 +1829,20 @@ function parseCoRegs(jsonStr) {
   }
 }
 
+function parseLinks(jsonStr) {
+  try {
+    var arr = JSON.parse(String(jsonStr || '[]'));
+    if (!arr || !arr.length) return [];
+    return arr
+      .map(function (x) {
+        return String(x || '').trim();
+      })
+      .filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+}
+
 function studentCanEditPolicy(actorId, creatorId, coJson) {
   var a = String(actorId || '').trim();
   if (!a) return false;
@@ -1827,6 +1866,7 @@ function savePolicy(params) {
   var logoData = params && params.logo_data != null ? String(params.logo_data) : '';
   var creator = params && params.creator_student_id != null ? String(params.creator_student_id).trim() : '';
   var coRegs = params && params.co_registrants ? params.co_registrants : [];
+  var links = params && params.participation_links ? params.participation_links : [];
   if (!creator) return { success: false, error: 'creator_student_id required' };
   if (!title) return { success: false, error: 'title required' };
   if (isNaN(seedsPer) || seedsPer < 0) seedsPer = 0;
@@ -1839,6 +1879,17 @@ function savePolicy(params) {
     }
   }
   var coJson = JSON.stringify(coArr);
+  var linksArr = [];
+  if (links && links.length) {
+    for (var li = 0; li < links.length; li++) {
+      var lnk = String(links[li] || '').trim();
+      if (lnk && linksArr.indexOf(lnk) < 0) linksArr.push(lnk);
+    }
+  }
+  var linksJson = JSON.stringify(linksArr);
+  // URL 링크는 길 수 있으므로 셀 용량 대응을 위해 상한을 둠
+  if (linksJson.length > 45000) linksJson = linksJson.slice(0, 45000);
+
   var sheet = getOrCreatePoliciesSheet();
   var now = new Date().toISOString();
   var n = POLICY_HEADERS.length;
@@ -1863,7 +1914,8 @@ function savePolicy(params) {
     }
     if (rowIdx < 0) return { success: false, error: 'policy not found' };
     if (!isTeacher && !studentCanEditPolicy(actor, oldCreator, oldCo)) return { success: false, error: 'no permission' };
-    var upd = [[policyId, title, goal, description, expectedEffect, seedsPer, logoData, creator, coJson, data[rowIdx - 1][headers.indexOf('created_at')] || now, now]];
+    var createdAtVal = data[rowIdx - 1][headers.indexOf('created_at')] || now;
+    var upd = [[policyId, title, goal, description, expectedEffect, seedsPer, logoData, creator, coJson, createdAtVal, now, linksJson]];
     // getRange(row, col, numRows, numColumns) — 단일 행이면 numRows=1 (rowIdx를 넣으면 rowIdx행짜리 범위가 되어 setValues와 불일치)
     sheet.getRange(rowIdx, 1, 1, n).setValues(upd);
     return { success: true, data: { policy_id: policyId } };
@@ -1871,7 +1923,7 @@ function savePolicy(params) {
 
   if (actor !== creator) return { success: false, error: 'actor must be creator for new policy' };
   var newId = generatePolicyId();
-  var row = [newId, title, goal, description, expectedEffect, seedsPer, logoData, creator, coJson, now, now];
+  var row = [newId, title, goal, description, expectedEffect, seedsPer, logoData, creator, coJson, now, now, linksJson];
   var last = sheet.getLastRow();
   sheet.getRange(last + 1, 1, 1, n).setValues([row]);
   return { success: true, data: { policy_id: newId } };
@@ -1884,7 +1936,114 @@ function policyRowToObj(row, headers) {
   }
   if (o.logo_data != null) o.logo_data = String(o.logo_data);
   o.co_registrants = parseCoRegs(o.co_registrants_json);
+  o.participation_links = parseLinks(o.participation_links_json);
   return o;
+}
+
+// ----- Policy Hype (🔥) -----
+var POLICY_HYPE_HEADERS = ['policy_id', 'student_id', 'hype_count', 'last_hyped_at'];
+
+function getOrCreatePolicyHypeSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.POLICY_HYPE);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.POLICY_HYPE);
+    sheet.getRange(1, 1, 1, POLICY_HYPE_HEADERS.length).setValues([POLICY_HYPE_HEADERS]);
+  } else {
+    sheet.getRange(1, 1, 1, POLICY_HYPE_HEADERS.length).setValues([POLICY_HYPE_HEADERS]);
+  }
+  return sheet;
+}
+
+function getPolicyHypeTotalsMap() {
+  var sheet = getOrCreatePolicyHypeSheet();
+  if (sheet.getLastRow() < 2) return {};
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var pCol = headers.indexOf('policy_id');
+  var cCol = headers.indexOf('hype_count');
+  if (pCol < 0) pCol = 0;
+  if (cCol < 0) cCol = 2;
+  var map = {};
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var pid = String(row[pCol] || '').trim();
+    if (!pid) continue;
+    var hc = Number(row[cCol] || 0);
+    if (isNaN(hc)) hc = 0;
+    if (!map[pid]) map[pid] = 0;
+    map[pid] += hc;
+  }
+  return map;
+}
+
+function hypePolicy(params) {
+  var policyId = params && params.policy_id != null ? String(params.policy_id).trim() : '';
+  var actor = params && params.actor_student_id != null ? String(params.actor_student_id).trim() : '';
+  if (!policyId) return { success: false, error: 'policy_id required' };
+  if (!actor) return { success: false, error: 'actor_student_id required' };
+
+  // 정책 존재 확인
+  var det = getPolicyDetail(policyId);
+  if (!det.success) return det;
+
+  var now = new Date();
+  var nowMs = now.getTime();
+  var nowIso = now.toISOString();
+  var COOLDOWN_MS = 30 * 60 * 1000;
+
+  var sheet = getOrCreatePolicyHypeSheet();
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var pCol = headers.indexOf('policy_id');
+  var sCol = headers.indexOf('student_id');
+  var cCol = headers.indexOf('hype_count');
+  var lCol = headers.indexOf('last_hyped_at');
+  if (pCol < 0) pCol = 0;
+  if (sCol < 0) sCol = 1;
+  if (cCol < 0) cCol = 2;
+  if (lCol < 0) lCol = 3;
+
+  var foundRow = -1;
+  var lastMs = 0;
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var pid = String(row[pCol] || '').trim();
+    var sid = String(row[sCol] || '').trim();
+    if (pid === policyId && sid === actor) {
+      foundRow = i + 1;
+      var lastStr = String(row[lCol] || '').trim();
+      if (lastStr) {
+        var lastDate = new Date(lastStr);
+        if (!isNaN(lastDate.getTime())) lastMs = lastDate.getTime();
+      }
+      break;
+    }
+  }
+
+  if (foundRow > 0) {
+    var remainingMs = Math.max(0, COOLDOWN_MS - (nowMs - lastMs));
+    if (remainingMs > 0) {
+      return {
+        success: false,
+        error: '30분 후 다시 하입할 수 있어요.',
+        data: { retry_in_ms: remainingMs },
+      };
+    }
+
+    var oldCount = Number(data[foundRow - 1][cCol] || 0);
+    if (isNaN(oldCount)) oldCount = 0;
+    var newCount = oldCount + 1;
+    sheet.getRange(foundRow, cCol + 1).setValue(newCount);
+    sheet.getRange(foundRow, lCol + 1).setValue(nowIso);
+  } else {
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, POLICY_HYPE_HEADERS.length).setValues([
+      [policyId, actor, 1, nowIso],
+    ]);
+  }
+
+  var totals = getPolicyHypeTotalsMap();
+  return { success: true, data: { policy_id: policyId, hype_count: totals[policyId] || 0 } };
 }
 
 function getPolicies() {
@@ -1895,6 +2054,11 @@ function getPolicies() {
   var list = [];
   for (var i = 1; i < data.length; i++) {
     list.push(policyRowToObj(data[i], headers));
+  }
+  var hypeTotals = getPolicyHypeTotalsMap();
+  for (var j = 0; j < list.length; j++) {
+    var pid = String(list[j].policy_id || '').trim();
+    list[j].hype_count = hypeTotals[pid] || 0;
   }
   return { success: true, data: list };
 }
@@ -1932,9 +2096,12 @@ function getPolicyDetail(policyId) {
   var headers = data[0].map(String);
   var idCol = headers.indexOf('policy_id');
   if (idCol < 0) idCol = 0;
+  var hypeTotals = getPolicyHypeTotalsMap();
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][idCol] || '').trim() === pid) {
-      return { success: true, data: policyRowToObj(data[i], headers) };
+      var obj = policyRowToObj(data[i], headers);
+      obj.hype_count = hypeTotals[pid] || 0;
+      return { success: true, data: obj };
     }
   }
   return { success: false, error: 'not found' };
@@ -1981,6 +2148,312 @@ function getPolicyParticipants(policyId) {
   return { success: true, data: list };
 }
 
+// ----- 씨앗 가계부/교환(획득/지출) -----
+var SEED_LEDGER_HEADERS = [
+  'student_id',
+  'tx_type', // GAIN | SPEND
+  'policy_id',
+  'product_name',
+  'memo',
+  'amount',
+  'created_at',
+];
+
+var SEED_PRODUCTS_HEADERS = ['product_id', 'product_name', 'seeds_required', 'created_at'];
+
+function generateSeedProductId() {
+  return 'seedprod_' + new Date().getTime() + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+function getOrCreateSeedLedgerSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.SEED_LEDGER);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.SEED_LEDGER);
+    sheet.getRange(1, 1, 1, SEED_LEDGER_HEADERS.length).setValues([SEED_LEDGER_HEADERS]);
+  } else {
+    sheet.getRange(1, 1, 1, SEED_LEDGER_HEADERS.length).setValues([SEED_LEDGER_HEADERS]);
+  }
+  return sheet;
+}
+
+function getOrCreateSeedProductsSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.SEED_PRODUCTS);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.SEED_PRODUCTS);
+    sheet.getRange(1, 1, 1, SEED_PRODUCTS_HEADERS.length).setValues([SEED_PRODUCTS_HEADERS]);
+  } else {
+    sheet.getRange(1, 1, 1, SEED_PRODUCTS_HEADERS.length).setValues([SEED_PRODUCTS_HEADERS]);
+  }
+  return sheet;
+}
+
+function getStudentSeedBalance(studentId) {
+  var sid = studentId != null ? String(studentId).trim() : '';
+  if (!sid) return 0;
+  var sheet = getOrCreateSeedLedgerSheet();
+  if (sheet.getLastRow() < 2) return 0;
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var sCol = headers.indexOf('student_id');
+  var tCol = headers.indexOf('tx_type');
+  var aCol = headers.indexOf('amount');
+  if (sCol < 0) sCol = 0;
+  if (tCol < 0) tCol = 1;
+  if (aCol < 0) aCol = 5;
+  var bal = 0;
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (String(row[sCol] || '').trim() !== sid) continue;
+    var txType = String(row[tCol] || '').trim();
+    var amt = Number(row[aCol] || 0);
+    if (isNaN(amt)) amt = 0;
+    if (txType === 'GAIN') bal += amt;
+    else if (txType === 'SPEND') bal -= amt;
+  }
+  if (bal < 0) bal = 0;
+  return bal;
+}
+
+function getStudentSeedLedger(params) {
+  var sid = params && params.student_id != null ? String(params.student_id).trim() : '';
+  if (!sid) return { success: false, error: 'student_id required' };
+  var sheet = getOrCreateSeedLedgerSheet();
+  var policyMap = {};
+  var policiesRes = getPolicies();
+  if (policiesRes.success && policiesRes.data) {
+    for (var i = 0; i < policiesRes.data.length; i++) {
+      policyMap[String(policiesRes.data[i].policy_id).trim()] = String(policiesRes.data[i].title || '');
+    }
+  }
+
+  if (sheet.getLastRow() < 2) {
+    return { success: true, data: { balance: 0, gains: [], spends: [], transactions: [] } };
+  }
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var sCol = headers.indexOf('student_id');
+  var tCol = headers.indexOf('tx_type');
+  var pCol = headers.indexOf('policy_id');
+  var prodCol = headers.indexOf('product_name');
+  var memoCol = headers.indexOf('memo');
+  var aCol = headers.indexOf('amount');
+  var cCol = headers.indexOf('created_at');
+  if (sCol < 0) sCol = 0;
+  if (tCol < 0) tCol = 1;
+  if (pCol < 0) pCol = 2;
+  if (prodCol < 0) prodCol = 3;
+  if (memoCol < 0) memoCol = 4;
+  if (aCol < 0) aCol = 5;
+  if (cCol < 0) cCol = 6;
+
+  var rows = [];
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
+    if (String(row[sCol] || '').trim() !== sid) continue;
+    rows.push({
+      tx_type: String(row[tCol] || '').trim(),
+      policy_id: String(row[pCol] || '').trim(),
+      product_name: String(row[prodCol] || '').trim(),
+      memo: String(row[memoCol] || '').trim(),
+      amount: Number(row[aCol] || 0),
+      created_at: String(row[cCol] || '').trim(),
+    });
+  }
+
+  rows.sort(function (a, b) {
+    return a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0;
+  });
+
+  var bal = 0;
+  var gains = [];
+  var spends = [];
+  var transactions = [];
+
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    var amt = Number(row.amount || 0);
+    if (isNaN(amt)) amt = 0;
+    if (row.tx_type === 'GAIN') {
+      bal += amt;
+      gains.push({
+        created_at: row.created_at,
+        policy_id: row.policy_id,
+        policy_title: policyMap[row.policy_id] || '',
+        amount: amt,
+      });
+    } else if (row.tx_type === 'SPEND') {
+      bal -= amt;
+      if (bal < 0) bal = 0;
+      spends.push({
+        created_at: row.created_at,
+        product_name: row.product_name,
+        memo: row.memo,
+        amount: amt,
+      });
+    }
+    transactions.push({
+      created_at: row.created_at,
+      tx_type: row.tx_type,
+      policy_title: row.policy_id ? policyMap[row.policy_id] || '' : '',
+      product_name: row.product_name,
+      memo: row.memo,
+      amount: amt,
+      remaining_after: bal,
+    });
+  }
+
+  return { success: true, data: { balance: bal, gains: gains, spends: spends, transactions: transactions } };
+}
+
+function getSeedProducts() {
+  var sheet = getOrCreateSeedProductsSheet();
+  if (sheet.getLastRow() < 2) return { success: true, data: [] };
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var idCol = headers.indexOf('product_id');
+  var nameCol = headers.indexOf('product_name');
+  var reqCol = headers.indexOf('seeds_required');
+  var cCol = headers.indexOf('created_at');
+  if (idCol < 0) idCol = 0;
+  if (nameCol < 0) nameCol = 1;
+  if (reqCol < 0) reqCol = 2;
+  if (cCol < 0) cCol = 3;
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var pid = String(row[idCol] || '').trim();
+    if (!pid) continue;
+    out.push({
+      product_id: pid,
+      product_name: String(row[nameCol] || '').trim(),
+      seeds_required: Number(row[reqCol] || 0),
+      created_at: String(row[cCol] || '').trim(),
+    });
+  }
+  return { success: true, data: out };
+}
+
+function saveSeedProduct(params) {
+  var productName = params && params.product_name != null ? String(params.product_name).trim() : '';
+  var seedsRequired = params && params.seeds_required != null ? Number(params.seeds_required) : 0;
+  if (!productName) return { success: false, error: 'product_name required' };
+  if (isNaN(seedsRequired) || seedsRequired < 0) seedsRequired = 0;
+  var sheet = getOrCreateSeedProductsSheet();
+  var nowIso = new Date().toISOString();
+  var pid = generateSeedProductId();
+  sheet.getRange(sheet.getLastRow() + 1, 1, 1, SEED_PRODUCTS_HEADERS.length).setValues([
+    [pid, productName, seedsRequired, nowIso],
+  ]);
+  return { success: true, data: { product_id: pid } };
+}
+
+function spendSeeds(params) {
+  var studentId = params && params.student_id != null ? String(params.student_id).trim() : '';
+  var seedsUsed = params && params.seeds_used != null ? Number(params.seeds_used) : 0;
+  var productId = params && params.product_id != null ? String(params.product_id).trim() : '';
+  var memo = params && params.memo != null ? String(params.memo).trim() : '';
+  if (!studentId) return { success: false, error: 'student_id required' };
+  if (isNaN(seedsUsed) || seedsUsed < 0) seedsUsed = 0;
+  if (!seedsUsed || seedsUsed <= 0) return { success: false, error: 'seeds_used must be > 0' };
+
+  var balance = getStudentSeedBalance(studentId);
+  if (seedsUsed > balance) return { success: false, error: '씨앗 잔여가 부족합니다.' };
+
+  // product_name 조회
+  var productName = '';
+  if (productId) {
+    var prodSheet = getOrCreateSeedProductsSheet();
+    if (prodSheet.getLastRow() >= 2) {
+      var pdata = prodSheet.getDataRange().getValues();
+      var pheaders = pdata[0].map(String);
+      var idCol = pheaders.indexOf('product_id');
+      var nameCol = pheaders.indexOf('product_name');
+      if (idCol < 0) idCol = 0;
+      if (nameCol < 0) nameCol = 1;
+      for (var i = 1; i < pdata.length; i++) {
+        var row = pdata[i];
+        if (String(row[idCol] || '').trim() === productId) {
+          productName = String(row[nameCol] || '').trim();
+          break;
+        }
+      }
+    }
+  }
+
+  var ledgerSheet = getOrCreateSeedLedgerSheet();
+  var nowIso = new Date().toISOString();
+  ledgerSheet.getRange(ledgerSheet.getLastRow() + 1, 1, 1, SEED_LEDGER_HEADERS.length).setValues([
+    [studentId, 'SPEND', '', productName, memo, seedsUsed, nowIso],
+  ]);
+  return { success: true, data: { balance: Math.max(0, balance - seedsUsed) } };
+}
+
+function getClassSeedSummary() {
+  var studentsRes = getStudents();
+  var students = studentsRes.success && studentsRes.data ? studentsRes.data : [];
+  var sheet = getOrCreateSeedLedgerSheet();
+  if (sheet.getLastRow() < 2) {
+    var empty = [];
+    for (var si = 0; si < students.length; si++) {
+      var st = students[si];
+      empty.push({
+        student_id: String(st.student_id),
+        student_name: String(st.name || ''),
+        photo_data: st.photo_data != null ? String(st.photo_data) : '',
+        total_gained: 0,
+        total_spent: 0,
+        balance: 0,
+      });
+    }
+    return { success: true, data: empty };
+  }
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var sCol = headers.indexOf('student_id');
+  var tCol = headers.indexOf('tx_type');
+  var aCol = headers.indexOf('amount');
+  if (sCol < 0) sCol = 0;
+  if (tCol < 0) tCol = 1;
+  if (aCol < 0) aCol = 5;
+  var gainMap = {};
+  var spendMap = {};
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var sid = String(row[sCol] || '').trim();
+    if (!sid) continue;
+    var txType = String(row[tCol] || '').trim();
+    var amt = Number(row[aCol] || 0);
+    if (isNaN(amt)) amt = 0;
+    if (txType === 'GAIN') {
+      if (!gainMap[sid]) gainMap[sid] = 0;
+      gainMap[sid] += amt;
+    } else if (txType === 'SPEND') {
+      if (!spendMap[sid]) spendMap[sid] = 0;
+      spendMap[sid] += amt;
+    }
+  }
+  var out = [];
+  for (var si2 = 0; si2 < students.length; si2++) {
+    var st2 = students[si2];
+    var sid2 = String(st2.student_id).trim();
+    var gained = gainMap[sid2] || 0;
+    var spent = spendMap[sid2] || 0;
+    var bal = gained - spent;
+    if (bal < 0) bal = 0;
+    out.push({
+      student_id: sid2,
+      student_name: String(st2.name || ''),
+      photo_data: st2.photo_data != null ? String(st2.photo_data) : '',
+      total_gained: gained,
+      total_spent: spent,
+      balance: bal,
+    });
+  }
+  return { success: true, data: out };
+}
+
 function setPolicySeeds(params) {
   var policyId = params && params.policy_id != null ? String(params.policy_id).trim() : '';
   var studentId = params && params.student_id != null ? String(params.student_id).trim() : '';
@@ -2008,10 +2481,14 @@ function setPolicySeeds(params) {
   var now = new Date().toISOString();
   var found = false;
   var foundRow = -1;
+  var oldTotal = 0;
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][pCol] || '').trim() === policyId && String(data[i][sCol] || '').trim() === studentId) {
       found = true;
       foundRow = i + 1;
+      var prev = Number(data[i][cCol] || 0);
+      if (isNaN(prev)) prev = 0;
+      oldTotal = prev;
       break;
     }
   }
@@ -2025,6 +2502,15 @@ function setPolicySeeds(params) {
   } else if (newTotal > 0) {
     var last = sheet.getLastRow();
     sheet.getRange(last + 1, 1, 1, POLICY_SEEDS_HEADERS.length).setValues([[policyId, studentId, newTotal, now]]);
+  }
+
+  // 정책 참여로 '획득(GAIN)'된 씨앗만 가계부에 기록
+  var delta = newTotal - oldTotal;
+  if (delta > 0) {
+    var ledgerSheet = getOrCreateSeedLedgerSheet();
+    ledgerSheet.getRange(ledgerSheet.getLastRow() + 1, 1, 1, SEED_LEDGER_HEADERS.length).setValues([
+      [studentId, 'GAIN', policyId, '', '', delta, now],
+    ]);
   }
   return { success: true, data: { saved: true } };
 }
@@ -2143,6 +2629,26 @@ function getPolicyTreeDashboard() {
   });
   var lowPolicies = lowPol.slice(0, 5);
   var allStudentsSorted = studentListFromMap(byStudent, true);
+
+  // 🔥 Policy Hype Top4
+  var hypeTotals = getPolicyHypeTotalsMap();
+  var hypeArr = [];
+  for (var hp = 0; hp < policies.length; hp++) {
+    var pol = policies[hp] || {};
+    var hpId = pol.policy_id;
+    hypeArr.push({
+      policy_id: hpId,
+      title: pol.title || '',
+      policy_title: pol.title || '',
+      policy_logo_data: pol.logo_data || '',
+      logo_data: pol.logo_data || '',
+      hype_count: hypeTotals[hpId] || 0
+    });
+  }
+  hypeArr.sort(function (a, b) {
+    return b.hype_count - a.hype_count;
+  });
+  var topHypePolicies = hypeArr.slice(0, 4);
   return {
     success: true,
     data: {
@@ -2152,7 +2658,8 @@ function getPolicyTreeDashboard() {
       top_policies: topPolicies,
       lowest_policies: lowPolicies,
       all_students: allStudentsSorted,
-      all_policies: policyArr
+      all_policies: policyArr,
+      top_hype_policies: topHypePolicies
     }
   };
 }

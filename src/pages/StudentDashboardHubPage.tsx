@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { NavLink } from 'react-router-dom'
-import { authStudent } from '@/api/api'
+import { authStudent, getStudentSeedLedger } from '@/api/api'
 
 const LOGIN_KEY = 'homeroom_login'
 const HUB_TITLE = '학급 학생 대시보드 | 학급 경영'
@@ -15,6 +15,7 @@ export function StudentDashboardHubPage() {
   const [authState, setAuthState] = useState<AuthState>('loading')
   const [authError, setAuthError] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
+  const [seedBalance, setSeedBalance] = useState<number | null>(null)
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -46,6 +47,15 @@ export function StudentDashboardHubPage() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (authState !== 'success') return
+    if (!studentId.trim()) return
+    void (async () => {
+      const res = await getStudentSeedLedger(studentId.trim())
+      if (res.success && res.data) setSeedBalance(res.data.balance ?? 0)
+    })()
+  }, [authState, studentId])
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -178,6 +188,28 @@ export function StudentDashboardHubPage() {
             <div className="min-w-0 flex-1 text-left">
               <p className="font-bold text-gray-900">정책 관리하기</p>
               <p className="text-[11px] text-gray-500">등록한 정책 보기, 씨앗 뿌리기, 수정</p>
+            </div>
+            <span className="text-gray-300 group-hover:text-emerald-400">→</span>
+          </NavLink>
+
+          <NavLink
+            to="/student/seed-ledger"
+            className={({ isActive }) =>
+              `group flex items-center gap-4 rounded-2xl border-2 p-4 shadow-md transition-all ${
+                isActive
+                  ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200'
+                  : 'border-gray-100 bg-white hover:border-emerald-200'
+              }`
+            }
+          >
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-3xl shadow-inner">
+              📓
+            </span>
+            <div className="min-w-0 flex-1 text-left">
+              <p className="font-bold text-gray-900">씨앗 가계부</p>
+              <p className="text-[11px] text-gray-500">
+                🌱 현재 {seedBalance ?? '불러오는 중'}개
+              </p>
             </div>
             <span className="text-gray-300 group-hover:text-emerald-400">→</span>
           </NavLink>

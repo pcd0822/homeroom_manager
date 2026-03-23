@@ -324,10 +324,18 @@ export function savePolicy(params: {
   logo_data: string
   creator_student_id: string
   co_registrants: string[]
+  participation_links?: string[]
   actor_student_id: string
   is_teacher?: boolean
 }) {
   return request<{ policy_id: string }>('SAVE_POLICY', 'POST', params as Record<string, unknown>)
+}
+
+export function hypePolicy(params: {
+  policy_id: string
+  actor_student_id: string
+}) {
+  return request<{ policy_id: string; hype_count: number }>('HYPE_POLICY', 'POST', params as Record<string, unknown>)
 }
 
 export function getPolicies() {
@@ -367,6 +375,57 @@ export function batchSetPolicySeeds(params: {
 
 export function getPolicyTreeDashboard() {
   return request<PolicyTreeDashboard>('GET_POLICY_TREE_DASHBOARD', 'POST')
+}
+
+// ----- 씨앗 가계부/교환 -----
+export function getStudentSeedLedger(studentId: string) {
+  return request<{
+    balance: number
+    gains: Array<{ created_at: string; policy_id: string; policy_title: string; amount: number }>
+    spends: Array<{ created_at: string; product_name: string; memo: string; amount: number }>
+    transactions: Array<{
+      created_at: string
+      tx_type: string
+      policy_title: string
+      product_name: string
+      memo: string
+      amount: number
+      remaining_after: number
+    }>
+  }>('GET_STUDENT_SEED_LEDGER', 'POST', { student_id: studentId })
+}
+
+export function getSeedProducts() {
+  return request<
+    Array<{ product_id: string; product_name: string; seeds_required: number; created_at: string }>
+  >('GET_SEED_PRODUCTS', 'POST')
+}
+
+export function saveSeedProduct(params: { product_name: string; seeds_required: number }) {
+  return request<{ product_id: string }>('SAVE_SEED_PRODUCT', 'POST', params as Record<string, unknown>)
+}
+
+export function spendSeeds(params: {
+  student_id: string
+  seeds_used: number
+  product_id: string
+  memo: string
+  actor_student_id: string
+}) {
+  return request<{ balance: number }>('SPEND_SEEDS', 'POST', params as Record<string, unknown>)
+}
+
+export function getClassSeedSummary() {
+  return request<
+    Array<{
+      student_id: string
+      student_name: string
+      photo_data?: string
+      total_gained: number
+      total_spent: number
+      balance: number
+    }>
+  >('GET_CLASS_SEED_SUMMARY', 'POST')
 }
 
 // ----- Helper: Form with parsed schema -----

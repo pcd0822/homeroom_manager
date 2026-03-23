@@ -185,6 +185,7 @@ export function StudentPoliciesPage() {
       logo_data: eLogo,
       creator_student_id: detail.creator_student_id,
       co_registrants: detail.co_registrants || [],
+      participation_links: detail.participation_links || [],
       actor_student_id: studentId,
     })
     setSaving(false)
@@ -358,6 +359,7 @@ export function StudentPoliciesPage() {
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-semibold text-gray-900">{p.title}</p>
                           <p className="truncate text-[11px] text-gray-500">{p.goal}</p>
+                          <p className="mt-1 text-[10px] font-semibold text-amber-600">🔥 {p.hype_count ?? 0}</p>
                         </div>
                         {opening ? (
                           <span className="inline-block h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
@@ -410,6 +412,7 @@ export function StudentPoliciesPage() {
                 <div className="min-w-0 flex-1">
                   <h2 className="break-words text-base font-bold text-gray-900">{detail.title}</h2>
                   <p className="mt-0.5 break-words text-[11px] text-gray-500">목표: {detail.goal}</p>
+                  <p className="mt-1 text-[11px] font-semibold text-amber-600">🔥 하입 횟수: {detail.hype_count ?? 0}</p>
                 </div>
               </div>
               {canManage(detail) && (

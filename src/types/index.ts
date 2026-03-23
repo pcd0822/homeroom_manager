@@ -192,8 +192,10 @@ export interface Policy {
   creator_student_id: string
   co_registrants: string[]
   co_registrants_json?: string
+  participation_links?: string[]
   created_at: string
   updated_at: string
+  hype_count?: number
 }
 
 export interface PolicyParticipant {
@@ -248,5 +250,14 @@ export interface PolicyTreeDashboard {
     policy_logo_data?: string
     logo_data?: string
     total_seeds: number
+  }>
+
+  /** 🔥 정책 하입 Top4 (정책 게시판 대시보드용) */
+  top_hype_policies?: Array<{
+    policy_id: string
+    title: string
+    logo_data?: string
+    policy_logo_data?: string
+    hype_count: number
   }>
 }

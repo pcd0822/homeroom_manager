@@ -5,7 +5,11 @@ import {
   getPolicyParticipants,
   getPolicyTreeDashboard,
   getStudents,
+  getClassSeedSummary,
+  getSeedProducts,
   savePolicy,
+  saveSeedProduct,
+  spendSeeds,
   setPolicySeeds,
 } from '@/api/api'
 import type { Policy, PolicyParticipant, PolicyTreeDashboard, Student } from '@/types'
@@ -23,13 +27,14 @@ function photoSrc(photo?: string | null) {
 }
 
 export function PoliciesAdminPage() {
-  const [tab, setTab] = useState<'cards' | 'tree'>('cards')
+  const [tab, setTab] = useState<'cards' | 'seed' | 'tree'>('cards')
   const [policies, setPolicies] = useState<Policy[]>([])
   const [tree, setTree] = useState<PolicyTreeDashboard | null>(null)
   const [treeAllStudentsOpen, setTreeAllStudentsOpen] = useState(false)
   const [treeAllPoliciesOpen, setTreeAllPoliciesOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
+  const [shareCopied, setShareCopied] = useState(false)
 
   const [detail, setDetail] = useState<Policy | null>(null)
   const [parts, setParts] = useState<PolicyParticipant[]>([])
@@ -53,6 +58,30 @@ export function PoliciesAdminPage() {
   /** 상세 패널에서 '정책 관리하기'를 연 경우 닫기 시 패널 복귀 */
   const [manageOpenedFromDetail, setManageOpenedFromDetail] = useState(false)
   const [logoCompressing, setLogoCompressing] = useState(false)
+  /** 학급 씨앗 관리하기(교환/지출) */
+  const [seedProducts, setSeedProducts] = useState<Array<{ product_id: string; product_name: string; seeds_required: number }>>([])
+  const [seedProductsLoading, setSeedProductsLoading] = useState(false)
+  const [seedAdminErr, setSeedAdminErr] = useState('')
+  const [seedClassSummary, setSeedClassSummary] = useState<
+    Array<{
+      student_id: string
+      student_name: string
+      photo_data?: string
+      total_gained: number
+      total_spent: number
+      balance: number
+    }>
+  >([])
+  const [seedAdminLoading, setSeedAdminLoading] = useState(false)
+  const [spendOpen, setSpendOpen] = useState(false)
+  const [spendStudentId, setSpendStudentId] = useState('')
+  const [spendSeedsUsed, setSpendSeedsUsed] = useState<number>(0)
+  const [spendProductId, setSpendProductId] = useState('')
+  const [spendMemo, setSpendMemo] = useState('')
+  const [spending, setSpending] = useState(false)
+  const [newProductName, setNewProductName] = useState('')
+  const [newProductSeedsRequired, setNewProductSeedsRequired] = useState<number>(0)
+  const [seedSaveBusy, setSeedSaveBusy] = useState(false)
 
   const loadPolicies = async () => {
     setLoading(true)
@@ -74,6 +103,57 @@ export function PoliciesAdminPage() {
       if (r.success && r.data) setClassStudents(r.data)
     })
   }, [])
+
+  // 🔥 하이프 순위는 학생 액션에 의해 바뀌므로, cards 탭일 때 주기적으로 갱신
+  useEffect(() => {
+    if (tab !== 'cards') return
+    const t = setInterval(() => {
+      void loadPolicies()
+      void loadTree()
+    }, 15000)
+    return () => clearInterval(t)
+  }, [tab])
+
+  useEffect(() => {
+    if (tab !== 'seed') return
+    setSeedAdminErr('')
+    setSeedAdminLoading(true)
+    ;(async () => {
+      try {
+        setSeedProductsLoading(true)
+        const [pRes, cRes] = await Promise.all([getSeedProducts(), getClassSeedSummary()])
+        setSeedProductsLoading(false)
+        if (pRes.success && pRes.data) {
+          const products = pRes.data as any
+          setSeedProducts(products)
+          if (products.length > 0) {
+            setSpendProductId((prev) => (prev ? prev : products[0].product_id))
+          }
+        }
+        if (cRes.success && cRes.data) {
+          const summary = cRes.data as any
+          setSeedClassSummary(summary)
+          if (summary.length > 0) {
+            setSpendStudentId((prev) => (prev ? prev : summary[0].student_id))
+          }
+        }
+      } catch {
+        setSeedAdminErr('씨앗 정보를 불러오지 못했습니다.')
+      } finally {
+        setSeedProductsLoading(false)
+        setSeedAdminLoading(false)
+      }
+    })()
+  }, [tab])
+
+  const topHypeIdSet = useMemo(
+    () => new Set((tree?.top_hype_policies ?? []).map((p) => p.policy_id)),
+    [tree]
+  )
+  const topHypePolicies = useMemo(() => {
+    const ids = tree?.top_hype_policies?.map((p) => p.policy_id) ?? []
+    return ids.map((id) => policies.find((p) => p.policy_id === id)).filter((x): x is Policy => Boolean(x))
+  }, [tree, policies])
 
   /** 이번 회차 목록에 아직 넣지 않은 학생만 (이미 지급 이력이 있어도 다시 추가 가능 — 독립 시행) */
   const payAddCandidates = useMemo(() => {
@@ -144,6 +224,7 @@ export function PoliciesAdminPage() {
       logo_data: logoPayload,
       creator_student_id: detail.creator_student_id,
       co_registrants: detail.co_registrants || [],
+      participation_links: detail.participation_links || [],
       actor_student_id: TEACHER_ACTOR,
       is_teacher: true,
     })
@@ -229,6 +310,15 @@ export function PoliciesAdminPage() {
           </button>
           <button
             type="button"
+            onClick={() => setTab('seed')}
+            className={`rounded-full px-4 py-2 text-sm font-medium ${
+              tab === 'seed' ? 'bg-amber-600 text-white shadow' : 'bg-white text-gray-600 ring-1 ring-gray-200'
+            }`}
+          >
+            학급 씨앗 관리하기
+          </button>
+          <button
+            type="button"
             onClick={() => {
               setTab('tree')
               loadTree()
@@ -246,31 +336,327 @@ export function PoliciesAdminPage() {
 
       {tab === 'cards' && (
         <section>
+          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-gray-900">정책 게시판</h2>
+              <p className="text-xs text-gray-500">학생 공유 링크로 접속한 정책을 읽고, 🔥 Hype!로 순위를 올릴 수 있어요.</p>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const url = `${window.location.origin}/student/policy-board`
+                  await navigator.clipboard.writeText(url)
+                  setShareCopied(true)
+                  setTimeout(() => setShareCopied(false), 1800)
+                } catch {
+                  // 복사 실패 시 새 탭 열기(또는 브라우저 정책 상 clipboard 불가)
+                  window.open(`${window.location.origin}/student/policy-board`, '_blank', 'noopener')
+                }
+              }}
+              className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition active:scale-[0.99] sm:whitespace-nowrap"
+            >
+              {shareCopied ? '공유 링크 복사됨!' : '정책 게시판 링크 공유하기'}
+            </button>
+          </div>
+
+          {topHypePolicies.length > 0 && (
+            <div className="mb-4 rounded-2xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-amber-900">
+                <span className="inline-block">🔥</span> Hype! 실시간 Top4
+              </h3>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {topHypePolicies.map((p, idx) => (
+                  <button
+                    key={p.policy_id}
+                    type="button"
+                    onClick={() => openCard(p.policy_id)}
+                    className="group rounded-xl border border-amber-100 bg-white p-2 text-left shadow-sm transition hover:ring-2 hover:ring-amber-200 active:scale-[0.99]"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                        {policyLogoSrc(p.logo_data) ? (
+                          <img src={policyLogoSrc(p.logo_data)} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-base">🌱</div>
+                        )}
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className="text-[10px] font-bold text-amber-700">{idx + 1}등</div>
+                        <div className="text-[11px] font-semibold text-amber-600">🔥 {p.hype_count ?? 0}</div>
+                      </div>
+                    </div>
+                    <p className="mt-2 line-clamp-2 text-[11px] font-semibold text-gray-900">{p.title}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <p className="text-sm text-gray-500">불러오는 중...</p>
           ) : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
-              {policies.map((p) => (
-                <PolicyCompactCard
-                  key={p.policy_id}
-                  policy={p}
-                  classStudents={classStudents}
-                  onOpen={() => openCard(p.policy_id)}
-                  onManageClick={(e) => {
-                    e.stopPropagation()
-                    void openPolicyManage(p.policy_id)
-                  }}
-                  isManageActive={
-                    managedPolicyId === p.policy_id &&
-                    (manageChoiceOpen || editOpen || payOpen || manageLoading)
-                  }
-                  isManageLoading={managedPolicyId === p.policy_id && manageLoading}
-                />
-              ))}
+              {policies
+                .filter((p) => !topHypeIdSet.has(p.policy_id))
+                .map((p) => (
+                  <PolicyCompactCard
+                    key={p.policy_id}
+                    policy={p}
+                    classStudents={classStudents}
+                    onOpen={() => openCard(p.policy_id)}
+                    onManageClick={(e) => {
+                      e.stopPropagation()
+                      void openPolicyManage(p.policy_id)
+                    }}
+                    isManageActive={
+                      managedPolicyId === p.policy_id &&
+                      (manageChoiceOpen || editOpen || payOpen || manageLoading)
+                    }
+                    isManageLoading={managedPolicyId === p.policy_id && manageLoading}
+                  />
+                ))}
             </div>
           )}
           {policies.length === 0 && !loading && (
             <p className="text-sm text-gray-500">등록된 정책이 없습니다.</p>
+          )}
+        </section>
+      )}
+
+      {tab === 'seed' && (
+        <section className="space-y-6">
+          <div className="rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50 to-white p-5 shadow-sm">
+            <h2 className="text-sm font-bold text-amber-900">🌱 학급 씨앗 관리하기</h2>
+            <p className="mt-1 text-xs text-amber-900/70">상품(교환 대상)을 등록하고, 씨앗 지출 내역을 학생 가계부에 연결합니다.</p>
+          </div>
+
+          {seedAdminErr && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{seedAdminErr}</p>}
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-amber-100 bg-white p-4 shadow-sm">
+              <h3 className="mb-3 text-sm font-bold text-amber-900">씨앗 개수와 상품 입력</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-800">상품 이름</label>
+                  <input
+                    value={newProductName}
+                    onChange={(e) => setNewProductName(e.target.value)}
+                    placeholder="예: 간식 교환권"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-800">해당 상품 교환 씨앗(개수)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={newProductSeedsRequired}
+                    onChange={(e) => setNewProductSeedsRequired(Number(e.target.value))}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={seedSaveBusy}
+                  onClick={async () => {
+                    setSeedSaveBusy(true)
+                    setSeedAdminErr('')
+                    try {
+                      const r = await saveSeedProduct({ product_name: newProductName, seeds_required: Math.max(0, newProductSeedsRequired) })
+                      if (r.success) {
+                        setNewProductName('')
+                        setNewProductSeedsRequired(0)
+                        const pRes = await getSeedProducts()
+                        if (pRes.success && pRes.data) setSeedProducts(pRes.data as any)
+                      } else {
+                        setSeedAdminErr(r.error || '상품 저장 실패')
+                      }
+                    } finally {
+                      setSeedSaveBusy(false)
+                    }
+                  }}
+                  className="w-full rounded-lg bg-amber-600 py-2.5 text-sm font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
+                >
+                  {seedSaveBusy ? '저장 중...' : '저장'}
+                </button>
+              </div>
+
+              <div className="mt-4">
+                <h4 className="mb-2 text-xs font-bold text-gray-800">등록된 상품</h4>
+                {seedProductsLoading ? (
+                  <p className="text-xs text-gray-500">불러오는 중...</p>
+                ) : seedProducts.length === 0 ? (
+                  <p className="text-xs text-gray-500">아직 등록된 상품이 없습니다.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {seedProducts.map((p) => (
+                      <span key={p.product_id} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-900">
+                        {p.product_name} · {p.seeds_required}개
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-amber-100 bg-white p-4 shadow-sm">
+              <h3 className="mb-3 text-sm font-bold text-amber-900">등록된 학생들의 씨앗 누적 집계 현황</h3>
+              {seedAdminLoading ? (
+                <p className="text-sm text-gray-500">불러오는 중...</p>
+              ) : seedClassSummary.length === 0 ? (
+                <p className="text-sm text-gray-500">학생 씨앗 데이터가 없습니다.</p>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2">학생</th>
+                        <th className="px-3 py-2">누적 획득</th>
+                        <th className="px-3 py-2">누적 지출</th>
+                        <th className="px-3 py-2">남은 씨앗</th>
+                        <th className="px-3 py-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {seedClassSummary.map((s) => (
+                        <tr key={s.student_id} className="border-t">
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 w-8 overflow-hidden rounded-full bg-gray-100 ring-1 ring-white">
+                                {s.photo_data ? (
+                                  <img src={photoSrc(s.photo_data)} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-gray-500">
+                                    {s.student_name?.charAt(0) || '?'}
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-gray-900">{s.student_name}</div>
+                                <div className="text-[10px] text-gray-500">{s.student_id}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 font-semibold text-emerald-700">{s.total_gained}</td>
+                          <td className="px-3 py-2 font-semibold text-rose-700">{s.total_spent}</td>
+                          <td className="px-3 py-2 font-semibold text-amber-700">🌱 {s.balance}</td>
+                          <td className="px-3 py-2 text-right">
+                            <button
+                              type="button"
+                              disabled={seedProducts.length === 0}
+                              onClick={() => {
+                                setSpendStudentId(s.student_id)
+                                setSpendSeedsUsed(0)
+                                setSpendMemo('')
+                                setSpendOpen(true)
+                              }}
+                              className="rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
+                            >
+                              씨앗 지출하기
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {spendOpen && (
+            <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 sm:items-center">
+              <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+                <div className="flex items-start justify-between gap-3 border-b p-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900">씨앗 지출하기</h3>
+                    <p className="mt-1 text-xs text-gray-500">입력한 지출 내역이 학생 가계부에 기록됩니다.</p>
+                  </div>
+                  <button type="button" onClick={() => setSpendOpen(false)} className="rounded p-2 text-gray-500 hover:bg-gray-100" aria-label="닫기">
+                    ✕
+                  </button>
+                </div>
+                <div className="space-y-4 p-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-800">학생</label>
+                      <select value={spendStudentId} onChange={(e) => setSpendStudentId(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                        {seedClassSummary.map((s) => (
+                          <option key={s.student_id} value={s.student_id}>
+                            {s.student_name} ({s.student_id})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-800">상품</label>
+                      <select value={spendProductId} onChange={(e) => setSpendProductId(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                        {seedProducts.map((p) => (
+                          <option key={p.product_id} value={p.product_id}>
+                            {p.product_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-gray-800">지출할 씨앗 개수</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={spendSeedsUsed}
+                      onChange={(e) => setSpendSeedsUsed(Number(e.target.value))}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    />
+                    <p className="mt-1 text-[11px] text-gray-500">
+                      현재 잔여: {seedClassSummary.find((s) => s.student_id === spendStudentId)?.balance ?? 0}개
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-gray-800">지출 내역 작성</label>
+                    <textarea
+                      value={spendMemo}
+                      onChange={(e) => setSpendMemo(e.target.value)}
+                      rows={3}
+                      placeholder="예: 교환권으로 간식 구매"
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={spending || spendSeedsUsed <= 0 || !spendStudentId || !spendProductId}
+                    onClick={async () => {
+                      setSpending(true)
+                      setSeedAdminErr('')
+                      try {
+                        const r = await spendSeeds({
+                          student_id: spendStudentId,
+                          seeds_used: Math.max(0, spendSeedsUsed),
+                          product_id: spendProductId,
+                          memo: spendMemo,
+                          actor_student_id: TEACHER_ACTOR,
+                        })
+                        if (r.success) {
+                          setSpendOpen(false)
+                          // 지출 후 즉시 요약 갱신
+                          const cRes = await getClassSeedSummary()
+                          if (cRes.success && cRes.data) setSeedClassSummary(cRes.data as any)
+                        } else setSeedAdminErr(r.error || '지출 저장 실패')
+                      } finally {
+                        setSpending(false)
+                      }
+                    }}
+                    className="w-full rounded-lg bg-amber-600 py-2.5 text-sm font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
+                  >
+                    {spending ? '저장 중...' : '저장'}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </section>
       )}
@@ -470,6 +856,24 @@ export function PoliciesAdminPage() {
                 정책 관리하기
               </button>
               <p className="text-xs text-gray-600 whitespace-pre-wrap">{detail.description}</p>
+              {detail.participation_links && detail.participation_links.length > 0 && (
+                <div className="rounded-xl border border-emerald-100 bg-white p-3">
+                  <h4 className="mb-2 text-xs font-bold text-gray-800">정책 참여 링크</h4>
+                  <div className="flex flex-col gap-2">
+                    {detail.participation_links.map((lnk, idx) => (
+                      <a
+                        key={`${idx}-${lnk}`}
+                        href={lnk}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-900 hover:bg-emerald-100"
+                      >
+                        링크 {idx + 1} 열기
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
               <h3 className="text-sm font-bold">참여 학생</h3>
               <div className="overflow-x-auto rounded border">
                 <table className="w-full text-left text-xs">
@@ -929,6 +1333,7 @@ function PolicyCompactCard({
           <div className="min-w-0 flex-1">
             <p className="line-clamp-2 text-[13px] font-bold leading-tight text-gray-900">{policy.title}</p>
             <p className="line-clamp-2 text-[10px] leading-tight text-gray-500">{policy.goal || '\u00A0'}</p>
+            <p className="mt-1 text-[11px] font-semibold text-amber-600">🔥 {policy.hype_count ?? 0}</p>
             <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
               <span className="shrink-0 text-[10px] text-gray-400">등록</span>
               {creator ? (

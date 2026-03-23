@@ -17,6 +17,8 @@ import { CleaningResultPage } from '@/pages/CleaningResultPage'
 import { StudentMealBoardPage } from '@/pages/StudentMealBoardPage'
 import { StudentDashboardHubPage } from '@/pages/StudentDashboardHubPage'
 import { StudentPoliciesPage } from '@/pages/student/StudentPoliciesPage'
+import { PolicyBoardSharedPage } from '@/pages/student/PolicyBoardSharedPage'
+import { StudentSeedLedgerPage } from '@/pages/student/StudentSeedLedgerPage'
 import { StudentPolicyRegisterPage } from '@/pages/student/StudentPolicyRegisterPage'
 import { PoliciesAdminPage } from '@/pages/admin/PoliciesAdminPage'
 import { FormView } from '@/pages/view/FormView'
@@ -47,6 +49,8 @@ function App() {
       <Route path="/student/dashboard" element={<StudentDashboardHubPage />} />
       <Route path="/student/meal-board" element={<StudentMealBoardPage />} />
       <Route path="/student/policies" element={<StudentPoliciesPage />} />
+      <Route path="/student/policy-board" element={<PolicyBoardSharedPage />} />
+      <Route path="/student/seed-ledger" element={<StudentSeedLedgerPage />} />
       <Route path="/student/policy/register" element={<StudentPolicyRegisterPage />} />
       <Route path="/game/home-run" element={<HomeRunGamePage />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
