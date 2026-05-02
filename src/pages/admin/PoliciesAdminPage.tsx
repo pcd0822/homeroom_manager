@@ -1430,9 +1430,9 @@ function PolicyCompactCard({
     : ''
 
   return (
-    <div className="w-full max-w-[330px] justify-self-start">
-      <div className="flex flex-col rounded-xl border border-gray-100 bg-white p-2.5 shadow-sm">
-        <button type="button" onClick={onOpen} className="flex gap-2 text-left">
+    <div className="h-full w-full">
+      <div className="flex h-full flex-col rounded-xl border border-gray-100 bg-white p-2.5 shadow-sm">
+        <button type="button" onClick={onOpen} className="flex flex-1 gap-2 text-left">
           <div className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-xl bg-gray-50">
             {logo ? (
               <img src={logo} alt="" className="h-full w-full object-cover" />
@@ -1441,11 +1441,10 @@ function PolicyCompactCard({
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="line-clamp-2 text-[13px] font-bold leading-tight text-gray-900">{policy.title}</p>
-            <p className="line-clamp-2 text-[10px] leading-tight text-gray-500">{policy.goal || '\u00A0'}</p>
+            <p className="truncate text-[13px] font-bold leading-tight text-gray-900" title={policy.title}>{policy.title}</p>
+            <p className="truncate text-[10px] leading-tight text-gray-500" title={policy.goal || ''}>{policy.goal || '\u00A0'}</p>
             <p className="mt-1 text-[11px] font-semibold text-amber-600">🔥 {policy.hype_count ?? 0}</p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-1 gap-y-1">
-              <span className="shrink-0 text-[10px] font-semibold text-gray-500">등록자</span>
+            <div className="mt-1.5 flex flex-nowrap items-center gap-1 overflow-hidden">
               {/* 등록자 사진은 classStudents 로딩 여부와 무관하게 항상 동일한 슬롯을 차지하도록 렌더해 깜빡임을 막는다 */}
               <span
                 className="inline-flex h-8 w-8 shrink-0 overflow-hidden rounded-full bg-gray-100 ring-2 ring-emerald-200"

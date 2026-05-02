@@ -24,6 +24,7 @@ export function PolicyBoardSharedPage() {
   const [detail, setDetail] = useState<Policy | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
+  const [hypeLoading, setHypeLoading] = useState(false)
   const [hypeCooldownUntil, setHypeCooldownUntil] = useState<number | null>(null)
   const [hypeErr, setHypeErr] = useState('')
   const [hypeSuccess, setHypeSuccess] = useState('')
@@ -77,16 +78,30 @@ export function PolicyBoardSharedPage() {
     if (loggedIn) void load()
   }, [loggedIn, load])
 
-  const openDetail = useCallback(async (pid: string) => {
-    setHypeErr('')
-    setHypeSuccess('')
-    setHypeCooldownUntil(null)
-    setDetailLoading(true)
-    const d = await getPolicyDetail(pid)
-    if (d.success && d.data) setDetail(d.data)
-    else setErr(d.error || '정책 정보를 불러오지 못했습니다.')
-    setDetailLoading(false)
-  }, [])
+  const openDetail = useCallback(
+    async (pid: string) => {
+      setHypeErr('')
+      setHypeSuccess('')
+      setHypeCooldownUntil(null)
+      // 클릭 딜레이 제거: GET_POLICIES 응답에 이미 description/expected_effect/links 등 상세 필드가
+      // 모두 포함되므로 캐시(policies)에서 즉시 모달을 띄우고, 최신 정보는 백그라운드에서 갱신한다.
+      const cached = policies.find((p) => p.policy_id === pid)
+      if (cached) {
+        setDetail(cached)
+        setDetailLoading(false)
+      } else {
+        setDetailLoading(true)
+      }
+      const d = await getPolicyDetail(pid)
+      if (d.success && d.data) {
+        setDetail(d.data)
+      } else if (!cached) {
+        setErr(d.error || '정책 정보를 불러오지 못했습니다.')
+      }
+      setDetailLoading(false)
+    },
+    [policies]
+  )
 
   const doHype = useCallback(async () => {
     if (!detail) return
@@ -96,25 +111,30 @@ export function PolicyBoardSharedPage() {
       setHypeErr(`이미 하입하셨습니다. ${formatCooldownMinutes(cooldownRemainingMs)}분 후 다시 해주세요.`)
       return
     }
-    const res = await hypePolicy({ policy_id: detail.policy_id, actor_student_id: studentId })
-    if (res.success) {
-      const hypeCount = (res as any)?.data?.hype_count ?? 0
-      // 정책별 하입 카운트만 갱신
-      setDetail((prev) => (prev ? { ...prev, hype_count: hypeCount } : prev))
-      setPolicies((prev) =>
-        prev.map((p) => (p.policy_id === detail.policy_id ? { ...p, hype_count: hypeCount } : p))
-      )
-      setHypeSuccess('Hype했습니다!')
-      // GAS에서 30분 쿨다운을 적용하므로 프론트에서도 같은 UX로 제한
-      setHypeCooldownUntil(Date.now() + 30 * 60 * 1000)
-    } else {
-      const retryMs = (res as any)?.data?.retry_in_ms
-      if (typeof retryMs === 'number' && retryMs > 0) {
-        setHypeCooldownUntil(Date.now() + retryMs)
-        setHypeErr(`하입은 30분마다 가능합니다. ${formatCooldownMinutes(retryMs)}분 후 다시 해주세요.`)
+    setHypeLoading(true)
+    try {
+      const res = await hypePolicy({ policy_id: detail.policy_id, actor_student_id: studentId })
+      if (res.success) {
+        const hypeCount = (res as any)?.data?.hype_count ?? 0
+        // 정책별 하입 카운트만 갱신
+        setDetail((prev) => (prev ? { ...prev, hype_count: hypeCount } : prev))
+        setPolicies((prev) =>
+          prev.map((p) => (p.policy_id === detail.policy_id ? { ...p, hype_count: hypeCount } : p))
+        )
+        setHypeSuccess('Hype했습니다!')
+        // GAS에서 30분 쿨다운을 적용하므로 프론트에서도 같은 UX로 제한
+        setHypeCooldownUntil(Date.now() + 30 * 60 * 1000)
       } else {
-        setHypeErr(res.error || '하입에 실패했습니다.')
+        const retryMs = (res as any)?.data?.retry_in_ms
+        if (typeof retryMs === 'number' && retryMs > 0) {
+          setHypeCooldownUntil(Date.now() + retryMs)
+          setHypeErr(`하입은 30분마다 가능합니다. ${formatCooldownMinutes(retryMs)}분 후 다시 해주세요.`)
+        } else {
+          setHypeErr(res.error || '하입에 실패했습니다.')
+        }
       }
+    } finally {
+      setHypeLoading(false)
     }
   }, [cooldownRemainingMs, detail, studentId])
 
@@ -246,24 +266,35 @@ export function PolicyBoardSharedPage() {
 
         {detail && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 sm:items-center">
-            <div className="max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="break-words text-base font-bold text-gray-900">{detail.title}</h2>
-                  <p className="mt-0.5 break-words text-[11px] text-gray-500">목표: {detail.goal}</p>
-                  <p className="mt-1 text-[11px] font-semibold text-amber-600">🔥 하입 횟수: {detail.hype_count ?? 0}</p>
-                </div>
+            <div className="max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white shadow-2xl">
+              {/* 배너: 정책 로고를 모달 상단 전체 폭으로 크게 표시 */}
+              <div className="relative h-44 w-full overflow-hidden bg-gradient-to-br from-emerald-100 to-amber-50 sm:h-52">
+                {policyLogoSrc(detail.logo_data) ? (
+                  <img
+                    src={policyLogoSrc(detail.logo_data)}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-6xl">🌱</div>
+                )}
                 <button
                   type="button"
                   onClick={() => setDetail(null)}
-                  className="rounded p-2 text-gray-500 hover:bg-gray-100"
+                  className="absolute right-2 top-2 rounded-full bg-white/90 p-2 text-gray-700 shadow ring-1 ring-black/5 hover:bg-white"
                   aria-label="닫기"
                 >
                   ✕
                 </button>
               </div>
 
-              <div className="mt-4 space-y-3">
+              <div className="px-5 pt-4 sm:px-6">
+                <h2 className="break-words text-base font-bold text-gray-900">{detail.title}</h2>
+                <p className="mt-0.5 break-words text-[11px] text-gray-500">목표: {detail.goal}</p>
+                <p className="mt-1 text-[11px] font-semibold text-amber-600">🔥 하입 횟수: {detail.hype_count ?? 0}</p>
+              </div>
+
+              <div className="mt-4 space-y-3 px-5 pb-5 sm:px-6 sm:pb-6">
                 <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
                   <h3 className="mb-1 text-xs font-bold text-gray-800">세부 설명</h3>
                   <p className="whitespace-pre-wrap text-xs text-gray-700">{detail.description}</p>
@@ -303,13 +334,23 @@ export function PolicyBoardSharedPage() {
                   {hypeErr && <p className="mb-2 text-xs text-red-700">{hypeErr}</p>}
                   <button
                     type="button"
-                    disabled={detailLoading || cooldownRemainingMs > 0}
+                    disabled={detailLoading || hypeLoading || cooldownRemainingMs > 0}
                     onClick={() => void doHype()}
-                    className="w-full rounded-lg bg-amber-500 py-2 text-sm font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 py-2 text-sm font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
                   >
-                    {cooldownRemainingMs > 0
-                      ? `${formatCooldownMinutes(cooldownRemainingMs)}분 뒤에 다시 Hype!`
-                      : '🔥 Hype!'}
+                    {hypeLoading ? (
+                      <>
+                        <span
+                          className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                          aria-hidden
+                        />
+                        하입 중...
+                      </>
+                    ) : cooldownRemainingMs > 0 ? (
+                      `${formatCooldownMinutes(cooldownRemainingMs)}분 뒤에 다시 Hype!`
+                    ) : (
+                      '🔥 Hype!'
+                    )}
                   </button>
                   <p className="mt-2 text-[10px] text-amber-900/80">
                     Hype!는 정책마다 30분마다 한 번씩 가능합니다.
