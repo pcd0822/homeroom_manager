@@ -26,6 +26,40 @@ function photoSrc(photo?: string | null) {
   return photo.startsWith('data:') ? photo : `data:image/jpeg;base64,${photo}`
 }
 
+/** 폴링 시 정책 목록의 표시용 필드만 비교해 동일하면 setState 생략 (깜빡임 방지) */
+function samePolicies(a: Policy[], b: Policy[]) {
+  if (a === b) return true
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i]
+    const y = b[i]
+    if (x.policy_id !== y.policy_id) return false
+    if (x.title !== y.title) return false
+    if ((x.hype_count ?? 0) !== (y.hype_count ?? 0)) return false
+    if ((x.logo_data || '') !== (y.logo_data || '')) return false
+    if ((x.creator_student_id || '') !== (y.creator_student_id || '')) return false
+    if ((x.goal || '') !== (y.goal || '')) return false
+    const xc = x.co_registrants || []
+    const yc = y.co_registrants || []
+    if (xc.length !== yc.length) return false
+    for (let j = 0; j < xc.length; j++) if (xc[j] !== yc[j]) return false
+  }
+  return true
+}
+
+/** 폴링 시 트리 대시보드의 하이프 Top4 부분만 비교 (cards 탭에서 쓰는 부분) */
+function sameTreeHype(a: PolicyTreeDashboard | null, b: PolicyTreeDashboard) {
+  if (!a) return false
+  const xa = a.top_hype_policies ?? []
+  const xb = b.top_hype_policies ?? []
+  if (xa.length !== xb.length) return false
+  for (let i = 0; i < xa.length; i++) {
+    if (xa[i].policy_id !== xb[i].policy_id) return false
+    if ((xa[i].hype_count ?? 0) !== (xb[i].hype_count ?? 0)) return false
+  }
+  return true
+}
+
 export function PoliciesAdminPage() {
   const [tab, setTab] = useState<'cards' | 'seed' | 'tree'>('cards')
   const [policies, setPolicies] = useState<Policy[]>([])
@@ -85,17 +119,25 @@ export function PoliciesAdminPage() {
   const [newProductSeedsRequired, setNewProductSeedsRequired] = useState<number>(0)
   const [seedSaveBusy, setSeedSaveBusy] = useState(false)
 
-  const loadPolicies = async () => {
-    setLoading(true)
+  const loadPolicies = async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true
+    if (!silent) setLoading(true)
     const res = await getPolicies()
-    setLoading(false)
-    if (res.success && res.data) setPolicies(res.data)
-    else setErr(res.error || '불러오기 실패')
+    if (!silent) setLoading(false)
+    if (res.success && res.data) {
+      // 폴링 시 데이터가 동일하면 setState를 건너뛰어 불필요한 리렌더(=깜빡임) 방지
+      setPolicies((prev) => (samePolicies(prev, res.data!) ? prev : res.data!))
+    } else if (!silent) {
+      setErr(res.error || '불러오기 실패')
+    }
   }
 
-  const loadTree = async () => {
+  const loadTree = async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true
     const res = await getPolicyTreeDashboard()
-    if (res.success && res.data) setTree(res.data)
+    if (res.success && res.data) {
+      setTree((prev) => (silent && sameTreeHype(prev, res.data!) ? prev : res.data!))
+    }
   }
 
   useEffect(() => {
@@ -107,11 +149,12 @@ export function PoliciesAdminPage() {
   }, [])
 
   // 🔥 하이프 순위는 학생 액션에 의해 바뀌므로, cards 탭일 때 주기적으로 갱신
+  // (깜빡임 방지: silent 모드로 로딩 표시 없이 백그라운드 갱신)
   useEffect(() => {
     if (tab !== 'cards') return
     const t = setInterval(() => {
-      void loadPolicies()
-      void loadTree()
+      void loadPolicies({ silent: true })
+      void loadTree({ silent: true })
     }, 15000)
     return () => clearInterval(t)
   }, [tab])
@@ -1403,60 +1446,54 @@ function PolicyCompactCard({
             <p className="line-clamp-2 text-[13px] font-bold leading-tight text-gray-900">{policy.title}</p>
             <p className="line-clamp-2 text-[10px] leading-tight text-gray-500">{policy.goal || '\u00A0'}</p>
             <p className="mt-1 text-[11px] font-semibold text-amber-600">🔥 {policy.hype_count ?? 0}</p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-              <span className="shrink-0 text-[10px] text-gray-400">등록</span>
-              {creator ? (
-                <span
-                  className="inline-flex h-9 w-9 shrink-0 cursor-default overflow-hidden rounded-full bg-gray-100 ring-2 ring-gray-200"
-                  title={creatorTooltip}
-                >
-                  {creator.photo_data ? (
-                    <img
-                      src={photoSrc(creator.photo_data)}
-                      alt=""
-                      title={creatorTooltip}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-1 gap-y-1">
+              <span className="shrink-0 text-[10px] font-semibold text-gray-500">등록자</span>
+              {/* 등록자 사진은 classStudents 로딩 여부와 무관하게 항상 동일한 슬롯을 차지하도록 렌더해 깜빡임을 막는다 */}
+              <span
+                className="inline-flex h-8 w-8 shrink-0 overflow-hidden rounded-full bg-gray-100 ring-2 ring-emerald-200"
+                title={creatorTooltip}
+              >
+                {creator && creator.photo_data ? (
+                  <img
+                    src={photoSrc(creator.photo_data)}
+                    alt=""
+                    title={creatorTooltip}
+                    loading="eager"
+                    decoding="sync"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center text-[11px] font-medium text-gray-500">
+                    {(creator?.name || cid || '?').charAt(0)}
+                  </span>
+                )}
+              </span>
+              {co.length > 0 &&
+                co.map((s) => {
+                  const tip = `${s.name} (${String(s.student_id)})`
+                  return (
                     <span
-                      className="flex h-full w-full items-center justify-center text-[11px] font-medium text-gray-500"
-                      title={creatorTooltip}
+                      key={s.student_id}
+                      className="inline-flex h-7 w-7 shrink-0 overflow-hidden rounded-full bg-gray-100 ring-2 ring-white"
+                      title={tip}
                     >
-                      {(creator.name || '?').charAt(0)}
+                      {s.photo_data ? (
+                        <img
+                          src={photoSrc(s.photo_data)}
+                          alt=""
+                          title={tip}
+                          loading="eager"
+                          decoding="sync"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center text-[10px] font-medium text-gray-500">
+                          {(s.name || '?').charAt(0)}
+                        </span>
+                      )}
                     </span>
-                  )}
-                </span>
-              ) : (
-                <span className="text-[10px] text-gray-500" title={creatorTooltip}>
-                  {cid || '?'}
-                </span>
-              )}
-              {co.length > 0 && (
-                <>
-                  <span className="shrink-0 text-[10px] text-gray-400">·공동</span>
-                  {co.map((s) => {
-                    const tip = `${s.name} (${String(s.student_id)})`
-                    return (
-                      <span
-                        key={s.student_id}
-                        className="inline-flex h-9 w-9 shrink-0 cursor-default overflow-hidden rounded-full bg-gray-100 ring-2 ring-white"
-                        title={tip}
-                      >
-                        {s.photo_data ? (
-                          <img src={photoSrc(s.photo_data)} alt="" title={tip} className="h-full w-full object-cover" />
-                        ) : (
-                          <span
-                            className="flex h-full w-full items-center justify-center text-[11px] font-medium text-gray-500"
-                            title={tip}
-                          >
-                            {(s.name || '?').charAt(0)}
-                          </span>
-                        )}
-                      </span>
-                    )
-                  })}
-                </>
-              )}
+                  )
+                })}
             </div>
           </div>
         </button>
