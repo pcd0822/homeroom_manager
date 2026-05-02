@@ -209,13 +209,13 @@ export function PoliciesAdminPage() {
     return () => clearTimeout(timeout)
   }, [tab])
 
-  const topHypeIdSet = useMemo(
-    () => new Set((tree?.top_hype_policies ?? []).map((p) => p.policy_id)),
-    [tree]
-  )
   const topHypePolicies = useMemo(() => {
     const ids = tree?.top_hype_policies?.map((p) => p.policy_id) ?? []
-    return ids.map((id) => policies.find((p) => p.policy_id === id)).filter((x): x is Policy => Boolean(x))
+    // 하입된 정책(hype_count > 0)만 Top4에 표시. 메인 목록에서는 제외하지 않음.
+    return ids
+      .map((id) => policies.find((p) => p.policy_id === id))
+      .filter((x): x is Policy => Boolean(x))
+      .filter((p) => (p.hype_count ?? 0) > 0)
   }, [tree, policies])
 
   /** 이번 회차 목록에 아직 넣지 않은 학생만 (이미 지급 이력이 있어도 다시 추가 가능 — 독립 시행) */
@@ -460,25 +460,23 @@ export function PoliciesAdminPage() {
             <p className="text-sm text-gray-500">불러오는 중...</p>
           ) : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
-              {policies
-                .filter((p) => !topHypeIdSet.has(p.policy_id))
-                .map((p) => (
-                  <PolicyCompactCard
-                    key={p.policy_id}
-                    policy={p}
-                    classStudents={classStudents}
-                    onOpen={() => openCard(p.policy_id)}
-                    onManageClick={(e) => {
-                      e.stopPropagation()
-                      void openPolicyManage(p.policy_id)
-                    }}
-                    isManageActive={
-                      managedPolicyId === p.policy_id &&
-                      (manageChoiceOpen || editOpen || payOpen || manageLoading)
-                    }
-                    isManageLoading={managedPolicyId === p.policy_id && manageLoading}
-                  />
-                ))}
+              {policies.map((p) => (
+                <PolicyCompactCard
+                  key={p.policy_id}
+                  policy={p}
+                  classStudents={classStudents}
+                  onOpen={() => openCard(p.policy_id)}
+                  onManageClick={(e) => {
+                    e.stopPropagation()
+                    void openPolicyManage(p.policy_id)
+                  }}
+                  isManageActive={
+                    managedPolicyId === p.policy_id &&
+                    (manageChoiceOpen || editOpen || payOpen || manageLoading)
+                  }
+                  isManageLoading={managedPolicyId === p.policy_id && manageLoading}
+                />
+              ))}
             </div>
           )}
           {policies.length === 0 && !loading && (
