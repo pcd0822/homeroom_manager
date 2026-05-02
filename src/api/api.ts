@@ -331,6 +331,13 @@ export function savePolicy(params: {
   return request<{ policy_id: string }>('SAVE_POLICY', 'POST', params as Record<string, unknown>)
 }
 
+export function deletePolicy(policyId: string) {
+  return request<{ policy_id: string }>('DELETE_POLICY', 'POST', {
+    policy_id: policyId,
+    is_teacher: true,
+  })
+}
+
 export function hypePolicy(params: {
   policy_id: string
   actor_student_id: string

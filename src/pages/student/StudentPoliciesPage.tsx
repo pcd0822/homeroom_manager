@@ -52,6 +52,7 @@ export function StudentPoliciesPage() {
   const [eExp, setEExp] = useState('')
   const [eSeeds, setESeeds] = useState(0)
   const [eLogo, setELogo] = useState('')
+  const [eLinks, setELinks] = useState<string[]>([''])
 
   const load = useCallback(async () => {
     if (!studentId) return
@@ -124,6 +125,8 @@ export function StudentPoliciesPage() {
         setEExp(d.data.expected_effect || '')
         setESeeds(Number(d.data.seeds_per_participation) || 0)
         setELogo(d.data.logo_data || '')
+        const links = d.data.participation_links && d.data.participation_links.length > 0 ? d.data.participation_links : ['']
+        setELinks(links)
       } else setErr(d.error || '불러오기 실패')
     } finally {
       setDetailOpening(false)
@@ -185,7 +188,7 @@ export function StudentPoliciesPage() {
       logo_data: eLogo,
       creator_student_id: detail.creator_student_id,
       co_registrants: detail.co_registrants || [],
-      participation_links: detail.participation_links || [],
+      participation_links: eLinks.map((l) => l.trim()).filter(Boolean),
       actor_student_id: studentId,
     })
     setSaving(false)
@@ -545,6 +548,42 @@ export function StudentPoliciesPage() {
                     onChange={(e) => setESeeds(Number(e.target.value))}
                     className="w-40 rounded-lg border border-gray-200 px-3 py-2"
                   />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">정책 참여 링크</label>
+                  <p className="mb-2 text-[10px] text-gray-500">등록한 링크를 수정·추가·삭제할 수 있습니다.</p>
+                  <div className="space-y-2">
+                    {eLinks.map((lnk, idx) => (
+                      <div key={`s-edit-link-${idx}`} className="flex items-center gap-2">
+                        <span className="shrink-0 text-[11px] font-semibold text-sky-700">{`링크${idx + 1}`}</span>
+                        <input
+                          value={lnk}
+                          onChange={(e) => {
+                            const v = e.target.value
+                            setELinks((prev) => prev.map((x, i) => (i === idx ? v : x)))
+                          }}
+                          placeholder="https://..."
+                          className="min-w-0 flex-1 rounded border border-gray-200 px-2 py-1.5 text-xs"
+                        />
+                        {eLinks.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setELinks((prev) => prev.filter((_, i) => i !== idx))}
+                            className="shrink-0 rounded border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50"
+                          >
+                            삭제
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setELinks((prev) => [...prev, ''])}
+                    className="mt-2 text-[11px] font-semibold text-sky-700 hover:text-sky-900"
+                  >
+                    + 링크 추가
+                  </button>
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-700">정책 로고 (이미지 변경)</label>

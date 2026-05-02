@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type MouseEvent } from 'react'
 import {
+  deletePolicy,
   getPolicies,
   getPolicyDetail,
   getPolicyParticipants,
@@ -81,7 +82,11 @@ export function PoliciesAdminPage() {
   const [eExp, setEExp] = useState('')
   const [eSeeds, setESeeds] = useState(0)
   const [eLogo, setELogo] = useState('')
+  const [eLinks, setELinks] = useState<string[]>([''])
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteSuccess, setDeleteSuccess] = useState('')
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [classStudents, setClassStudents] = useState<Student[]>([])
   const [paySearch, setPaySearch] = useState('')
   const [manageChoiceOpen, setManageChoiceOpen] = useState(false)
@@ -266,6 +271,8 @@ export function PoliciesAdminPage() {
       setEExp(d.data.expected_effect || '')
       setESeeds(Number(d.data.seeds_per_participation) || 0)
       setELogo(d.data.logo_data || '')
+      const links = d.data.participation_links && d.data.participation_links.length > 0 ? d.data.participation_links : ['']
+      setELinks(links)
       setDetailPanelOpen(showPanel)
       return true
     }
@@ -277,6 +284,7 @@ export function PoliciesAdminPage() {
     if (!detail) return
     setSaving(true)
     const logoPayload = (eLogo && String(eLogo).trim()) || detail.logo_data || ''
+    const cleanedLinks = eLinks.map((l) => l.trim()).filter(Boolean)
     const res = await savePolicy({
       policy_id: detail.policy_id,
       title: eTitle.trim(),
@@ -287,7 +295,7 @@ export function PoliciesAdminPage() {
       logo_data: logoPayload,
       creator_student_id: detail.creator_student_id,
       co_registrants: detail.co_registrants || [],
-      participation_links: detail.participation_links || [],
+      participation_links: cleanedLinks,
       actor_student_id: TEACHER_ACTOR,
       is_teacher: true,
     })
@@ -344,6 +352,33 @@ export function PoliciesAdminPage() {
     setManageLoading(false)
   }
 
+  const handleDeletePolicy = async () => {
+    if (!detail) return
+    const targetId = detail.policy_id
+    setDeleting(true)
+    setErr('')
+    const res = await deletePolicy(targetId)
+    if (!res.success) {
+      setDeleting(false)
+      setErr(res.error || '정책 삭제 실패')
+      return
+    }
+    await loadPolicies()
+    await loadTree()
+    setDeleting(false)
+    setDeleteSuccess('정책이 삭제되었습니다.')
+    setConfirmDeleteOpen(false)
+    setManageChoiceOpen(false)
+    setEditOpen(false)
+    setPayOpen(false)
+    setDetail(null)
+    setParts([])
+    setDetailPanelOpen(false)
+    setManagedPolicyId(null)
+    setManageOpenedFromDetail(false)
+    setTimeout(() => setDeleteSuccess(''), 2400)
+  }
+
   const closeManageChoice = () => {
     setManageChoiceOpen(false)
     if (manageOpenedFromDetail) {
@@ -396,6 +431,15 @@ export function PoliciesAdminPage() {
       </header>
 
       {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
+      {deleteSuccess && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed left-1/2 top-6 z-[80] -translate-x-1/2 rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg ring-1 ring-emerald-700"
+        >
+          ✅ {deleteSuccess}
+        </div>
+      )}
 
       {tab === 'cards' && (
         <section>
@@ -1067,6 +1111,14 @@ export function PoliciesAdminPage() {
                   </button>
                   <button
                     type="button"
+                    disabled={manageLoading || deleting}
+                    onClick={() => setConfirmDeleteOpen(true)}
+                    className="rounded-xl bg-rose-600 py-3 text-sm font-semibold text-white shadow transition hover:bg-rose-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    정책 삭제하기
+                  </button>
+                  <button
+                    type="button"
                     onClick={closeManageChoice}
                     className="rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 active:scale-[0.99]"
                   >
@@ -1128,6 +1180,42 @@ export function PoliciesAdminPage() {
                   onChange={(e) => setESeeds(Number(e.target.value))}
                   className="w-40 rounded-lg border border-gray-200 px-3 py-2"
                 />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">정책 참여 링크</label>
+                <p className="mb-2 text-[10px] text-gray-500">학생이 등록한 링크를 수정·추가·삭제할 수 있습니다.</p>
+                <div className="space-y-2">
+                  {eLinks.map((lnk, idx) => (
+                    <div key={`edit-link-${idx}`} className="flex items-center gap-2">
+                      <span className="shrink-0 text-[11px] font-semibold text-sky-700">{`링크${idx + 1}`}</span>
+                      <input
+                        value={lnk}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          setELinks((prev) => prev.map((x, i) => (i === idx ? v : x)))
+                        }}
+                        placeholder="https://..."
+                        className="min-w-0 flex-1 rounded border border-gray-200 px-2 py-1.5 text-xs"
+                      />
+                      {eLinks.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setELinks((prev) => prev.filter((_, i) => i !== idx))}
+                          className="shrink-0 rounded border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50"
+                        >
+                          삭제
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setELinks((prev) => [...prev, ''])}
+                  className="mt-2 text-[11px] font-semibold text-sky-700 hover:text-sky-900"
+                >
+                  + 링크 추가
+                </button>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-700">정책 로고 (이미지 변경)</label>
@@ -1299,6 +1387,63 @@ export function PoliciesAdminPage() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDeleteOpen && detail && (
+        <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/55 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900">정책을 삭제할까요?</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              <span className="font-semibold text-rose-700">{detail.title}</span> 정책과 해당 정책의 참여
+              · 하입 기록이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setConfirmDeleteOpen(false)}
+                className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition active:scale-[0.99] disabled:opacity-60"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => void handleDeletePolicy()}
+                className="flex-1 rounded-lg bg-rose-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 active:scale-[0.98] disabled:opacity-70"
+              >
+                {deleting ? (
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    삭제 중…
+                  </span>
+                ) : (
+                  '삭제'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleting && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55 backdrop-blur-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex flex-col items-center gap-4 rounded-2xl bg-white px-8 py-7 shadow-2xl">
+            <span className="relative inline-flex h-16 w-16">
+              <span className="absolute inset-0 animate-ping rounded-full bg-rose-200 opacity-60" aria-hidden />
+              <span
+                className="relative inline-block h-16 w-16 animate-spin rounded-full border-[6px] border-rose-500 border-t-transparent"
+                aria-hidden
+              />
+            </span>
+            <p className="text-sm font-semibold text-gray-800">정책을 삭제하는 중…</p>
+            <p className="text-[11px] text-gray-500">잠시만 기다려 주세요.</p>
           </div>
         </div>
       )}

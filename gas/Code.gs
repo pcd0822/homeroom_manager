@@ -211,6 +211,9 @@ function handleRequest(e, method) {
       case 'SAVE_POLICY':
         result = savePolicy(params);
         break;
+      case 'DELETE_POLICY':
+        result = deletePolicy(params);
+        break;
       case 'GET_POLICIES':
         result = getPolicies();
         break;
@@ -1927,6 +1930,66 @@ function savePolicy(params) {
   var last = sheet.getLastRow();
   sheet.getRange(last + 1, 1, 1, n).setValues([row]);
   return { success: true, data: { policy_id: newId } };
+}
+
+/**
+ * 정책 삭제 (교사 전용).
+ * - HomeroomPolicies 행 제거
+ * - HomeroomPolicySeeds에서 해당 정책의 참여자 행 제거
+ * - HomeroomPolicyHype에서 해당 정책의 하입 행 제거
+ * SeedLedger의 GAIN 기록은 학생 가계부의 과거 내역이므로 보존(고아 policy_id로 남음).
+ */
+function deletePolicy(params) {
+  var isTeacher = params && params.is_teacher === true;
+  if (!isTeacher) return { success: false, error: '교사만 정책을 삭제할 수 있습니다.' };
+  var policyId = params && params.policy_id != null ? String(params.policy_id).trim() : '';
+  if (!policyId) return { success: false, error: 'policy_id required' };
+
+  var policiesSheet = getOrCreatePoliciesSheet();
+  if (policiesSheet.getLastRow() < 2) return { success: false, error: 'not found' };
+  var data = policiesSheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var idCol = headers.indexOf('policy_id');
+  if (idCol < 0) idCol = 0;
+  var rowIdx = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol] || '').trim() === policyId) {
+      rowIdx = i + 1;
+      break;
+    }
+  }
+  if (rowIdx < 0) return { success: false, error: 'not found' };
+  policiesSheet.deleteRow(rowIdx);
+
+  // PolicySeeds 행 제거 (아래에서 위로 삭제)
+  var seedsSheet = getOrCreatePolicySeedsSheet();
+  if (seedsSheet.getLastRow() >= 2) {
+    var sData = seedsSheet.getDataRange().getValues();
+    var sHeaders = sData[0].map(String);
+    var sPCol = sHeaders.indexOf('policy_id');
+    if (sPCol < 0) sPCol = 0;
+    for (var s = sData.length - 1; s >= 1; s--) {
+      if (String(sData[s][sPCol] || '').trim() === policyId) {
+        seedsSheet.deleteRow(s + 1);
+      }
+    }
+  }
+
+  // PolicyHype 행 제거
+  var hypeSheet = getOrCreatePolicyHypeSheet();
+  if (hypeSheet.getLastRow() >= 2) {
+    var hData = hypeSheet.getDataRange().getValues();
+    var hHeaders = hData[0].map(String);
+    var hPCol = hHeaders.indexOf('policy_id');
+    if (hPCol < 0) hPCol = 0;
+    for (var h = hData.length - 1; h >= 1; h--) {
+      if (String(hData[h][hPCol] || '').trim() === policyId) {
+        hypeSheet.deleteRow(h + 1);
+      }
+    }
+  }
+
+  return { success: true, data: { policy_id: policyId } };
 }
 
 function policyRowToObj(row, headers) {
