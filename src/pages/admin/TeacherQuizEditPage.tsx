@@ -6,8 +6,8 @@ import {
   QUIZ_TYPES,
   emptyQuestion,
   extractYoutubeId,
-  fileToDataUrl,
 } from '@/lib/teacherQuiz'
+import { compressImageToDataUrl } from '@/lib/imageCompress'
 import { cn } from '@/lib/utils'
 
 function friendlyQuizError(err?: string) {
@@ -119,21 +119,30 @@ export function TeacherQuizEditPage() {
 
   const onImage = async (idx: number, file: File | null) => {
     if (!file) return
-    const data = await fileToDataUrl(file)
-    updateQuestion(idx, { image_data: data })
+    try {
+      const data = await compressImageToDataUrl(file, { maxSide: 900 })
+      updateQuestion(idx, { image_data: data })
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '이미지 처리에 실패했습니다.')
+    }
   }
 
   const onChoiceImage = async (idx: number, choiceIdx: number, file: File | null) => {
     if (!file) return
-    const data = await fileToDataUrl(file)
-    setQuestions((prev) =>
-      prev.map((q, i) => {
-        if (i !== idx) return q
-        const arr = [...(q.choice_images ?? [])]
-        arr[choiceIdx] = data
-        return { ...q, choice_images: arr }
-      })
-    )
+    try {
+      // 선택지 이미지는 작게 표시되므로 더 작게 압축
+      const data = await compressImageToDataUrl(file, { maxSide: 600, maxChars: 28000 })
+      setQuestions((prev) =>
+        prev.map((q, i) => {
+          if (i !== idx) return q
+          const arr = [...(q.choice_images ?? [])]
+          arr[choiceIdx] = data
+          return { ...q, choice_images: arr }
+        })
+      )
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '이미지 처리에 실패했습니다.')
+    }
   }
 
   const save = async () => {

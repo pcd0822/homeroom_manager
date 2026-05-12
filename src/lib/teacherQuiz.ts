@@ -81,12 +81,3 @@ export function extractYoutubeId(input: string): string | null {
   return null
 }
 
-/** 파일을 base64 data URL로 변환 (간단 압축 없이) */
-export function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result || ''))
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(file)
-  })
-}
