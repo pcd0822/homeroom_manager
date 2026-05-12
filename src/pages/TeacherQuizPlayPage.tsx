@@ -28,8 +28,29 @@ const FAILED_MESSAGES = [
   '담임샘이 슬퍼하고 있어요…',
   '한 번만 더 도전해 줄래?',
 ]
-const SUCCESS_PREFIX = '역시 '
-const SUCCESS_SUFFIX = '이야! 담임샘에 대해 알아가는 만큼 너희들의 이야기도 많이 들려주길 바라❤️'
+const SUCCESS_TAIL = '! 담임샘에 대해 알아가는 만큼 너희들의 이야기도 많이 들려주길 바라❤️'
+
+/** 한국 복성 — 두 글자 성을 분리할 때 사용. 흔히 쓰이는 것만 포함 */
+const COMPOUND_SURNAMES = ['남궁', '황보', '제갈', '사공', '선우', '서문', '독고', '동방']
+
+/** 풀네임에서 성을 떼고 이름만 반환. 한 글자면 그대로. */
+function extractGivenName(fullName: string): string {
+  const name = (fullName || '').trim()
+  if (name.length <= 1) return name
+  for (const cs of COMPOUND_SURNAMES) {
+    if (name.startsWith(cs) && name.length > cs.length) return name.slice(cs.length)
+  }
+  return name.slice(1)
+}
+
+/** 한글 마지막 글자에 받침이 있는지 */
+function hasJongseong(name: string): boolean {
+  const last = name[name.length - 1]
+  if (!last) return false
+  const code = last.charCodeAt(0)
+  if (code < 0xac00 || code > 0xd7a3) return false
+  return (code - 0xac00) % 28 !== 0
+}
 
 function friendlyQuizError(err?: string) {
   if (!err) return '알 수 없는 오류가 발생했습니다.'
@@ -613,6 +634,8 @@ function ClearedView({
   retries: number
   onRetry: () => void
 }) {
+  const given = extractGivenName(name) || '친구'
+  const particle = hasJongseong(given) ? '이야' : '야'
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-amber-50 via-pink-50 to-rose-50 p-6">
       <div className="w-full max-w-md rounded-3xl border border-rose-200 bg-white p-6 text-center shadow-xl">
@@ -625,9 +648,10 @@ function ClearedView({
           }}
         />
         <h1 className="mt-3 text-xl font-bold text-rose-700">
-          {SUCCESS_PREFIX}
-          <span className="font-extrabold text-rose-600">{name || '친구'}</span>
-          {SUCCESS_SUFFIX}
+          역시{' '}
+          <span className="font-extrabold text-rose-600">{given}</span>
+          {particle}
+          {SUCCESS_TAIL}
         </h1>
         <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4">
           <p className="text-xs text-gray-600">최종 점수</p>
