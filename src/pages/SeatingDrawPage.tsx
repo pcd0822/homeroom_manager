@@ -11,7 +11,7 @@ import type {
   SeatingType,
   Student,
 } from '@/types'
-import { cn } from '@/lib/utils'
+import { SeatDeskCard, TeacherDeskBanner } from '@/components/seating/SeatDeskCard'
 
 type Phase = 'loading' | 'drumroll' | 'reveal' | 'error'
 
@@ -200,17 +200,20 @@ export function SeatingDrawPage() {
           </div>
         </div>
         {layout && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {layout.groups.map((g) => (
-              <RevealedGroup
-                key={g.id}
-                group={g}
-                assignment={assignment}
-                studentById={studentById}
-                type={layout.type}
-              />
-            ))}
-          </div>
+          <>
+            <TeacherDeskBanner className="mb-6" variant="reveal" />
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {layout.groups.map((g) => (
+                <RevealedGroup
+                  key={g.id}
+                  group={g}
+                  assignment={assignment}
+                  studentById={studentById}
+                  type={layout.type}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -276,42 +279,30 @@ function RevealedGroup({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <p className="mb-3 text-sm font-semibold text-slate-800">{group.name}</p>
-      <div className="space-y-2">
+      <div className="space-y-3">
         {rowKeys.map((r) => (
           <div
             key={r}
-            className="grid gap-2"
+            className="grid gap-3"
             style={{ gridTemplateColumns: `repeat(${colsPerRow}, minmax(0, 1fr))` }}
           >
             {(rows.get(r) ?? []).map((seat) => {
               const sid = assignment[seat.id]
               const stu = sid ? studentById.get(sid) : null
               return (
-                <div
+                <SeatDeskCard
                   key={seat.id}
-                  className={cn(
-                    'flex items-center gap-2 rounded-xl border px-3 py-2 text-xs',
+                  variant="reveal"
+                  student={
                     stu
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                      : 'border-dashed border-gray-200 bg-white text-gray-400'
-                  )}
-                >
-                  {stu?.photo_data ? (
-                    <img
-                      src={stu.photo_data}
-                      alt={stu.name}
-                      className="h-8 w-8 shrink-0 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[10px] text-gray-400">
-                      {stu ? stu.name.slice(0, 1) : '·'}
-                    </div>
-                  )}
-                  <div className="min-w-0 leading-tight">
-                    <p className="truncate font-semibold">{stu?.name || '(빈자리)'}</p>
-                    {stu && <p className="truncate text-[10px] text-emerald-700/70">{stu.student_id}</p>}
-                  </div>
-                </div>
+                      ? {
+                          student_id: stu.student_id,
+                          name: stu.name,
+                          photo_data: stu.photo_data,
+                        }
+                      : null
+                  }
+                />
               )
             })}
           </div>

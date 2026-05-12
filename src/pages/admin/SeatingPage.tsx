@@ -17,6 +17,7 @@ import type {
 } from '@/types'
 import { generateLayout, sortSeats } from '@/lib/seating'
 import { cn } from '@/lib/utils'
+import { SeatDeskCard, TeacherDeskBanner } from '@/components/seating/SeatDeskCard'
 
 const TYPE_LABEL: Record<SeatingType, string> = {
   individual: '개별',
@@ -44,6 +45,12 @@ export function SeatingPage() {
   const studentNameById = useMemo(() => {
     const m: Record<string, string> = {}
     students.forEach((s) => (m[s.student_id] = s.name))
+    return m
+  }, [students])
+
+  const studentPhotoById = useMemo(() => {
+    const m: Record<string, string | undefined> = {}
+    students.forEach((s) => (m[s.student_id] = s.photo_data))
     return m
   }, [students])
 
@@ -464,18 +471,23 @@ export function SeatingPage() {
         {!lastAssignment?.layout || lastAssignment.assignments.length === 0 ? (
           <p className="text-xs text-gray-400">아직 저장된 자리 배치 결과가 없습니다.</p>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {lastAssignment.layout.groups.map((g) => (
-              <div key={g.id} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                <p className="mb-2 text-sm font-semibold text-gray-800">{g.name}</p>
-                <SavedGroupGrid
-                  group={g}
-                  assignments={lastAssignment.assignments}
-                  type={lastAssignment.layout!.type}
-                />
-              </div>
-            ))}
-          </div>
+          <>
+            <TeacherDeskBanner className="mb-4" variant="admin" />
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {lastAssignment.layout.groups.map((g) => (
+                <div key={g.id} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                  <p className="mb-2 text-sm font-semibold text-gray-800">{g.name}</p>
+                  <SavedGroupGrid
+                    group={g}
+                    assignments={lastAssignment.assignments}
+                    studentNameById={studentNameById}
+                    studentPhotoById={studentPhotoById}
+                    type={lastAssignment.layout!.type}
+                  />
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </section>
     </div>
@@ -547,10 +559,14 @@ function GroupGrid({
 function SavedGroupGrid({
   group,
   assignments,
+  studentNameById,
+  studentPhotoById,
   type,
 }: {
   group: SeatingGroup
   assignments: SeatingAssignmentRow[]
+  studentNameById: Record<string, string>
+  studentPhotoById: Record<string, string | undefined>
   type: SeatingType
 }) {
   const colsPerRow = type === 'individual' ? 1 : 2
@@ -563,27 +579,29 @@ function SavedGroupGrid({
   })
   const rowKeys = Array.from(rows.keys()).sort((a, b) => a - b)
   return (
-    <div className="space-y-1">
+    <div className="space-y-3">
       {rowKeys.map((r) => (
         <div
           key={r}
-          className="grid gap-1"
+          className="grid gap-3"
           style={{ gridTemplateColumns: `repeat(${colsPerRow}, minmax(0, 1fr))` }}
         >
           {(rows.get(r) ?? []).map((seat) => {
             const a = byId.get(seat.id)
             return (
-              <div
+              <SeatDeskCard
                 key={seat.id}
-                className={cn(
-                  'flex h-10 items-center justify-center rounded-md border px-2 text-[11px]',
+                variant="admin"
+                student={
                   a
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                    : 'border-dashed border-gray-200 bg-white text-gray-300'
-                )}
-              >
-                {a ? `${a.student_id} ${a.student_name}` : '(빈자리)'}
-              </div>
+                    ? {
+                        student_id: a.student_id,
+                        name: studentNameById[a.student_id] || a.student_name,
+                        photo_data: studentPhotoById[a.student_id],
+                      }
+                    : null
+                }
+              />
             )
           })}
         </div>
