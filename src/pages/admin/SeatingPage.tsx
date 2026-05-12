@@ -27,6 +27,17 @@ const TYPE_LABEL: Record<SeatingType, string> = {
 
 const rid = () => Math.random().toString(36).slice(2, 8)
 
+function friendlySeatingError(err?: string) {
+  if (!err) return '저장에 실패했습니다.'
+  if (err.includes('Unknown action')) {
+    return (
+      'GAS 백엔드에 자리 배치 기능이 아직 배포되지 않았어요.\n' +
+      '구글 스크립트 편집기에서 gas/Code.gs를 새 버전으로 “웹 앱 배포”해 주세요.'
+    )
+  }
+  return err
+}
+
 export function SeatingPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [type, setType] = useState<SeatingType>('pair')
@@ -41,6 +52,13 @@ export function SeatingPage() {
     layout: SeatingLayout | null
     assignments: SeatingAssignmentRow[]
   } | null>(null)
+  const [picker, setPicker] = useState<{
+    seatId: string
+    groupName: string
+    row: number
+    col: number
+  } | null>(null)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
 
   const studentNameById = useMemo(() => {
     const m: Record<string, string> = {}
@@ -53,14 +71,6 @@ export function SeatingPage() {
     students.forEach((s) => (m[s.student_id] = s.photo_data))
     return m
   }, [students])
-
-  const allSeats = useMemo(() => {
-    const arr: Array<{ groupId: string; groupName: string; seat: SeatingSeat }> = []
-    layout.groups.forEach((g) =>
-      sortSeats(g.seats).forEach((s) => arr.push({ groupId: g.id, groupName: g.name, seat: s }))
-    )
-    return arr
-  }, [layout])
 
   const load = useCallback(() => {
     setLoading(true)
@@ -166,9 +176,6 @@ export function SeatingPage() {
   }
 
   // ----- 규칙: 지정 좌석 -----
-  const fixedStudentIds = new Set(rules.fixed.map((f) => f.student_id))
-  const occupiedFixedSeats = new Set(rules.fixed.map((f) => f.seat_id))
-
   const setFixedSeat = (seat_id: string, student_id: string) => {
     setRules((r) => {
       // 같은 학생이 이미 다른 좌석에 지정돼 있으면 옮김
@@ -219,22 +226,31 @@ export function SeatingPage() {
       setSavedAt(res.data.updated_at)
       alert('자리 배치 기본 설정이 저장되었습니다.')
     } else {
-      alert(res.error || '저장에 실패했습니다.')
+      alert(friendlySeatingError(res.error))
     }
   }
 
-  const openDrawWindow = async () => {
-    // 저장 후 학생용 뽑기 페이지를 새 창으로 오픈
+  const createShareLink = async () => {
     setSaving(true)
     const cfg: SeatingConfig = { type, totalSeats, layout, rules }
     const res = await saveSeatingConfig(cfg)
     setSaving(false)
     if (!res.success) {
-      alert(res.error || '설정 저장에 실패했습니다.')
+      alert(friendlySeatingError(res.error))
       return
     }
     if (res.data) setSavedAt(res.data.updated_at)
-    window.open(`${window.location.origin}/seating-draw`, '_blank', 'noopener,noreferrer')
+    setShareUrl(`${window.location.origin}/seating-draw`)
+  }
+
+  const copyShareLink = async () => {
+    if (!shareUrl) return
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      alert('링크가 복사되었습니다.')
+    } catch {
+      alert('복사에 실패했습니다. 링크를 직접 선택해 복사해 주세요.')
+    }
   }
 
   const reloadLastAssignment = async () => {
@@ -304,10 +320,10 @@ export function SeatingPage() {
         </div>
       </section>
 
-      {/* 2. 좌석 배치도 (수동 수정) */}
+      {/* 2. 좌석 배치도 (수동 수정 + 지정 좌석) */}
       <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-gray-800">2. 좌석 배치도 (수동 수정 가능)</h2>
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-gray-800">2. 좌석 배치도</h2>
           <button
             type="button"
             onClick={addGroup}
@@ -316,6 +332,12 @@ export function SeatingPage() {
             + {layout.type === 'group' ? '모둠' : '분단'} 추가
           </button>
         </div>
+        <p className="mb-3 text-xs text-gray-500">
+          좌석을 클릭하면 학생을 직접 지정할 수 있어요. 지정하지 않은 자리는 뽑기에서 랜덤으로 채워집니다.
+          {rules.fixed.length > 0 && (
+            <span className="ml-1 text-blue-600">현재 지정 좌석 {rules.fixed.length}개.</span>
+          )}
+        </p>
         {layout.groups.length === 0 ? (
           <p className="text-xs text-gray-400">자동 생성 버튼을 눌러 좌석을 만들어 주세요.</p>
         ) : (
@@ -345,7 +367,16 @@ export function SeatingPage() {
                   group={g}
                   fixedMap={Object.fromEntries(rules.fixed.map((f) => [f.seat_id, f.student_id]))}
                   studentNameById={studentNameById}
+                  studentPhotoById={studentPhotoById}
                   onRemoveSeat={(sid) => removeSeat(g.id, sid)}
+                  onSeatClick={(seat) =>
+                    setPicker({
+                      seatId: seat.id,
+                      groupName: g.name,
+                      row: seat.row,
+                      col: seat.col,
+                    })
+                  }
                   type={layout.type}
                 />
               </div>
@@ -354,53 +385,10 @@ export function SeatingPage() {
         )}
       </section>
 
-      {/* 3. 규칙: 지정 좌석 */}
-      <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-2 text-sm font-semibold text-gray-800">3-1. 지정 좌석 배정</h2>
-        <p className="mb-3 text-xs text-gray-500">
-          특정 좌석에 항상 들어가야 할 학생을 지정합니다. 비워두면 무작위.
-        </p>
-        {allSeats.length === 0 ? (
-          <p className="text-xs text-gray-400">먼저 좌석을 생성해 주세요.</p>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {allSeats.map(({ groupName, seat }) => {
-              const current = rules.fixed.find((f) => f.seat_id === seat.id)?.student_id ?? ''
-              return (
-                <div key={seat.id} className="flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-2 py-1.5">
-                  <span className="w-20 shrink-0 text-xs text-gray-600">
-                    {groupName} · R{seat.row}·C{seat.col}
-                  </span>
-                  <select
-                    value={current}
-                    onChange={(e) => setFixedSeat(seat.id, e.target.value)}
-                    className="min-w-0 flex-1 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs"
-                  >
-                    <option value="">(미지정)</option>
-                    {students.map((s) => {
-                      const taken = fixedStudentIds.has(s.student_id) && current !== s.student_id
-                      return (
-                        <option key={s.student_id} value={s.student_id} disabled={taken}>
-                          {s.student_id} {s.name}
-                          {taken ? ' (다른 좌석 지정됨)' : ''}
-                        </option>
-                      )
-                    })}
-                  </select>
-                </div>
-              )
-            })}
-            {occupiedFixedSeats.size > 0 && (
-              <p className="text-[11px] text-gray-500">지정 좌석 {occupiedFixedSeats.size}개</p>
-            )}
-          </div>
-        )}
-      </section>
-
       {/* 4. 규칙: 떨어져야 하는 친구 */}
       <RuleGroupEditor
         kind="apart"
-        title="3-2. 떨어져야 하는 친구"
+        title="3-1. 떨어져야 하는 친구"
         description="같은 분단/모둠에 함께 있지 않도록 배치합니다. (학생 2명 이상 선택)"
         rules={rules.apart}
         students={students}
@@ -412,7 +400,7 @@ export function SeatingPage() {
       {/* 5. 규칙: 붙어야 하는 친구 */}
       <RuleGroupEditor
         kind="together"
-        title="3-3. 붙어야 하는 친구"
+        title="3-2. 붙어야 하는 친구"
         description="같은 분단/모둠에 함께 배치되도록 시도합니다. (학생 2명 이상 선택)"
         rules={rules.together}
         students={students}
@@ -434,11 +422,11 @@ export function SeatingPage() {
           </button>
           <button
             type="button"
-            onClick={openDrawWindow}
+            onClick={createShareLink}
             disabled={saving || layout.groups.length === 0}
             className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
           >
-            자리 뽑기 시작 (학생화면 새 창)
+            자리 뽑기 링크 생성
           </button>
           {saving && <span className="text-sm text-gray-500">저장 중…</span>}
           {savedAt && !saving && (
@@ -447,6 +435,38 @@ export function SeatingPage() {
             </span>
           )}
         </div>
+        {shareUrl && (
+          <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
+            <p className="mb-2 text-xs font-semibold text-emerald-800">자리 뽑기 공유 링크</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={shareUrl}
+                onFocus={(e) => e.currentTarget.select()}
+                className="min-w-0 flex-1 rounded-md border border-emerald-200 bg-white px-3 py-1.5 text-xs text-gray-700"
+              />
+              <button
+                type="button"
+                onClick={copyShareLink}
+                className="rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+              >
+                링크 복사
+              </button>
+              <a
+                href={shareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+              >
+                새 창에서 열기
+              </a>
+            </div>
+            <p className="mt-2 text-[11px] text-emerald-700/80">
+              학생용 뽑기 화면에서 저장하면 위 “저장된 자리 배치”에도 자동 반영됩니다.
+            </p>
+          </div>
+        )}
       </section>
 
       {/* 7. 저장된 자리 배치 결과 */}
@@ -490,6 +510,26 @@ export function SeatingPage() {
           </>
         )}
       </section>
+
+      {picker && (
+        <SeatPickerModal
+          seatId={picker.seatId}
+          groupName={picker.groupName}
+          row={picker.row}
+          col={picker.col}
+          students={students}
+          fixed={rules.fixed}
+          onPick={(studentId) => {
+            setFixedSeat(picker.seatId, studentId)
+            setPicker(null)
+          }}
+          onClear={() => {
+            setFixedSeat(picker.seatId, '')
+            setPicker(null)
+          }}
+          onClose={() => setPicker(null)}
+        />
+      )}
     </div>
   )
 }
@@ -500,18 +540,21 @@ function GroupGrid({
   group,
   fixedMap,
   studentNameById,
+  studentPhotoById,
   onRemoveSeat,
+  onSeatClick,
   type,
 }: {
   group: SeatingGroup
   fixedMap: Record<string, string>
   studentNameById: Record<string, string>
+  studentPhotoById: Record<string, string | undefined>
   onRemoveSeat: (seatId: string) => void
+  onSeatClick: (seat: SeatingSeat) => void
   type: SeatingType
 }) {
   const colsPerRow = type === 'individual' ? 1 : 2
   const sorted = sortSeats(group.seats)
-  // row 별로 묶기
   const rows = new Map<number, SeatingSeat[]>()
   sorted.forEach((s) => {
     if (!rows.has(s.row)) rows.set(s.row, [])
@@ -519,30 +562,44 @@ function GroupGrid({
   })
   const rowKeys = Array.from(rows.keys()).sort((a, b) => a - b)
   return (
-    <div className="space-y-1">
+    <div className="space-y-3">
       {rowKeys.map((r) => (
         <div
           key={r}
-          className="grid gap-1"
+          className="grid gap-3"
           style={{ gridTemplateColumns: `repeat(${colsPerRow}, minmax(0, 1fr))` }}
         >
           {(rows.get(r) ?? []).map((seat) => {
-            const fixed = fixedMap[seat.id]
+            const fixedStu = fixedMap[seat.id]
             return (
-              <div
-                key={seat.id}
-                className={cn(
-                  'group relative flex h-10 items-center justify-center rounded-md border px-2 text-[11px]',
-                  fixed
-                    ? 'border-blue-200 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 bg-white text-gray-500'
-                )}
-              >
-                {fixed ? studentNameById[fixed] || fixed : '랜덤'}
+              <div key={seat.id} className="group relative">
                 <button
                   type="button"
-                  onClick={() => onRemoveSeat(seat.id)}
-                  className="absolute -right-1 -top-1 hidden h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white group-hover:flex"
+                  onClick={() => onSeatClick(seat)}
+                  className="block w-full text-left transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  title={fixedStu ? '클릭해서 다른 학생으로 변경' : '클릭해서 학생 지정'}
+                >
+                  <SeatDeskCard
+                    variant="admin"
+                    emptyLabel="랜덤 (클릭해서 지정)"
+                    student={
+                      fixedStu
+                        ? {
+                            student_id: fixedStu,
+                            name: studentNameById[fixedStu] || fixedStu,
+                            photo_data: studentPhotoById[fixedStu],
+                          }
+                        : null
+                    }
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onRemoveSeat(seat.id)
+                  }}
+                  className="absolute -right-1 -top-1 hidden h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white shadow group-hover:flex"
                   title="자리 삭제"
                 >
                   ×
@@ -699,6 +756,140 @@ function RuleGroupEditor({
         </div>
       )}
     </section>
+  )
+}
+
+function SeatPickerModal({
+  seatId,
+  groupName,
+  row,
+  col,
+  students,
+  fixed,
+  onPick,
+  onClear,
+  onClose,
+}: {
+  seatId: string
+  groupName: string
+  row: number
+  col: number
+  students: Student[]
+  fixed: Array<{ seat_id: string; student_id: string }>
+  onPick: (studentId: string) => void
+  onClear: () => void
+  onClose: () => void
+}) {
+  const currentStudentId = fixed.find((f) => f.seat_id === seatId)?.student_id
+  const seatByStudent = new Map(fixed.map((f) => [f.student_id, f.seat_id]))
+  const [query, setQuery] = useState('')
+
+  const filtered = students.filter((s) => {
+    if (!query.trim()) return true
+    const q = query.trim().toLowerCase()
+    return s.name.toLowerCase().includes(q) || s.student_id.toLowerCase().includes(q)
+  })
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 헤더 */}
+        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3">
+          <div>
+            <p className="text-sm font-semibold text-gray-800">학생 지정</p>
+            <p className="text-xs text-gray-500">
+              {groupName} · {row}행 {col}열 자리에 앉힐 학생을 골라주세요.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+            aria-label="닫기"
+          >
+            ✕
+          </button>
+        </div>
+        {/* 검색 + 액션 */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 bg-gray-50 px-5 py-2">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="학번·이름으로 검색"
+            className="min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm"
+          />
+          {currentStudentId && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="rounded-md border border-rose-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50"
+            >
+              지정 해제 (랜덤)
+            </button>
+          )}
+        </div>
+        {/* 학생 카드 그리드 */}
+        <div className="grid flex-1 gap-2 overflow-y-auto p-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          {filtered.length === 0 ? (
+            <p className="col-span-full text-center text-xs text-gray-400">
+              일치하는 학생이 없습니다.
+            </p>
+          ) : (
+            filtered.map((s) => {
+              const isCurrent = s.student_id === currentStudentId
+              const otherSeat = seatByStudent.get(s.student_id)
+              const isAssignedElsewhere = !!otherSeat && otherSeat !== seatId
+              return (
+                <button
+                  key={s.student_id}
+                  type="button"
+                  onClick={() => onPick(s.student_id)}
+                  className={cn(
+                    'group flex items-center gap-3 rounded-xl border p-2 text-left transition-colors',
+                    isCurrent
+                      ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-200'
+                      : isAssignedElsewhere
+                        ? 'border-amber-200 bg-amber-50 hover:border-amber-300'
+                        : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/40'
+                  )}
+                >
+                  {s.photo_data ? (
+                    <img
+                      src={s.photo_data}
+                      alt={s.name}
+                      className="h-12 w-12 shrink-0 rounded-full border border-white object-cover shadow-sm"
+                    />
+                  ) : (
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-500">
+                      {s.name.slice(0, 1)}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1 leading-tight">
+                    <p className="truncate text-[11px] text-gray-500">{s.student_id}</p>
+                    <p className="truncate text-sm font-semibold text-gray-800">{s.name}</p>
+                    {isCurrent && (
+                      <p className="mt-0.5 text-[10px] font-medium text-blue-600">현재 이 자리</p>
+                    )}
+                    {isAssignedElsewhere && !isCurrent && (
+                      <p className="mt-0.5 text-[10px] font-medium text-amber-700">
+                        다른 자리 지정됨 — 클릭하면 이 자리로 이동
+                      </p>
+                    )}
+                  </div>
+                </button>
+              )
+            })
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 

@@ -15,9 +15,11 @@ interface DeskStudent {
 export function SeatDeskCard({
   student,
   variant = 'reveal',
+  emptyLabel = '빈자리',
 }: {
   student?: DeskStudent | null
   variant?: 'reveal' | 'admin'
+  emptyLabel?: string
 }) {
   const empty = !student
 
@@ -48,7 +50,7 @@ export function SeatDeskCard({
         <div className={cn('absolute inset-x-2 -top-1 h-1.5 rounded-t', accentClass)} />
         {empty ? (
           <div className="flex h-12 items-center justify-center">
-            <span className="text-[10px] text-gray-400">빈자리</span>
+            <span className="text-[10px] text-gray-400">{emptyLabel}</span>
           </div>
         ) : (
           <div className="flex items-center gap-2">

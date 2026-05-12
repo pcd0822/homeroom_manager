@@ -15,6 +15,17 @@ import { SeatDeskCard, TeacherDeskBanner } from '@/components/seating/SeatDeskCa
 
 type Phase = 'loading' | 'drumroll' | 'reveal' | 'error'
 
+function friendlySeatingError(err?: string) {
+  if (!err) return '알 수 없는 오류가 발생했습니다.'
+  if (err.includes('Unknown action')) {
+    return (
+      'GAS 백엔드에 자리 배치 기능이 아직 배포되지 않았어요. ' +
+      '담임 선생님이 구글 스크립트 편집기에서 새 버전으로 배포한 뒤 다시 시도해 주세요.'
+    )
+  }
+  return err
+}
+
 const FUN_LINES = [
   '누가 내 짝이 될까?',
   '두근두근…',
@@ -52,12 +63,15 @@ export function SeatingDrawPage() {
     Promise.all([getStudents(), getSeatingConfig()])
       .then(([stuRes, cfgRes]) => {
         if (!stuRes.success || !stuRes.data) {
-          setError(stuRes.error || '학생 목록을 불러올 수 없습니다.')
+          setError(friendlySeatingError(stuRes.error) || '학생 목록을 불러올 수 없습니다.')
           setPhase('error')
           return
         }
         if (!cfgRes.success || !cfgRes.data) {
-          setError(cfgRes.error || '자리 배치 설정이 저장되지 않았습니다. 관리자 화면에서 먼저 설정을 저장해 주세요.')
+          setError(
+            friendlySeatingError(cfgRes.error) ||
+              '자리 배치 설정이 저장되지 않았습니다. 관리자 화면에서 먼저 설정을 저장해 주세요.'
+          )
           setPhase('error')
           return
         }
@@ -145,7 +159,7 @@ export function SeatingDrawPage() {
       setSavedAt(res.data.saved_at)
       alert('자리 배치가 저장되었습니다. 관리자 화면에서도 확인할 수 있습니다.')
     } else {
-      alert(res.error || '저장에 실패했습니다.')
+      alert(friendlySeatingError(res.error))
     }
   }
 

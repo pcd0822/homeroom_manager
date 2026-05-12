@@ -138,8 +138,17 @@ export function deleteResponse(responseId: string) {
 }
 
 // ----- Students & Auth -----
-export function getStudents() {
-  return request<Student[]>('GET_STUDENTS', 'POST')
+/** 학번을 자연 정렬(숫자 우선)로 비교. "1" < "2" < "10" 같은 직관적 순서. */
+export function compareStudentIds(a: string, b: string) {
+  return String(a).localeCompare(String(b), 'ko', { numeric: true, sensitivity: 'base' })
+}
+
+export async function getStudents() {
+  const res = await request<Student[]>('GET_STUDENTS', 'POST')
+  if (res.success && res.data) {
+    res.data.sort((a, b) => compareStudentIds(a.student_id, b.student_id))
+  }
+  return res
 }
 
 export function addStudent(params: {
@@ -181,8 +190,12 @@ export function saveClassInfo(params: { grade: string; classNum: string; teacher
   })
 }
 
-export function getNonResponders(formId: string) {
-  return request<Student[]>('GET_NON_RESPONDERS', 'POST', { form_id: formId })
+export async function getNonResponders(formId: string) {
+  const res = await request<Student[]>('GET_NON_RESPONDERS', 'POST', { form_id: formId })
+  if (res.success && res.data) {
+    res.data.sort((a, b) => compareStudentIds(a.student_id, b.student_id))
+  }
+  return res
 }
 
 export function authStudent(studentId: string, authCode: string) {
