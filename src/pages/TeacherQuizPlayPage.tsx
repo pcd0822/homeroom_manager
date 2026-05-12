@@ -29,7 +29,7 @@ const FAILED_MESSAGES = [
   '한 번만 더 도전해 줄래?',
 ]
 const SUCCESS_PREFIX = '역시 '
-const SUCCESS_SUFFIX = '이야! 담임샘에 대해 알아가는 만큼 너희들의 이야기도 많이 들려주길 바라!'
+const SUCCESS_SUFFIX = '이야! 담임샘에 대해 알아가는 만큼 너희들의 이야기도 많이 들려주길 바라❤️'
 
 function friendlyQuizError(err?: string) {
   if (!err) return '알 수 없는 오류가 발생했습니다.'
