@@ -105,6 +105,7 @@ export function CleaningZonesPage() {
         }
         if (assignRes.success && assignRes.data?.assignments && Object.keys(assignRes.data.assignments).length > 0) {
           const map: Record<string, Student[]> = {}
+          const restoredZones: Zone[] = []
           Object.entries(assignRes.data.assignments).forEach(([zone, list]) => {
             map[zone] = list.map((s) => ({
               student_id: s.student_id,
@@ -114,8 +115,14 @@ export function CleaningZonesPage() {
               phone_parent: '',
               photo_data: undefined,
             }))
+            restoredZones.push({
+              id: `zone-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              name: zone,
+              capacity: list.length || 1,
+            })
           })
           setAssignmentResult(map)
+          setZones(restoredZones)
           setSavedAt(assignRes.data.saved_at ?? null)
         }
       })
