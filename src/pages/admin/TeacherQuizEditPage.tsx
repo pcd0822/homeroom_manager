@@ -94,10 +94,23 @@ export function TeacherQuizEditPage() {
           next.choices = []
           next.choice_images = []
           next.youtube_url = ''
+        } else if (type === 'imageMc') {
+          // 문제에 이미지 + 텍스트 선택지
+          next.choices = q.choices && q.choices.length >= 2 ? q.choices : ['', '']
+          next.choice_images = []
+          next.youtube_url = ''
+          if (!/^\d+$/.test(q.correct_answer)) next.correct_answer = '0'
         } else if (type === 'youtube') {
           next.choices = []
           next.choice_images = []
           next.image_data = ''
+        } else if (type === 'survey') {
+          // 설문형: 정답 없음, 미디어 없음
+          next.choices = []
+          next.choice_images = []
+          next.image_data = ''
+          next.youtube_url = ''
+          next.correct_answer = ''
         }
         return next
       })
@@ -131,7 +144,7 @@ export function TeacherQuizEditPage() {
         alert(`${i + 1}번 문제의 질문을 입력해 주세요.`)
         return
       }
-      if (q.type === 'choice') {
+      if (q.type === 'choice' || q.type === 'imageMc') {
         if (!q.choices || q.choices.filter((c) => c.trim()).length < 2) {
           alert(`${i + 1}번 문제: 선택지를 2개 이상 입력해 주세요.`)
           return
@@ -143,7 +156,7 @@ export function TeacherQuizEditPage() {
           return
         }
       }
-      if (q.type === 'image' && !q.image_data) {
+      if ((q.type === 'image' || q.type === 'imageMc') && !q.image_data) {
         alert(`${i + 1}번 문제: 문제용 이미지를 업로드해 주세요.`)
         return
       }
@@ -151,7 +164,8 @@ export function TeacherQuizEditPage() {
         alert(`${i + 1}번 문제: 유튜브 링크를 확인해 주세요.`)
         return
       }
-      if (!q.correct_answer.toString().trim()) {
+      // 설문형은 정답이 없으므로 검증 스킵
+      if (q.type !== 'survey' && !q.correct_answer.toString().trim()) {
         alert(`${i + 1}번 문제: 정답을 입력해 주세요.`)
         return
       }
@@ -334,7 +348,7 @@ function QuestionEditor({
       </div>
 
       {/* 타입별 본문 */}
-      {question.type === 'image' && (
+      {(question.type === 'image' || question.type === 'imageMc') && (
         <div className="mb-3">
           <label className="mb-1 block text-xs font-medium text-gray-700">문제 이미지</label>
           <ImageUploader
@@ -368,7 +382,7 @@ function QuestionEditor({
         </div>
       )}
 
-      {question.type === 'choice' && (
+      {(question.type === 'choice' || question.type === 'imageMc') && (
         <ChoiceListEditor
           choices={question.choices ?? []}
           correctIdx={parseInt(question.correct_answer || '0', 10)}
@@ -435,6 +449,14 @@ function QuestionEditor({
           <p className="mt-1 text-[11px] text-gray-500">
             대소문자·공백 무시하고 비교합니다.
           </p>
+        </div>
+      )}
+
+      {question.type === 'survey' && (
+        <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
+          📝 <b>설문형</b> 문제는 정답이 없어요.
+          학생이 제한 시간 안에 답을 적어 제출하면 <b>+100P</b>를 받고, 시간이 지난 뒤 제출하면 <b>+10P</b>만 받습니다.
+          오답 페널티도 없어요.
         </div>
       )}
 

@@ -4,9 +4,11 @@ export const QUIZ_TYPES: Array<{ value: TeacherQuizType; label: string; emoji: s
   { value: 'choice', label: '선택형 (객관식)', emoji: '🔘' },
   { value: 'short', label: '주관식', emoji: '✍️' },
   { value: 'ox', label: 'OX 퀴즈', emoji: '⭕' },
-  { value: 'image', label: '사진 보고 맞추기', emoji: '🖼️' },
+  { value: 'image', label: '사진 보고 맞추기 (주관식)', emoji: '🖼️' },
+  { value: 'imageMc', label: '사진 보고 맞추기 (객관식)', emoji: '🧩' },
   { value: 'imageChoice', label: '이미지 선택지', emoji: '🎨' },
   { value: 'youtube', label: '유튜브 영상', emoji: '📺' },
+  { value: 'survey', label: '설문형 (정답 없음)', emoji: '📝' },
 ]
 
 export function quizTypeLabel(t: TeacherQuizType) {
@@ -48,6 +50,14 @@ export function computeAnswerPoints(timeLimitSec: number, elapsedSec: number) {
   const dec = Math.floor(elapsedSec / unit)
   const pts = 100 - dec * 10
   return Math.max(10, Math.min(100, pts))
+}
+
+/**
+ * 설문형(정답 없음) 보상 포인트.
+ * 시간 내 제출: 100p (만점), 시간 만료 후 제출: 10p.
+ */
+export function computeSurveyPoints(timeLimitSec: number, elapsedSec: number) {
+  return elapsedSec <= timeLimitSec ? 100 : 10
 }
 
 /** 유튜브 URL/ID에서 video ID 추출 */

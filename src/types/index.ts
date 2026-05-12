@@ -269,8 +269,10 @@ export type TeacherQuizType =
   | 'short' // 주관식
   | 'ox' // OX
   | 'image' // 문제에 이미지, 주관식 답
+  | 'imageMc' // 문제에 이미지, 텍스트 선택지(객관식)
   | 'imageChoice' // 텍스트 문제 + 이미지 선택지
   | 'youtube' // 문제에 유튜브, 주관식 답
+  | 'survey' // 설문형 (정답 없음, 시간 내 답하면 만점)
 
 export interface TeacherQuizQuestion {
   id: string

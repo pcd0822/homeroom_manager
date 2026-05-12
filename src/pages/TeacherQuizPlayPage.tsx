@@ -7,6 +7,7 @@ import {
 import type { TeacherQuizQuestion } from '@/types'
 import {
   computeAnswerPoints,
+  computeSurveyPoints,
   extractYoutubeId,
   isShortAnswerCorrect,
 } from '@/lib/teacherQuiz'
@@ -179,11 +180,35 @@ export function TeacherQuizPlayPage() {
     setHintRevealed(true)
   }
 
+  const advance = () => {
+    if (currentIdx >= questions.length - 1) {
+      setPhase('cleared')
+    } else {
+      setCurrentIdx((i) => i + 1)
+      setHintRevealed(false)
+      setFeedback('')
+    }
+  }
+
   const handleAnswer = (answer: string) => {
     if (!currentQuestion) return
     const q = currentQuestion
+
+    // 설문형: 정답 없음. 빈 답은 거절. 시간 내 100p, 만료 후 10p. 페널티 없음.
+    if (q.type === 'survey') {
+      if (!answer.trim()) {
+        setFeedback('한 글자 이상 적어 주세요 ✍️')
+        return
+      }
+      const pts = computeSurveyPoints(q.time_limit, elapsed)
+      setPoints((p) => p + pts)
+      setFeedback(`제출 완료! +${pts}p`)
+      setTimeout(() => advance(), 600)
+      return
+    }
+
     let correct = false
-    if (q.type === 'choice' || q.type === 'imageChoice') {
+    if (q.type === 'choice' || q.type === 'imageChoice' || q.type === 'imageMc') {
       correct = String(answer) === String(q.correct_answer)
     } else if (q.type === 'ox') {
       correct = answer.toUpperCase() === q.correct_answer.toUpperCase()
@@ -195,19 +220,7 @@ export function TeacherQuizPlayPage() {
       const pts = computeAnswerPoints(q.time_limit, elapsed)
       setPoints((p) => p + pts)
       setFeedback(`정답! +${pts}p`)
-      // 다음 문제 또는 클리어
-      if (currentIdx >= questions.length - 1) {
-        // 클리어
-        setTimeout(() => {
-          setPhase('cleared')
-        }, 600)
-      } else {
-        setTimeout(() => {
-          setCurrentIdx((i) => i + 1)
-          setHintRevealed(false)
-          setFeedback('')
-        }, 600)
-      }
+      setTimeout(() => advance(), 600)
     } else {
       losePoints(WRONG_PENALTY, `아쉬워요… -${WRONG_PENALTY}p`)
     }
@@ -314,13 +327,14 @@ export function TeacherQuizPlayPage() {
           <article className="rounded-2xl border border-pink-200 bg-white p-5 shadow-sm">
             <p className="mb-3 text-base font-semibold text-slate-900">{currentQuestion.question}</p>
 
-            {currentQuestion.type === 'image' && currentQuestion.image_data && (
-              <img
-                src={currentQuestion.image_data}
-                alt="문제 이미지"
-                className="mb-3 max-h-72 w-full rounded-xl border border-gray-200 object-contain"
-              />
-            )}
+            {(currentQuestion.type === 'image' || currentQuestion.type === 'imageMc') &&
+              currentQuestion.image_data && (
+                <img
+                  src={currentQuestion.image_data}
+                  alt="문제 이미지"
+                  className="mb-3 max-h-72 w-full rounded-xl border border-gray-200 object-contain"
+                />
+              )}
 
             {currentQuestion.type === 'youtube' && currentQuestion.youtube_url && (
               <div className="mb-3 aspect-video w-full overflow-hidden rounded-xl border border-gray-200 bg-black">
@@ -380,7 +394,7 @@ function AnswerInput({
     setText('')
   }, [question.id])
 
-  if (question.type === 'choice') {
+  if (question.type === 'choice' || question.type === 'imageMc') {
     return (
       <div className="grid gap-2 sm:grid-cols-2">
         {(question.choices ?? []).map((c, i) => (
@@ -447,7 +461,8 @@ function AnswerInput({
     )
   }
 
-  // short / image / youtube → 텍스트 입력
+  // short / image / youtube / survey → 텍스트 입력
+  const isSurvey = question.type === 'survey'
   return (
     <form
       onSubmit={(e) => {
@@ -460,7 +475,7 @@ function AnswerInput({
         type="text"
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="정답을 입력하세요"
+        placeholder={isSurvey ? '자유롭게 답을 적어 주세요 (정답 없음)' : '정답을 입력하세요'}
         autoFocus
         className="min-w-0 flex-1 rounded-xl border-2 border-pink-200 bg-white px-4 py-3 text-sm shadow-sm focus:border-rose-400 focus:outline-none"
       />
@@ -468,7 +483,7 @@ function AnswerInput({
         type="submit"
         className="rounded-xl bg-rose-500 px-5 py-3 text-sm font-semibold text-white hover:bg-rose-600"
       >
-        제출
+        {isSurvey ? '제출하기' : '제출'}
       </button>
     </form>
   )
