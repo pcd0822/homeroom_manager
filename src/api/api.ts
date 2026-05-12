@@ -19,6 +19,10 @@ import type {
   Policy,
   PolicyParticipant,
   PolicyTreeDashboard,
+  SeatingConfig,
+  SeatingLayout,
+  SeatingAssignmentData,
+  SeatingAssignmentRow,
 } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_GAS_API_URL || 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
@@ -433,6 +437,26 @@ export function getClassSeedSummary() {
       balance: number
     }>
   >('GET_CLASS_SEED_SUMMARY', 'POST')
+}
+
+// ----- 자리 배치 -----
+export function getSeatingConfig() {
+  return request<SeatingConfig | null>('GET_SEATING_CONFIG', 'POST')
+}
+
+export function saveSeatingConfig(config: SeatingConfig) {
+  return request<{ updated_at: string }>('SAVE_SEATING_CONFIG', 'POST', { config } as Record<string, unknown>)
+}
+
+export function getSeatingAssignment() {
+  return request<SeatingAssignmentData>('GET_SEATING_ASSIGNMENT', 'POST')
+}
+
+export function saveSeatingAssignment(layout: SeatingLayout, assignments: SeatingAssignmentRow[]) {
+  return request<{ saved_at: string }>('SAVE_SEATING_ASSIGNMENT', 'POST', {
+    layout,
+    assignments,
+  } as Record<string, unknown>)
 }
 
 // ----- Helper: Form with parsed schema -----

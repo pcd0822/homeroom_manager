@@ -21,6 +21,8 @@ import { PolicyBoardSharedPage } from '@/pages/student/PolicyBoardSharedPage'
 import { StudentSeedLedgerPage } from '@/pages/student/StudentSeedLedgerPage'
 import { StudentPolicyRegisterPage } from '@/pages/student/StudentPolicyRegisterPage'
 import { PoliciesAdminPage } from '@/pages/admin/PoliciesAdminPage'
+import { SeatingPage } from '@/pages/admin/SeatingPage'
+import { SeatingDrawPage } from '@/pages/SeatingDrawPage'
 import { FormView } from '@/pages/view/FormView'
 import { RegisterPage } from '@/pages/RegisterPage'
 
@@ -43,8 +45,10 @@ function App() {
         <Route path="class-games/:gameId/ranking" element={<ClassGameRankingPage />} />
         <Route path="class-games" element={<ClassGamesPage />} />
         <Route path="policies" element={<PoliciesAdminPage />} />
+        <Route path="seating" element={<SeatingPage />} />
       </Route>
       <Route path="/view/:formId" element={<FormView />} />
+      <Route path="/seating-draw" element={<SeatingDrawPage />} />
       <Route path="/cleaning-result" element={<CleaningResultPage />} />
       <Route path="/student/dashboard" element={<StudentDashboardHubPage />} />
       <Route path="/student/meal-board" element={<StudentMealBoardPage />} />

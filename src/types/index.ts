@@ -261,3 +261,55 @@ export interface PolicyTreeDashboard {
     hype_count: number
   }>
 }
+
+// ----- 자리 배치 -----
+
+export type SeatingType = 'individual' | 'pair' | 'group'
+
+export interface SeatingSeat {
+  /** 그룹 내에서 고유한 id (groupId-row-col 등) */
+  id: string
+  row: number
+  col: number
+}
+
+export interface SeatingGroup {
+  id: string
+  name: string
+  seats: SeatingSeat[]
+}
+
+export interface SeatingLayout {
+  type: SeatingType
+  groups: SeatingGroup[]
+}
+
+export interface SeatingRules {
+  /** 지정 좌석: seat_id → student_id */
+  fixed: Array<{ seat_id: string; student_id: string }>
+  /** 떨어져야 하는 친구 묶음 (각 묶음의 학생들은 서로 같은 group 안에 같이 있지 않도록) */
+  apart: Array<{ id: string; student_ids: string[] }>
+  /** 붙어야 하는 친구 묶음 (같은 그룹/짝/모둠에 함께 배정 시도) */
+  together: Array<{ id: string; student_ids: string[] }>
+}
+
+export interface SeatingConfig {
+  type: SeatingType
+  totalSeats: number
+  layout: SeatingLayout
+  rules: SeatingRules
+  updated_at?: string
+}
+
+export interface SeatingAssignmentRow {
+  seat_id: string
+  group_id: string
+  student_id: string
+  student_name: string
+}
+
+export interface SeatingAssignmentData {
+  saved_at: string | null
+  layout: SeatingLayout | null
+  assignments: SeatingAssignmentRow[]
+}

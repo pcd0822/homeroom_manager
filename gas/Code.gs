@@ -35,7 +35,9 @@ var SHEETS = {
   POLICY_SEEDS: 'HomeroomPolicySeeds',
   POLICY_HYPE: 'HomeroomPolicyHype',
   SEED_LEDGER: 'HomeroomSeedLedger',
-  SEED_PRODUCTS: 'HomeroomSeedProducts'
+  SEED_PRODUCTS: 'HomeroomSeedProducts',
+  SEATING_CONFIG: 'HomeroomSeatingConfig',
+  SEATING_ASSIGNMENT: 'HomeroomSeatingAssignment'
 };
 
 // 생기부 record 시트 헤더 (순서 유지)
@@ -252,6 +254,18 @@ function handleRequest(e, method) {
         break;
       case 'BATCH_SET_POLICY_SEEDS':
         result = batchSetPolicySeeds(params);
+        break;
+      case 'GET_SEATING_CONFIG':
+        result = getSeatingConfig();
+        break;
+      case 'SAVE_SEATING_CONFIG':
+        result = saveSeatingConfig(params.config);
+        break;
+      case 'GET_SEATING_ASSIGNMENT':
+        result = getSeatingAssignment();
+        break;
+      case 'SAVE_SEATING_ASSIGNMENT':
+        result = saveSeatingAssignment(params.layout, params.assignments);
         break;
       default:
         result.error = 'Unknown action: ' + action;
@@ -2838,4 +2852,101 @@ function getPolicyTreeDashboard() {
       top_hype_policies: topHypePolicies
     }
   };
+}
+
+// ===== 자리 배치 =====
+// SeatingConfig 시트: 헤더 [updated_at, config_json] — 2행에 단일 row 덮어쓰기
+// SeatingAssignment 시트: 헤더 [saved_at, layout_json, assignments_json] — 2행에 단일 row 덮어쓰기
+
+var SEATING_CONFIG_HEADERS = ['updated_at', 'config_json'];
+var SEATING_ASSIGNMENT_HEADERS = ['saved_at', 'layout_json', 'assignments_json'];
+
+function getOrCreateSeatingConfigSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.SEATING_CONFIG);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.SEATING_CONFIG);
+    sheet.getRange(1, 1, 1, SEATING_CONFIG_HEADERS.length).setValues([SEATING_CONFIG_HEADERS]);
+  }
+  return sheet;
+}
+
+function getOrCreateSeatingAssignmentSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.SEATING_ASSIGNMENT);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.SEATING_ASSIGNMENT);
+    sheet.getRange(1, 1, 1, SEATING_ASSIGNMENT_HEADERS.length).setValues([SEATING_ASSIGNMENT_HEADERS]);
+  }
+  return sheet;
+}
+
+function getSeatingConfig() {
+  var sheet = getOrCreateSeatingConfigSheet();
+  if (sheet.getLastRow() < 2) {
+    return { success: true, data: null };
+  }
+  var row = sheet.getRange(2, 1, 1, SEATING_CONFIG_HEADERS.length).getValues()[0];
+  var updatedAt = row[0] != null ? String(row[0]) : '';
+  var json = row[1] != null ? String(row[1]) : '';
+  if (!json) return { success: true, data: null };
+  try {
+    var config = JSON.parse(json);
+    if (config && typeof config === 'object') {
+      config.updated_at = updatedAt;
+    }
+    return { success: true, data: config };
+  } catch (e) {
+    return { success: false, error: 'Invalid SeatingConfig JSON: ' + (e && e.message) };
+  }
+}
+
+function saveSeatingConfig(config) {
+  if (!config || typeof config !== 'object') {
+    return { success: false, error: 'config required' };
+  }
+  var sheet = getOrCreateSeatingConfigSheet();
+  var updatedAt = new Date().toISOString();
+  var json = JSON.stringify(config);
+  // 2행 덮어쓰기 (없으면 추가)
+  if (sheet.getLastRow() < 2) {
+    sheet.getRange(2, 1, 1, SEATING_CONFIG_HEADERS.length).setValues([[updatedAt, json]]);
+  } else {
+    sheet.getRange(2, 1, 1, SEATING_CONFIG_HEADERS.length).setValues([[updatedAt, json]]);
+  }
+  return { success: true, data: { updated_at: updatedAt } };
+}
+
+function getSeatingAssignment() {
+  var sheet = getOrCreateSeatingAssignmentSheet();
+  if (sheet.getLastRow() < 2) {
+    return { success: true, data: { saved_at: null, layout: null, assignments: [] } };
+  }
+  var row = sheet.getRange(2, 1, 1, SEATING_ASSIGNMENT_HEADERS.length).getValues()[0];
+  var savedAt = row[0] != null ? String(row[0]) : null;
+  var layoutJson = row[1] != null ? String(row[1]) : '';
+  var assignmentsJson = row[2] != null ? String(row[2]) : '';
+  var layout = null;
+  var assignments = [];
+  try {
+    if (layoutJson) layout = JSON.parse(layoutJson);
+  } catch (e) {}
+  try {
+    if (assignmentsJson) assignments = JSON.parse(assignmentsJson);
+  } catch (e) {}
+  return { success: true, data: { saved_at: savedAt, layout: layout, assignments: assignments } };
+}
+
+function saveSeatingAssignment(layout, assignments) {
+  if (!layout || typeof layout !== 'object') {
+    return { success: false, error: 'layout required' };
+  }
+  if (!Array.isArray(assignments)) {
+    return { success: false, error: 'assignments must be array' };
+  }
+  var sheet = getOrCreateSeatingAssignmentSheet();
+  var savedAt = new Date().toISOString();
+  var values = [[savedAt, JSON.stringify(layout), JSON.stringify(assignments)]];
+  sheet.getRange(2, 1, 1, SEATING_ASSIGNMENT_HEADERS.length).setValues(values);
+  return { success: true, data: { saved_at: savedAt } };
 }
