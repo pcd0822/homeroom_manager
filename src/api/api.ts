@@ -23,6 +23,8 @@ import type {
   SeatingLayout,
   SeatingAssignmentData,
   SeatingAssignmentRow,
+  TeacherQuizQuestion,
+  TeacherQuizScoreRow,
 } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_GAS_API_URL || 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
@@ -470,6 +472,30 @@ export function saveSeatingAssignment(layout: SeatingLayout, assignments: Seatin
     layout,
     assignments,
   } as Record<string, unknown>)
+}
+
+// ----- 들샘 모의고사 -----
+export function getTeacherQuizQuestions() {
+  return request<TeacherQuizQuestion[]>('GET_TEACHER_QUIZ_QUESTIONS', 'POST')
+}
+
+export function saveTeacherQuizQuestions(questions: TeacherQuizQuestion[]) {
+  return request<{ count: number }>('SAVE_TEACHER_QUIZ_QUESTIONS', 'POST', {
+    questions,
+  } as Record<string, unknown>)
+}
+
+export function saveTeacherQuizScore(params: {
+  student_id: string
+  student_name: string
+  total_score: number
+  retries: number
+}) {
+  return request<{ played_at: string }>('SAVE_TEACHER_QUIZ_SCORE', 'POST', params as Record<string, unknown>)
+}
+
+export function getTeacherQuizRanking(limit = 100) {
+  return request<TeacherQuizScoreRow[]>('GET_TEACHER_QUIZ_RANKING', 'POST', { limit })
 }
 
 // ----- Helper: Form with parsed schema -----

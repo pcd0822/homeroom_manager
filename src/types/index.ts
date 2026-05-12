@@ -262,6 +262,48 @@ export interface PolicyTreeDashboard {
   }>
 }
 
+// ----- 들샘 모의고사 -----
+
+export type TeacherQuizType =
+  | 'choice' // 객관식 (텍스트 선택지)
+  | 'short' // 주관식
+  | 'ox' // OX
+  | 'image' // 문제에 이미지, 주관식 답
+  | 'imageChoice' // 텍스트 문제 + 이미지 선택지
+  | 'youtube' // 문제에 유튜브, 주관식 답
+
+export interface TeacherQuizQuestion {
+  id: string
+  order_no: number
+  type: TeacherQuizType
+  question: string
+  /** choice 타입의 텍스트 선택지 */
+  choices?: string[]
+  /** imageChoice 타입의 이미지 선택지 (base64 data URL) */
+  choice_images?: string[]
+  /**
+   * 정답
+   * - choice/imageChoice: 선택지 인덱스 (문자열, 0부터)
+   * - short/image/youtube: 정답 문자열 (앞뒤 공백·대소문자 무시 비교)
+   * - ox: 'O' 또는 'X'
+   */
+  correct_answer: string
+  /** image 타입의 문제 이미지 (base64 data URL) */
+  image_data?: string
+  /** youtube 타입의 영상 URL (또는 ID) */
+  youtube_url?: string
+  hint?: string
+  /** 제한 시간 (초). 10 이상 59 이하 */
+  time_limit: number
+}
+
+export interface TeacherQuizScoreRow {
+  student_id: string
+  student_name: string
+  total_score: number
+  retries: number
+  played_at: string
+}
 // ----- 자리 배치 -----
 
 export type SeatingType = 'individual' | 'pair' | 'group'

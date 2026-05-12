@@ -23,6 +23,9 @@ import { StudentPolicyRegisterPage } from '@/pages/student/StudentPolicyRegister
 import { PoliciesAdminPage } from '@/pages/admin/PoliciesAdminPage'
 import { SeatingPage } from '@/pages/admin/SeatingPage'
 import { SeatingDrawPage } from '@/pages/SeatingDrawPage'
+import { TeacherQuizEditPage } from '@/pages/admin/TeacherQuizEditPage'
+import { TeacherQuizRankingPage } from '@/pages/admin/TeacherQuizRankingPage'
+import { TeacherQuizPlayPage } from '@/pages/TeacherQuizPlayPage'
 import { FormView } from '@/pages/view/FormView'
 import { RegisterPage } from '@/pages/RegisterPage'
 
@@ -42,6 +45,8 @@ function App() {
         <Route path="cleaning-zones" element={<CleaningZonesPage />} />
         <Route path="meal-board" element={<MealBoardPage />} />
         <Route path="night-study" element={<NightStudyPage />} />
+        <Route path="class-games/teacher-quiz/edit" element={<TeacherQuizEditPage />} />
+        <Route path="class-games/teacher-quiz/ranking" element={<TeacherQuizRankingPage />} />
         <Route path="class-games/:gameId/ranking" element={<ClassGameRankingPage />} />
         <Route path="class-games" element={<ClassGamesPage />} />
         <Route path="policies" element={<PoliciesAdminPage />} />
@@ -57,6 +62,7 @@ function App() {
       <Route path="/student/seed-ledger" element={<StudentSeedLedgerPage />} />
       <Route path="/student/policy/register" element={<StudentPolicyRegisterPage />} />
       <Route path="/game/home-run" element={<HomeRunGamePage />} />
+      <Route path="/play/teacher-quiz" element={<TeacherQuizPlayPage />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   )

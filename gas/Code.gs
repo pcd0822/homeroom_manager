@@ -37,7 +37,9 @@ var SHEETS = {
   SEED_LEDGER: 'HomeroomSeedLedger',
   SEED_PRODUCTS: 'HomeroomSeedProducts',
   SEATING_CONFIG: 'HomeroomSeatingConfig',
-  SEATING_ASSIGNMENT: 'HomeroomSeatingAssignment'
+  SEATING_ASSIGNMENT: 'HomeroomSeatingAssignment',
+  TEACHER_QUIZ: 'HomeroomTeacherQuiz',
+  TEACHER_QUIZ_SCORES: 'HomeroomTeacherQuizScores'
 };
 
 // 생기부 record 시트 헤더 (순서 유지)
@@ -266,6 +268,18 @@ function handleRequest(e, method) {
         break;
       case 'SAVE_SEATING_ASSIGNMENT':
         result = saveSeatingAssignment(params.layout, params.assignments);
+        break;
+      case 'GET_TEACHER_QUIZ_QUESTIONS':
+        result = getTeacherQuizQuestions();
+        break;
+      case 'SAVE_TEACHER_QUIZ_QUESTIONS':
+        result = saveTeacherQuizQuestions(params.questions);
+        break;
+      case 'SAVE_TEACHER_QUIZ_SCORE':
+        result = saveTeacherQuizScore(params);
+        break;
+      case 'GET_TEACHER_QUIZ_RANKING':
+        result = getTeacherQuizRanking(params.limit);
         break;
       default:
         result.error = 'Unknown action: ' + action;
@@ -2949,4 +2963,175 @@ function saveSeatingAssignment(layout, assignments) {
   var values = [[savedAt, JSON.stringify(layout), JSON.stringify(assignments)]];
   sheet.getRange(2, 1, 1, SEATING_ASSIGNMENT_HEADERS.length).setValues(values);
   return { success: true, data: { saved_at: savedAt } };
+}
+
+// ===== 들샘 모의고사 (학급 게임) =====
+// TeacherQuiz 시트: 헤더 [question_id, order_no, type, question, choices_json,
+//                        choice_images_json, correct_answer, image_data,
+//                        youtube_url, hint, time_limit]
+// TeacherQuizScores 시트: 헤더 [played_at, student_id, student_name, total_score, retries]
+
+var TEACHER_QUIZ_HEADERS = [
+  'question_id',
+  'order_no',
+  'type',
+  'question',
+  'choices_json',
+  'choice_images_json',
+  'correct_answer',
+  'image_data',
+  'youtube_url',
+  'hint',
+  'time_limit'
+];
+
+var TEACHER_QUIZ_SCORE_HEADERS = ['played_at', 'student_id', 'student_name', 'total_score', 'retries'];
+
+function getOrCreateTeacherQuizSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.TEACHER_QUIZ);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.TEACHER_QUIZ);
+    sheet.getRange(1, 1, 1, TEACHER_QUIZ_HEADERS.length).setValues([TEACHER_QUIZ_HEADERS]);
+  }
+  return sheet;
+}
+
+function getOrCreateTeacherQuizScoresSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.TEACHER_QUIZ_SCORES);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.TEACHER_QUIZ_SCORES);
+    sheet.getRange(1, 1, 1, TEACHER_QUIZ_SCORE_HEADERS.length).setValues([TEACHER_QUIZ_SCORE_HEADERS]);
+  }
+  return sheet;
+}
+
+function getTeacherQuizQuestions() {
+  var sheet = getOrCreateTeacherQuizSheet();
+  if (sheet.getLastRow() < 2) return { success: true, data: [] };
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var col = {};
+  for (var i = 0; i < headers.length; i++) col[headers[i]] = i;
+  var out = [];
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
+    if (!row[col.question_id]) continue;
+    var choices = [];
+    var choiceImages = [];
+    try {
+      var cj = row[col.choices_json];
+      if (cj) choices = JSON.parse(String(cj));
+    } catch (e) {}
+    try {
+      var cij = row[col.choice_images_json];
+      if (cij) choiceImages = JSON.parse(String(cij));
+    } catch (e) {}
+    out.push({
+      id: String(row[col.question_id]),
+      order_no: Number(row[col.order_no]) || r,
+      type: String(row[col.type] || 'short'),
+      question: String(row[col.question] || ''),
+      choices: choices,
+      choice_images: choiceImages,
+      correct_answer: String(row[col.correct_answer] || ''),
+      image_data: String(row[col.image_data] || ''),
+      youtube_url: String(row[col.youtube_url] || ''),
+      hint: String(row[col.hint] || ''),
+      time_limit: Number(row[col.time_limit]) || 60
+    });
+  }
+  out.sort(function (a, b) {
+    return (a.order_no || 0) - (b.order_no || 0);
+  });
+  return { success: true, data: out };
+}
+
+function saveTeacherQuizQuestions(questions) {
+  if (!Array.isArray(questions)) {
+    return { success: false, error: 'questions must be array' };
+  }
+  var sheet = getOrCreateTeacherQuizSheet();
+  // 헤더만 남기고 전부 삭제
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, 1, lastRow - 1, TEACHER_QUIZ_HEADERS.length).clearContent();
+  }
+  if (questions.length === 0) {
+    return { success: true, data: { count: 0 } };
+  }
+  var rows = [];
+  for (var i = 0; i < questions.length; i++) {
+    var q = questions[i] || {};
+    rows.push([
+      String(q.id || ('q-' + new Date().getTime() + '-' + i)),
+      Number(q.order_no) || i + 1,
+      String(q.type || 'short'),
+      String(q.question || ''),
+      JSON.stringify(Array.isArray(q.choices) ? q.choices : []),
+      JSON.stringify(Array.isArray(q.choice_images) ? q.choice_images : []),
+      String(q.correct_answer != null ? q.correct_answer : ''),
+      String(q.image_data || ''),
+      String(q.youtube_url || ''),
+      String(q.hint || ''),
+      Number(q.time_limit) || 60
+    ]);
+  }
+  sheet.getRange(2, 1, rows.length, TEACHER_QUIZ_HEADERS.length).setValues(rows);
+  return { success: true, data: { count: rows.length } };
+}
+
+function saveTeacherQuizScore(params) {
+  if (!params || !params.student_id) {
+    return { success: false, error: 'student_id required' };
+  }
+  var sheet = getOrCreateTeacherQuizScoresSheet();
+  var playedAt = new Date().toISOString();
+  sheet.appendRow([
+    playedAt,
+    String(params.student_id),
+    String(params.student_name || ''),
+    Number(params.total_score) || 0,
+    Number(params.retries) || 0
+  ]);
+  return { success: true, data: { played_at: playedAt } };
+}
+
+/** 학생별 최고 점수 1건씩 모아 점수 내림차순으로 반환 */
+function getTeacherQuizRanking(limit) {
+  var sheet = getOrCreateTeacherQuizScoresSheet();
+  if (sheet.getLastRow() < 2) return { success: true, data: [] };
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var col = {};
+  for (var i = 0; i < headers.length; i++) col[headers[i]] = i;
+  var bestBySid = {};
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
+    var sid = String(row[col.student_id] || '');
+    if (!sid) continue;
+    var score = Number(row[col.total_score]) || 0;
+    var existing = bestBySid[sid];
+    if (!existing || score > existing.total_score) {
+      bestBySid[sid] = {
+        student_id: sid,
+        student_name: String(row[col.student_name] || ''),
+        total_score: score,
+        retries: Number(row[col.retries]) || 0,
+        played_at: String(row[col.played_at] || '')
+      };
+    }
+  }
+  var arr = [];
+  for (var k in bestBySid) {
+    if (Object.prototype.hasOwnProperty.call(bestBySid, k)) arr.push(bestBySid[k]);
+  }
+  arr.sort(function (a, b) {
+    if (b.total_score !== a.total_score) return b.total_score - a.total_score;
+    return a.retries - b.retries;
+  });
+  var lim = Number(limit) > 0 ? Number(limit) : 100;
+  if (arr.length > lim) arr = arr.slice(0, lim);
+  return { success: true, data: arr };
 }
