@@ -54,10 +54,10 @@ export function computeAnswerPoints(timeLimitSec: number, elapsedSec: number) {
 
 /**
  * 설문형(정답 없음) 보상 포인트.
- * 시간 내 제출: 100p (만점), 시간 만료 후 제출: 10p.
+ * 제한 시간이 없으므로 답을 제출하기만 하면 항상 100P 만점.
  */
-export function computeSurveyPoints(timeLimitSec: number, elapsedSec: number) {
-  return elapsedSec <= timeLimitSec ? 100 : 10
+export function computeSurveyPoints() {
+  return 100
 }
 
 /** 유튜브 URL/ID에서 video ID 추출 */

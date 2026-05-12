@@ -178,7 +178,7 @@ export function TeacherQuizEditPage() {
         alert(`${i + 1}번 문제: 정답을 입력해 주세요.`)
         return
       }
-      if (q.time_limit < 10 || q.time_limit >= 60) {
+      if (q.type !== 'survey' && (q.time_limit < 10 || q.time_limit >= 60)) {
         alert(`${i + 1}번 문제: 제한 시간은 10초 이상 59초 이하로 설정해 주세요.`)
         return
       }
@@ -463,44 +463,47 @@ function QuestionEditor({
 
       {question.type === 'survey' && (
         <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
-          📝 <b>설문형</b> 문제는 정답이 없어요.
-          학생이 제한 시간 안에 답을 적어 제출하면 <b>+100P</b>를 받고, 시간이 지난 뒤 제출하면 <b>+10P</b>만 받습니다.
-          오답 페널티도 없어요.
+          📝 <b>설문형</b> 문제는 정답이 없고 <b>제한 시간도 없어요.</b>
+          학생이 답을 적어 제출하기만 하면 <b>+100P</b>를 받습니다. 오답 페널티도 없어요.
         </div>
       )}
 
       {/* 힌트, 시간 */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">힌트 (30포인트 차감, 선택)</label>
-          <input
-            type="text"
-            value={question.hint || ''}
-            onChange={(e) => onChange({ hint: e.target.value })}
-            placeholder="예) 매콤한 분식이에요"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
-            제한 시간 (10~59초)
-          </label>
-          <div className="flex items-center gap-2">
+      <div className={cn('grid gap-3', question.type !== 'survey' && 'sm:grid-cols-2')}>
+        {question.type !== 'survey' && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">힌트 (30포인트 차감, 선택)</label>
             <input
-              type="number"
-              min={10}
-              max={59}
-              value={question.time_limit}
-              onChange={(e) =>
-                onChange({
-                  time_limit: Math.max(10, Math.min(59, parseInt(e.target.value || '0', 10) || 30)),
-                })
-              }
-              className="w-24 rounded-md border border-gray-300 px-3 py-2 text-sm"
+              type="text"
+              value={question.hint || ''}
+              onChange={(e) => onChange({ hint: e.target.value })}
+              placeholder="예) 매콤한 분식이에요"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
-            <span className="text-xs text-gray-500">초</span>
           </div>
-        </div>
+        )}
+        {question.type !== 'survey' && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              제한 시간 (10~59초)
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={10}
+                max={59}
+                value={question.time_limit}
+                onChange={(e) =>
+                  onChange({
+                    time_limit: Math.max(10, Math.min(59, parseInt(e.target.value || '0', 10) || 30)),
+                  })
+                }
+                className="w-24 rounded-md border border-gray-300 px-3 py-2 text-sm"
+              />
+              <span className="text-xs text-gray-500">초</span>
+            </div>
+          </div>
+        )}
       </div>
     </article>
   )

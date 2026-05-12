@@ -96,7 +96,7 @@ export function TeacherQuizPlayPage() {
     }
   }, [phase, questions.length])
 
-  // 타이머
+  // 타이머 (설문형은 시간 제한이 없으므로 타이머도 안 돌림)
   useEffect(() => {
     if (phase !== 'playing') return
     if (questions.length === 0) return
@@ -104,6 +104,7 @@ export function TeacherQuizPlayPage() {
     if (!q) return
     startTimeRef.current = Date.now()
     setElapsed(0)
+    if (q.type === 'survey') return
     const id = window.setInterval(() => {
       const e = (Date.now() - startTimeRef.current) / 1000
       setElapsed(e)
@@ -194,13 +195,13 @@ export function TeacherQuizPlayPage() {
     if (!currentQuestion) return
     const q = currentQuestion
 
-    // 설문형: 정답 없음. 빈 답은 거절. 시간 내 100p, 만료 후 10p. 페널티 없음.
+    // 설문형: 정답·시간 제한 없음. 빈 답은 거절. 제출하면 +100P. 페널티 없음.
     if (q.type === 'survey') {
       if (!answer.trim()) {
         setFeedback('한 글자 이상 적어 주세요 ✍️')
         return
       }
-      const pts = computeSurveyPoints(q.time_limit, elapsed)
+      const pts = computeSurveyPoints()
       setPoints((p) => p + pts)
       setFeedback(`제출 완료! +${pts}p`)
       setTimeout(() => advance(), 600)
@@ -303,24 +304,30 @@ export function TeacherQuizPlayPage() {
           </div>
         </header>
 
-        {/* 카운트다운 바 */}
-        <div className="mb-4">
-          <div className="mb-1 flex items-center justify-between text-xs">
-            <span className="text-gray-600">⏱ 남은 시간</span>
-            <span className={cn('font-mono font-bold', remaining < 6 ? 'text-rose-600' : 'text-slate-700')}>
-              {remaining.toFixed(1)}초
-            </span>
+        {/* 카운트다운 바 (설문형은 시간 제한 없음) */}
+        {currentQuestion?.type === 'survey' ? (
+          <div className="mb-4 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-center text-xs text-sky-700">
+            📝 자유롭게 답해 주세요 — 제한 시간 없음
           </div>
-          <div className="h-3 w-full overflow-hidden rounded-full bg-rose-100">
-            <div
-              className={cn(
-                'h-full rounded-full transition-[width]',
-                remaining < 6 ? 'bg-rose-500' : remaining < 18 ? 'bg-amber-400' : 'bg-emerald-500'
-              )}
-              style={{ width: `${timeRatio * 100}%` }}
-            />
+        ) : (
+          <div className="mb-4">
+            <div className="mb-1 flex items-center justify-between text-xs">
+              <span className="text-gray-600">⏱ 남은 시간</span>
+              <span className={cn('font-mono font-bold', remaining < 6 ? 'text-rose-600' : 'text-slate-700')}>
+                {remaining.toFixed(1)}초
+              </span>
+            </div>
+            <div className="h-3 w-full overflow-hidden rounded-full bg-rose-100">
+              <div
+                className={cn(
+                  'h-full rounded-full transition-[width]',
+                  remaining < 6 ? 'bg-rose-500' : remaining < 18 ? 'bg-amber-400' : 'bg-emerald-500'
+                )}
+                style={{ width: `${timeRatio * 100}%` }}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* 문제 카드 */}
         {currentQuestion && (
@@ -568,12 +575,13 @@ function IntroView({
   error: string
   onStart: () => void
 }) {
+  const given = extractGivenName(name) || '친구'
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-pink-100 via-amber-50 to-rose-100 p-6">
       <div className="w-full max-w-md rounded-3xl border border-pink-200 bg-white p-6 text-center shadow-lg">
         <p className="text-3xl">🌷</p>
         <h1 className="mt-2 text-2xl font-bold text-slate-800">
-          환영해요, {name || '친구'}!
+          환영해요, {given}!
         </h1>
         <p className="mt-2 text-sm text-gray-600">
           스승의 날 기념 들샘 모의고사예요.
