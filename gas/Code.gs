@@ -3035,7 +3035,7 @@ function getTeacherQuizQuestions() {
       question: String(row[col.question] || ''),
       choices: choices,
       choice_images: choiceImages,
-      correct_answer: String(row[col.correct_answer] || ''),
+      correct_answer: String(row[col.correct_answer] != null ? row[col.correct_answer] : ''),
       image_data: String(row[col.image_data] || ''),
       youtube_url: String(row[col.youtube_url] || ''),
       hint: String(row[col.hint] || ''),
