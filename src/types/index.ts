@@ -306,6 +306,18 @@ export interface TeacherQuizScoreRow {
   retries: number
   played_at: string
 }
+
+export interface TeacherQuizSurveyAnswer {
+  question_id: string
+  question: string
+  answer: string
+}
+
+export interface TeacherQuizSurveyRow extends TeacherQuizSurveyAnswer {
+  played_at: string
+  student_id: string
+  student_name: string
+}
 // ----- 자리 배치 -----
 
 export type SeatingType = 'individual' | 'pair' | 'group'

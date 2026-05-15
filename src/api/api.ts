@@ -25,6 +25,8 @@ import type {
   SeatingAssignmentRow,
   TeacherQuizQuestion,
   TeacherQuizScoreRow,
+  TeacherQuizSurveyAnswer,
+  TeacherQuizSurveyRow,
 } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_GAS_API_URL || 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
@@ -490,12 +492,20 @@ export function saveTeacherQuizScore(params: {
   student_name: string
   total_score: number
   retries: number
+  survey_answers?: TeacherQuizSurveyAnswer[]
 }) {
   return request<{ played_at: string }>('SAVE_TEACHER_QUIZ_SCORE', 'POST', params as Record<string, unknown>)
 }
 
 export function getTeacherQuizRanking(limit = 100) {
   return request<TeacherQuizScoreRow[]>('GET_TEACHER_QUIZ_RANKING', 'POST', { limit })
+}
+
+export function getTeacherQuizSurveys(studentId: string, playedAt?: string) {
+  return request<TeacherQuizSurveyRow[]>('GET_TEACHER_QUIZ_SURVEYS', 'POST', {
+    student_id: studentId,
+    played_at: playedAt || '',
+  })
 }
 
 // ----- Helper: Form with parsed schema -----

@@ -39,7 +39,8 @@ var SHEETS = {
   SEATING_CONFIG: 'HomeroomSeatingConfig',
   SEATING_ASSIGNMENT: 'HomeroomSeatingAssignment',
   TEACHER_QUIZ: 'HomeroomTeacherQuiz',
-  TEACHER_QUIZ_SCORES: 'HomeroomTeacherQuizScores'
+  TEACHER_QUIZ_SCORES: 'HomeroomTeacherQuizScores',
+  TEACHER_QUIZ_SURVEYS: 'HomeroomTeacherQuizSurveys'
 };
 
 // 생기부 record 시트 헤더 (순서 유지)
@@ -280,6 +281,9 @@ function handleRequest(e, method) {
         break;
       case 'GET_TEACHER_QUIZ_RANKING':
         result = getTeacherQuizRanking(params.limit);
+        break;
+      case 'GET_TEACHER_QUIZ_SURVEYS':
+        result = getTeacherQuizSurveys(params.student_id, params.played_at);
         break;
       default:
         result.error = 'Unknown action: ' + action;
@@ -2987,6 +2991,8 @@ var TEACHER_QUIZ_HEADERS = [
 
 var TEACHER_QUIZ_SCORE_HEADERS = ['played_at', 'student_id', 'student_name', 'total_score', 'retries'];
 
+var TEACHER_QUIZ_SURVEY_HEADERS = ['played_at', 'student_id', 'student_name', 'question_id', 'question', 'answer'];
+
 function getOrCreateTeacherQuizSheet() {
   var ss = getSpreadsheet();
   var sheet = ss.getSheetByName(SHEETS.TEACHER_QUIZ);
@@ -3003,6 +3009,16 @@ function getOrCreateTeacherQuizScoresSheet() {
   if (!sheet) {
     sheet = ss.insertSheet(SHEETS.TEACHER_QUIZ_SCORES);
     sheet.getRange(1, 1, 1, TEACHER_QUIZ_SCORE_HEADERS.length).setValues([TEACHER_QUIZ_SCORE_HEADERS]);
+  }
+  return sheet;
+}
+
+function getOrCreateTeacherQuizSurveysSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.TEACHER_QUIZ_SURVEYS);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.TEACHER_QUIZ_SURVEYS);
+    sheet.getRange(1, 1, 1, TEACHER_QUIZ_SURVEY_HEADERS.length).setValues([TEACHER_QUIZ_SURVEY_HEADERS]);
   }
   return sheet;
 }
@@ -3088,13 +3104,37 @@ function saveTeacherQuizScore(params) {
   }
   var sheet = getOrCreateTeacherQuizScoresSheet();
   var playedAt = new Date().toISOString();
+  var studentId = String(params.student_id);
+  var studentName = String(params.student_name || '');
   sheet.appendRow([
     playedAt,
-    String(params.student_id),
-    String(params.student_name || ''),
+    studentId,
+    studentName,
     Number(params.total_score) || 0,
     Number(params.retries) || 0
   ]);
+
+  if (Array.isArray(params.survey_answers) && params.survey_answers.length > 0) {
+    var surveySheet = getOrCreateTeacherQuizSurveysSheet();
+    var rows = [];
+    for (var i = 0; i < params.survey_answers.length; i++) {
+      var item = params.survey_answers[i] || {};
+      var answer = item.answer == null ? '' : String(item.answer);
+      if (!answer.trim()) continue;
+      rows.push([
+        playedAt,
+        studentId,
+        studentName,
+        String(item.question_id || ''),
+        String(item.question || ''),
+        answer
+      ]);
+    }
+    if (rows.length > 0) {
+      surveySheet.getRange(surveySheet.getLastRow() + 1, 1, rows.length, TEACHER_QUIZ_SURVEY_HEADERS.length).setValues(rows);
+    }
+  }
+
   return { success: true, data: { played_at: playedAt } };
 }
 
@@ -3134,4 +3174,78 @@ function getTeacherQuizRanking(limit) {
   var lim = Number(limit) > 0 ? Number(limit) : 100;
   if (arr.length > lim) arr = arr.slice(0, lim);
   return { success: true, data: arr };
+}
+
+/**
+ * 특정 학생의 설문형 응답을 반환.
+ * - played_at 지정 시: 그 세션 응답만 반환
+ * - 미지정: 학생의 모든 응답 중 question_id별로 가장 최근 played_at 응답만 반환
+ */
+function getTeacherQuizSurveys(studentId, playedAt) {
+  if (!studentId) {
+    return { success: false, error: 'student_id required' };
+  }
+  var sheet = getOrCreateTeacherQuizSurveysSheet();
+  if (sheet.getLastRow() < 2) return { success: true, data: [] };
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var col = {};
+  for (var i = 0; i < headers.length; i++) col[headers[i]] = i;
+  var sid = String(studentId);
+  var target = playedAt ? String(playedAt) : '';
+  var matches = [];
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
+    if (String(row[col.student_id] || '') !== sid) continue;
+    if (target && String(row[col.played_at] || '') !== target) continue;
+    matches.push({
+      played_at: String(row[col.played_at] || ''),
+      student_id: sid,
+      student_name: String(row[col.student_name] || ''),
+      question_id: String(row[col.question_id] || ''),
+      question: String(row[col.question] || ''),
+      answer: String(row[col.answer] || '')
+    });
+  }
+  // played_at 미지정인 경우: question_id별 최신 응답만 남김
+  if (!target) {
+    var latestByQid = {};
+    for (var j = 0; j < matches.length; j++) {
+      var m = matches[j];
+      var key = m.question_id || ('__row_' + j);
+      var prev = latestByQid[key];
+      if (!prev || (m.played_at || '') > (prev.played_at || '')) {
+        latestByQid[key] = m;
+      }
+    }
+    matches = [];
+    for (var k in latestByQid) {
+      if (Object.prototype.hasOwnProperty.call(latestByQid, k)) matches.push(latestByQid[k]);
+    }
+  }
+  // 출제 순서대로 정렬 (현재 질문 시트의 order_no 기준)
+  try {
+    var qSheet = getOrCreateTeacherQuizSheet();
+    if (qSheet.getLastRow() >= 2) {
+      var qData = qSheet.getDataRange().getValues();
+      var qHeaders = qData[0].map(String);
+      var qCol = {};
+      for (var x = 0; x < qHeaders.length; x++) qCol[qHeaders[x]] = x;
+      var orderByQid = {};
+      for (var y = 1; y < qData.length; y++) {
+        var qid = String(qData[y][qCol.question_id] || '');
+        if (qid) orderByQid[qid] = Number(qData[y][qCol.order_no]) || y;
+      }
+      matches.sort(function (a, b) {
+        var oa = orderByQid[a.question_id];
+        var ob = orderByQid[b.question_id];
+        if (oa == null) oa = 9999;
+        if (ob == null) ob = 9999;
+        return oa - ob;
+      });
+    }
+  } catch (e) {
+    // 정렬 실패해도 결과는 그대로 반환
+  }
+  return { success: true, data: matches };
 }

@@ -4,7 +4,7 @@ import {
   getTeacherQuizQuestions,
   saveTeacherQuizScore,
 } from '@/api/api'
-import type { TeacherQuizQuestion } from '@/types'
+import type { TeacherQuizQuestion, TeacherQuizSurveyAnswer } from '@/types'
 import {
   computeAnswerPoints,
   computeSurveyPoints,
@@ -82,6 +82,8 @@ export function TeacherQuizPlayPage() {
   const tickRef = useRef<number | null>(null)
   const startTimeRef = useRef<number>(0)
   const [scoreSaved, setScoreSaved] = useState(false)
+  // 이번 플레이 동안 학생이 입력한 설문형 응답 (question_id → answer)
+  const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string>>({})
 
   // 문제 로드 (게임 화면 진입 시)
   useEffect(() => {
@@ -147,6 +149,7 @@ export function TeacherQuizPlayPage() {
     setHintRevealed(false)
     setFeedback('')
     setScoreSaved(false)
+    setSurveyAnswers({})
     setPhase('playing')
   }
 
@@ -158,6 +161,7 @@ export function TeacherQuizPlayPage() {
     setHintRevealed(false)
     setFeedback('')
     setScoreSaved(false)
+    setSurveyAnswers({})
     setPhase('playing')
   }
 
@@ -201,6 +205,7 @@ export function TeacherQuizPlayPage() {
         setFeedback('한 글자 이상 적어 주세요 ✍️')
         return
       }
+      setSurveyAnswers((prev) => ({ ...prev, [q.id]: answer.trim() }))
       const pts = computeSurveyPoints()
       setPoints((p) => p + pts)
       setFeedback(`제출 완료! +${pts}p`)
@@ -234,13 +239,22 @@ export function TeacherQuizPlayPage() {
     if (!loginInfo) return
     const finalScore = Math.max(0, points - retries * 10)
     setScoreSaved(true)
+    const surveyPayload: TeacherQuizSurveyAnswer[] = questions
+      .filter((q) => q.type === 'survey')
+      .map((q) => ({
+        question_id: q.id,
+        question: q.question,
+        answer: surveyAnswers[q.id] || '',
+      }))
+      .filter((s) => s.answer.trim().length > 0)
     saveTeacherQuizScore({
       student_id: loginInfo.studentId,
       student_name: loginInfo.name,
       total_score: finalScore,
       retries,
+      survey_answers: surveyPayload,
     })
-  }, [phase, scoreSaved, loginInfo, points, retries])
+  }, [phase, scoreSaved, loginInfo, points, retries, questions, surveyAnswers])
 
   // ===== 화면들 =====
   if (phase === 'login') {
