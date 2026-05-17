@@ -249,6 +249,9 @@ function handleRequest(e, method) {
       case 'SPEND_SEEDS':
         result = spendSeeds(params);
         break;
+      case 'GRANT_SEEDS':
+        result = grantSeeds(params);
+        break;
       case 'GET_CLASS_SEED_SUMMARY':
         result = getClassSeedSummary();
         break;
@@ -2482,7 +2485,12 @@ function getStudentSeedLedger(params) {
       gains.push({
         created_at: row.created_at,
         policy_id: row.policy_id,
-        policy_title: row.policy_id === '__legacy__' ? '업데이트 이전 누적 씨앗' : policyMap[row.policy_id] || '',
+        policy_title:
+          row.policy_id === '__legacy__'
+            ? '업데이트 이전 누적 씨앗'
+            : row.policy_id === '__teacher_grant__'
+            ? '담임 선생님 직접 지급'
+            : policyMap[row.policy_id] || '',
         amount: amt,
       });
     } else if (row.tx_type === 'SPEND') {
@@ -2499,7 +2507,13 @@ function getStudentSeedLedger(params) {
       created_at: row.created_at,
       tx_type: row.tx_type,
       policy_title:
-        row.policy_id === '__legacy__' ? '업데이트 이전 누적 씨앗' : row.policy_id ? policyMap[row.policy_id] || '' : '',
+        row.policy_id === '__legacy__'
+          ? '업데이트 이전 누적 씨앗'
+          : row.policy_id === '__teacher_grant__'
+          ? '담임 선생님 직접 지급'
+          : row.policy_id
+          ? policyMap[row.policy_id] || ''
+          : '',
       product_name: row.product_name,
       memo: row.memo,
       amount: amt,
@@ -2591,6 +2605,63 @@ function spendSeeds(params) {
     [studentId, 'SPEND', '', productName, memo, seedsUsed, nowIso],
   ]);
   return { success: true, data: { balance: Math.max(0, balance - seedsUsed) } };
+}
+
+// 교사가 정책 외 사유로 학생에게 씨앗을 직접 지급할 때 사용.
+// 학급 누적 집계(getClassSeedSummary)는 HomeroomPolicySeeds 시트만 보므로
+// '__teacher_grant__'라는 가상 policy_id로 행을 누적해 양쪽 집계가 자동 반영되게 합니다.
+function grantSeeds(params) {
+  var studentId = params && params.student_id != null ? String(params.student_id).trim() : '';
+  var seedsGained = params && params.seeds_gained != null ? Number(params.seeds_gained) : 0;
+  var memo = params && params.memo != null ? String(params.memo).trim() : '';
+  if (!studentId) return { success: false, error: 'student_id required' };
+  if (isNaN(seedsGained) || seedsGained <= 0) return { success: false, error: 'seeds_gained must be > 0' };
+
+  var GRANT_POLICY_ID = '__teacher_grant__';
+  var seedSheet = getOrCreatePolicySeedsSheet();
+  var data = seedSheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var pCol = headers.indexOf('policy_id');
+  var sCol = headers.indexOf('student_id');
+  var cCol = headers.indexOf('seeds_count');
+  var uCol = headers.indexOf('updated_at');
+  if (pCol < 0) pCol = 0;
+  if (sCol < 0) sCol = 1;
+  if (cCol < 0) cCol = 2;
+  if (uCol < 0) uCol = 3;
+  var nowIso = new Date().toISOString();
+  var foundRow = -1;
+  var prevTotal = 0;
+  for (var i = 1; i < data.length; i++) {
+    if (
+      String(data[i][pCol] || '').trim() === GRANT_POLICY_ID &&
+      String(data[i][sCol] || '').trim() === studentId
+    ) {
+      foundRow = i + 1;
+      var prev = Number(data[i][cCol] || 0);
+      if (isNaN(prev)) prev = 0;
+      prevTotal = prev;
+      break;
+    }
+  }
+  var newTotal = prevTotal + seedsGained;
+  if (foundRow > 0) {
+    seedSheet.getRange(foundRow, cCol + 1).setValue(newTotal);
+    seedSheet.getRange(foundRow, uCol + 1).setValue(nowIso);
+  } else {
+    var last = seedSheet.getLastRow();
+    seedSheet.getRange(last + 1, 1, 1, POLICY_SEEDS_HEADERS.length).setValues([
+      [GRANT_POLICY_ID, studentId, newTotal, nowIso],
+    ]);
+  }
+
+  var ledgerSheet = getOrCreateSeedLedgerSheet();
+  ledgerSheet.getRange(ledgerSheet.getLastRow() + 1, 1, 1, SEED_LEDGER_HEADERS.length).setValues([
+    [studentId, 'GAIN', GRANT_POLICY_ID, '', memo, seedsGained, nowIso],
+  ]);
+
+  var balance = getStudentSeedBalance(studentId);
+  return { success: true, data: { balance: balance } };
 }
 
 function getClassSeedSummary() {
@@ -2777,6 +2848,8 @@ function getPolicyTreeDashboard() {
       totalSeeds += sc;
       if (!byStudent[sid]) byStudent[sid] = 0;
       byStudent[sid] += sc;
+      // 교사 직접 지급(__teacher_grant__)은 실제 정책이 아니므로 정책별 집계에서는 제외.
+      if (pid === '__teacher_grant__' || pid === '__legacy__') continue;
       if (!byPolicy[pid]) byPolicy[pid] = 0;
       byPolicy[pid] += sc;
     }

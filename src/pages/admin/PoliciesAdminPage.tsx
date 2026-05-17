@@ -11,6 +11,7 @@ import {
   savePolicy,
   saveSeedProduct,
   spendSeeds,
+  grantSeeds,
   setPolicySeeds,
 } from '@/api/api'
 import type { Policy, PolicyParticipant, PolicyTreeDashboard, Student } from '@/types'
@@ -120,6 +121,11 @@ export function PoliciesAdminPage() {
   const [spendProductId, setSpendProductId] = useState('')
   const [spendMemo, setSpendMemo] = useState('')
   const [spending, setSpending] = useState(false)
+  const [grantOpen, setGrantOpen] = useState(false)
+  const [grantStudentId, setGrantStudentId] = useState('')
+  const [grantSeedsGained, setGrantSeedsGained] = useState<number>(0)
+  const [grantMemo, setGrantMemo] = useState('')
+  const [granting, setGranting] = useState(false)
   const [newProductName, setNewProductName] = useState('')
   const [newProductSeedsRequired, setNewProductSeedsRequired] = useState<number>(0)
   const [seedSaveBusy, setSeedSaveBusy] = useState(false)
@@ -693,19 +699,33 @@ export function PoliciesAdminPage() {
                           <td className="px-3 py-2 font-semibold text-rose-700">{s.total_spent}</td>
                           <td className="px-3 py-2 font-semibold text-amber-700">🌱 {s.balance}</td>
                           <td className="px-3 py-2 text-right">
-                            <button
-                              type="button"
-                              disabled={seedProducts.length === 0}
-                              onClick={() => {
-                                setSpendStudentId(s.student_id)
-                                setSpendSeedsUsed(0)
-                                setSpendMemo('')
-                                setSpendOpen(true)
-                              }}
-                              className="rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
-                            >
-                              씨앗 지출하기
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                disabled={seedProducts.length === 0}
+                                onClick={() => {
+                                  setSpendStudentId(s.student_id)
+                                  setSpendSeedsUsed(0)
+                                  setSpendMemo('')
+                                  setSpendOpen(true)
+                                }}
+                                className="rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
+                              >
+                                씨앗 지출하기
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setGrantStudentId(s.student_id)
+                                  setGrantSeedsGained(0)
+                                  setGrantMemo('')
+                                  setGrantOpen(true)
+                                }}
+                                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition active:scale-[0.99]"
+                              >
+                                씨앗 지급하기
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -807,6 +827,88 @@ export function PoliciesAdminPage() {
                     className="w-full rounded-lg bg-amber-600 py-2.5 text-sm font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
                   >
                     {spending ? '저장 중...' : '저장'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {grantOpen && (
+            <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 sm:items-center">
+              <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+                <div className="flex items-start justify-between gap-3 border-b p-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900">씨앗 지급하기</h3>
+                    <p className="mt-1 text-xs text-gray-500">담임 교사가 직접 지급한 씨앗이 학생 누적과 가계부에 기록됩니다.</p>
+                  </div>
+                  <button type="button" onClick={() => setGrantOpen(false)} className="rounded p-2 text-gray-500 hover:bg-gray-100" aria-label="닫기">
+                    ✕
+                  </button>
+                </div>
+                <div className="space-y-4 p-4">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-gray-800">학생</label>
+                    <select value={grantStudentId} onChange={(e) => setGrantStudentId(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                      {seedClassSummary.map((s) => (
+                        <option key={s.student_id} value={s.student_id}>
+                          {s.student_name} ({s.student_id})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-gray-800">지급할 씨앗 개수</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={grantSeedsGained}
+                      onChange={(e) => setGrantSeedsGained(Number(e.target.value))}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    />
+                    <p className="mt-1 text-[11px] text-gray-500">
+                      현재 잔여: {seedClassSummary.find((s) => s.student_id === grantStudentId)?.balance ?? 0}개
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-gray-800">지급 사유</label>
+                    <textarea
+                      value={grantMemo}
+                      onChange={(e) => setGrantMemo(e.target.value)}
+                      rows={3}
+                      placeholder="예: 청소 도우미 활동 격려"
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={granting || grantSeedsGained <= 0 || !grantStudentId}
+                    onClick={async () => {
+                      setGranting(true)
+                      setSeedAdminErr('')
+                      setSeedAdminNotice('')
+                      try {
+                        const r = await grantSeeds({
+                          student_id: grantStudentId,
+                          seeds_gained: Math.max(0, grantSeedsGained),
+                          memo: grantMemo,
+                        })
+                        if (r.success) {
+                          setGrantOpen(false)
+                          setSeedAdminNotice('지급이 저장되었습니다!')
+                          setTimeout(() => setSeedAdminNotice(''), 2000)
+                          const cRes = await getClassSeedSummary()
+                          if (cRes.success && cRes.data) setSeedClassSummary(cRes.data as any)
+                        } else setSeedAdminErr(r.error || '지급 저장 실패')
+                      } finally {
+                        setGranting(false)
+                      }
+                    }}
+                    className="w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60"
+                  >
+                    {granting ? '저장 중...' : '저장'}
                   </button>
                 </div>
               </div>

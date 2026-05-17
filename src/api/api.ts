@@ -443,6 +443,14 @@ export function spendSeeds(params: {
   return request<{ balance: number }>('SPEND_SEEDS', 'POST', params as Record<string, unknown>)
 }
 
+export function grantSeeds(params: {
+  student_id: string
+  seeds_gained: number
+  memo: string
+}) {
+  return request<{ balance: number }>('GRANT_SEEDS', 'POST', params as Record<string, unknown>)
+}
+
 export function getClassSeedSummary() {
   return request<
     Array<{
