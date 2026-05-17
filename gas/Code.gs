@@ -46,6 +46,67 @@ var SHEETS = {
 // 생기부 record 시트 헤더 (순서 유지)
 var RECORD_HEADERS = ['학번', '이름', '희망진로', '학년', '영역', '기록내용 요약', '개별/단체', '학업역량', '진로역량', '공동체역량', '세부역량', '연속적 활동(셀주소 입력)', '읽은 책', '평가'];
 
+// ===== CacheService 래퍼 =====
+// 데이터 누적 시 시트 전체 스캔이 비싸 자주 안 바뀌는 read와 무거운 집계는 짧은 TTL로 캐시.
+// 캐시 키 형식: 'v{CACHE_VERSION}:{namespace}'.
+// 스키마나 캐시 로직을 바꿔야 할 때 CACHE_VERSION만 올리면 기존 캐시가 한 번에 무력화됨.
+var CACHE_VERSION = 1;
+
+var CACHE_KEYS = {
+  STUDENTS: 'students',
+  POLICIES: 'policies',
+  SEED_PRODUCTS: 'seed_products',
+  SEATING_CONFIG: 'seating_config',
+  CLASS_SEED_SUMMARY: 'class_seed_summary',
+  POLICY_TREE_DASHBOARD: 'policy_tree_dashboard',
+  POLICY_HYPE_TOTALS: 'policy_hype_totals'
+};
+
+// CacheService 1개 값 최대 100KB. 직렬화 후 초과 시 캐시 건너뜀.
+var CACHE_MAX_BYTES = 95 * 1024;
+
+function _cacheKey(name) {
+  return 'v' + CACHE_VERSION + ':' + name;
+}
+
+function cacheGet(name) {
+  try {
+    var c = CacheService.getScriptCache();
+    var raw = c.get(_cacheKey(name));
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}
+
+function cachePut(name, value, ttlSeconds) {
+  try {
+    var c = CacheService.getScriptCache();
+    var raw = JSON.stringify(value);
+    if (raw.length > CACHE_MAX_BYTES) return; // 100KB 초과는 건너뜀
+    var ttl = ttlSeconds && ttlSeconds > 0 ? ttlSeconds : 60;
+    c.put(_cacheKey(name), raw, ttl);
+  } catch (e) {
+    // 캐시 실패는 무시 (정상 응답에 영향 주지 않음)
+  }
+}
+
+function cacheDel(name) {
+  try {
+    CacheService.getScriptCache().remove(_cacheKey(name));
+  } catch (e) {}
+}
+
+function cacheDelMany(names) {
+  if (!names || !names.length) return;
+  try {
+    var keys = [];
+    for (var i = 0; i < names.length; i++) keys.push(_cacheKey(names[i]));
+    CacheService.getScriptCache().removeAll(keys);
+  } catch (e) {}
+}
+
 /**
  * 스프레드시트를 열 때 메뉴에 "생기부" 항목 추가
  */
@@ -379,6 +440,8 @@ function getResponses(formId) {
 }
 
 function getStudents() {
+  var cached = cacheGet(CACHE_KEYS.STUDENTS);
+  if (cached) return { success: true, data: cached };
   var ss = getSpreadsheet();
   var sheet = ss.getSheetByName(SHEETS.STUDENTS);
   if (!sheet) return { success: false, error: 'Students sheet not found' };
@@ -402,6 +465,8 @@ function getStudents() {
       photo_data: row.photo_data != null ? String(row.photo_data) : ''
     };
   });
+  // 사진(base64) 포함이라 100KB 초과 가능 — cachePut은 초과 시 자동으로 건너뜀
+  cachePut(CACHE_KEYS.STUDENTS, data, 60);
   return { success: true, data: data };
 }
 
@@ -602,6 +667,7 @@ function addStudent(params) {
   var phone_parent = params.phone_parent != null ? String(params.phone_parent).trim() : '';
   var email = params.email != null ? String(params.email).trim() : '';
   sheet.appendRow([String(student_id).trim(), String(name).trim(), authCode, phone_student, phone_parent, email]);
+  cacheDelMany([CACHE_KEYS.STUDENTS, CACHE_KEYS.CLASS_SEED_SUMMARY, CACHE_KEYS.POLICY_TREE_DASHBOARD]);
   return { success: true, data: { student_id: String(student_id).trim(), name: String(name).trim(), auth_code: authCode } };
 }
 
@@ -630,6 +696,7 @@ function updateStudent(params) {
       if (photo_data) {
         sheet.getRange(i + 1, 7).setValue(photo_data);
       }
+      cacheDelMany([CACHE_KEYS.STUDENTS, CACHE_KEYS.CLASS_SEED_SUMMARY, CACHE_KEYS.POLICY_TREE_DASHBOARD]);
       return { success: true };
     }
   }
@@ -645,6 +712,7 @@ function deleteStudent(studentId) {
   for (var i = data.length - 1; i >= 1; i--) {
     if (String(data[i][0]) === String(studentId)) {
       sheet.deleteRow(i + 1);
+      cacheDelMany([CACHE_KEYS.STUDENTS, CACHE_KEYS.CLASS_SEED_SUMMARY, CACHE_KEYS.POLICY_TREE_DASHBOARD]);
       return { success: true };
     }
   }
@@ -1956,6 +2024,7 @@ function savePolicy(params) {
     var upd = [[policyId, title, goal, description, expectedEffect, seedsPer, logoData, creator, coJson, createdAtVal, now, linksJson]];
     // getRange(row, col, numRows, numColumns) — 단일 행이면 numRows=1 (rowIdx를 넣으면 rowIdx행짜리 범위가 되어 setValues와 불일치)
     sheet.getRange(rowIdx, 1, 1, n).setValues(upd);
+    cacheDelMany([CACHE_KEYS.POLICIES, CACHE_KEYS.POLICY_TREE_DASHBOARD]);
     return { success: true, data: { policy_id: policyId } };
   }
 
@@ -1964,6 +2033,7 @@ function savePolicy(params) {
   var row = [newId, title, goal, description, expectedEffect, seedsPer, logoData, creator, coJson, now, now, linksJson];
   var last = sheet.getLastRow();
   sheet.getRange(last + 1, 1, 1, n).setValues([row]);
+  cacheDelMany([CACHE_KEYS.POLICIES, CACHE_KEYS.POLICY_TREE_DASHBOARD]);
   return { success: true, data: { policy_id: newId } };
 }
 
@@ -2024,6 +2094,12 @@ function deletePolicy(params) {
     }
   }
 
+  cacheDelMany([
+    CACHE_KEYS.POLICIES,
+    CACHE_KEYS.POLICY_TREE_DASHBOARD,
+    CACHE_KEYS.POLICY_HYPE_TOTALS,
+    CACHE_KEYS.CLASS_SEED_SUMMARY
+  ]);
   return { success: true, data: { policy_id: policyId } };
 }
 
@@ -2054,8 +2130,13 @@ function getOrCreatePolicyHypeSheet() {
 }
 
 function getPolicyHypeTotalsMap() {
+  var cached = cacheGet(CACHE_KEYS.POLICY_HYPE_TOTALS);
+  if (cached) return cached;
   var sheet = getOrCreatePolicyHypeSheet();
-  if (sheet.getLastRow() < 2) return {};
+  if (sheet.getLastRow() < 2) {
+    cachePut(CACHE_KEYS.POLICY_HYPE_TOTALS, {}, 30);
+    return {};
+  }
   var data = sheet.getDataRange().getValues();
   var headers = data[0].map(String);
   var pCol = headers.indexOf('policy_id');
@@ -2072,6 +2153,7 @@ function getPolicyHypeTotalsMap() {
     if (!map[pid]) map[pid] = 0;
     map[pid] += hc;
   }
+  cachePut(CACHE_KEYS.POLICY_HYPE_TOTALS, map, 30);
   return map;
 }
 
@@ -2140,13 +2222,20 @@ function hypePolicy(params) {
     ]);
   }
 
+  // 하입 카운트 변경 → 관련 캐시 모두 무효화 (이후 getPolicyHypeTotalsMap이 fresh 값으로 재캐시)
+  cacheDelMany([CACHE_KEYS.POLICY_HYPE_TOTALS, CACHE_KEYS.POLICIES, CACHE_KEYS.POLICY_TREE_DASHBOARD]);
   var totals = getPolicyHypeTotalsMap();
   return { success: true, data: { policy_id: policyId, hype_count: totals[policyId] || 0 } };
 }
 
 function getPolicies() {
+  var cached = cacheGet(CACHE_KEYS.POLICIES);
+  if (cached) return { success: true, data: cached };
   var sheet = getOrCreatePoliciesSheet();
-  if (sheet.getLastRow() < 2) return { success: true, data: [] };
+  if (sheet.getLastRow() < 2) {
+    cachePut(CACHE_KEYS.POLICIES, [], 30);
+    return { success: true, data: [] };
+  }
   var data = sheet.getDataRange().getValues();
   var headers = data[0].map(String);
   var list = [];
@@ -2158,6 +2247,7 @@ function getPolicies() {
     var pid = String(list[j].policy_id || '').trim();
     list[j].hype_count = hypeTotals[pid] || 0;
   }
+  cachePut(CACHE_KEYS.POLICIES, list, 30);
   return { success: true, data: list };
 }
 
@@ -2525,8 +2615,13 @@ function getStudentSeedLedger(params) {
 }
 
 function getSeedProducts() {
+  var cached = cacheGet(CACHE_KEYS.SEED_PRODUCTS);
+  if (cached) return { success: true, data: cached };
   var sheet = getOrCreateSeedProductsSheet();
-  if (sheet.getLastRow() < 2) return { success: true, data: [] };
+  if (sheet.getLastRow() < 2) {
+    cachePut(CACHE_KEYS.SEED_PRODUCTS, [], 120);
+    return { success: true, data: [] };
+  }
   var data = sheet.getDataRange().getValues();
   var headers = data[0].map(String);
   var idCol = headers.indexOf('product_id');
@@ -2549,6 +2644,7 @@ function getSeedProducts() {
       created_at: String(row[cCol] || '').trim(),
     });
   }
+  cachePut(CACHE_KEYS.SEED_PRODUCTS, out, 120);
   return { success: true, data: out };
 }
 
@@ -2563,6 +2659,7 @@ function saveSeedProduct(params) {
   sheet.getRange(sheet.getLastRow() + 1, 1, 1, SEED_PRODUCTS_HEADERS.length).setValues([
     [pid, productName, seedsRequired, nowIso],
   ]);
+  cacheDel(CACHE_KEYS.SEED_PRODUCTS);
   return { success: true, data: { product_id: pid } };
 }
 
@@ -2604,6 +2701,7 @@ function spendSeeds(params) {
   ledgerSheet.getRange(ledgerSheet.getLastRow() + 1, 1, 1, SEED_LEDGER_HEADERS.length).setValues([
     [studentId, 'SPEND', '', productName, memo, seedsUsed, nowIso],
   ]);
+  cacheDel(CACHE_KEYS.CLASS_SEED_SUMMARY);
   return { success: true, data: { balance: Math.max(0, balance - seedsUsed) } };
 }
 
@@ -2660,11 +2758,14 @@ function grantSeeds(params) {
     [studentId, 'GAIN', GRANT_POLICY_ID, '', memo, seedsGained, nowIso],
   ]);
 
+  cacheDelMany([CACHE_KEYS.CLASS_SEED_SUMMARY, CACHE_KEYS.POLICY_TREE_DASHBOARD]);
   var balance = getStudentSeedBalance(studentId);
   return { success: true, data: { balance: balance } };
 }
 
 function getClassSeedSummary() {
+  var cached = cacheGet(CACHE_KEYS.CLASS_SEED_SUMMARY);
+  if (cached) return { success: true, data: cached };
   var studentsRes = getStudents();
   var students = studentsRes.success && studentsRes.data ? studentsRes.data : [];
   // 획득(누적)은 정책 참여 누적(HomeroomPolicySeeds)에서 계산하고,
@@ -2730,6 +2831,7 @@ function getClassSeedSummary() {
       balance: bal,
     });
   }
+  cachePut(CACHE_KEYS.CLASS_SEED_SUMMARY, out, 30);
   return { success: true, data: out };
 }
 
@@ -2791,6 +2893,7 @@ function setPolicySeeds(params) {
       [studentId, 'GAIN', policyId, '', '', delta, now],
     ]);
   }
+  cacheDelMany([CACHE_KEYS.CLASS_SEED_SUMMARY, CACHE_KEYS.POLICY_TREE_DASHBOARD]);
   return { success: true, data: { saved: true } };
 }
 
@@ -2820,6 +2923,8 @@ function batchSetPolicySeeds(params) {
 }
 
 function getPolicyTreeDashboard() {
+  var cached = cacheGet(CACHE_KEYS.POLICY_TREE_DASHBOARD);
+  if (cached) return { success: true, data: cached };
   var policiesRes = getPolicies();
   var policies = policiesRes.success && policiesRes.data ? policiesRes.data : [];
   var policyMap = {};
@@ -2930,19 +3035,19 @@ function getPolicyTreeDashboard() {
     return b.hype_count - a.hype_count;
   });
   var topHypePolicies = hypeArr.slice(0, 4);
-  return {
-    success: true,
-    data: {
-      total_seeds_class: totalSeeds,
-      top_students: topStudents,
-      lowest_students: lowStudents,
-      top_policies: topPolicies,
-      lowest_policies: lowPolicies,
-      all_students: allStudentsSorted,
-      all_policies: policyArr,
-      top_hype_policies: topHypePolicies
-    }
+  var payload = {
+    total_seeds_class: totalSeeds,
+    top_students: topStudents,
+    lowest_students: lowStudents,
+    top_policies: topPolicies,
+    lowest_policies: lowPolicies,
+    all_students: allStudentsSorted,
+    all_policies: policyArr,
+    top_hype_policies: topHypePolicies
   };
+  // 사진/로고 base64 포함이라 100KB 넘으면 cachePut이 자동 skip — 정상 동작
+  cachePut(CACHE_KEYS.POLICY_TREE_DASHBOARD, payload, 30);
+  return { success: true, data: payload };
 }
 
 // ===== 자리 배치 =====
@@ -2973,19 +3078,26 @@ function getOrCreateSeatingAssignmentSheet() {
 }
 
 function getSeatingConfig() {
+  var cached = cacheGet(CACHE_KEYS.SEATING_CONFIG);
+  if (cached) return { success: true, data: cached.data };
   var sheet = getOrCreateSeatingConfigSheet();
   if (sheet.getLastRow() < 2) {
+    cachePut(CACHE_KEYS.SEATING_CONFIG, { data: null }, 300);
     return { success: true, data: null };
   }
   var row = sheet.getRange(2, 1, 1, SEATING_CONFIG_HEADERS.length).getValues()[0];
   var updatedAt = row[0] != null ? String(row[0]) : '';
   var json = row[1] != null ? String(row[1]) : '';
-  if (!json) return { success: true, data: null };
+  if (!json) {
+    cachePut(CACHE_KEYS.SEATING_CONFIG, { data: null }, 300);
+    return { success: true, data: null };
+  }
   try {
     var config = JSON.parse(json);
     if (config && typeof config === 'object') {
       config.updated_at = updatedAt;
     }
+    cachePut(CACHE_KEYS.SEATING_CONFIG, { data: config }, 300);
     return { success: true, data: config };
   } catch (e) {
     return { success: false, error: 'Invalid SeatingConfig JSON: ' + (e && e.message) };
@@ -2996,6 +3108,7 @@ function saveSeatingConfig(config) {
   if (!config || typeof config !== 'object') {
     return { success: false, error: 'config required' };
   }
+  cacheDel(CACHE_KEYS.SEATING_CONFIG);
   var sheet = getOrCreateSeatingConfigSheet();
   var updatedAt = new Date().toISOString();
   var json = JSON.stringify(config);
