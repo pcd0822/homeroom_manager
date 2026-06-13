@@ -8,7 +8,6 @@
 | `/admin` | 관리자 레이아웃 + **데이터 관리** (문서 목록) |
 | `/admin/forms/new` | **새 문서 만들기** |
 | `/admin/forms/:formId/responses` | 특정 문서 **응답 데이터** 그리드 |
-| `/admin/sms` | **문자 발송** |
 | `/view/:formId` | 학생용 폼 보기/제출 (공유 링크) |
 | 그 외 | `/admin`으로 리다이렉트 |
 

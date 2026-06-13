@@ -158,9 +158,6 @@ export async function getStudents() {
 export function addStudent(params: {
   student_id: string
   name: string
-  phone_student?: string
-  phone_parent?: string
-  email?: string
 }) {
   return request<{ student_id: string; name: string; auth_code: string }>('ADD_STUDENT', 'POST', params)
 }
@@ -170,9 +167,6 @@ export function updateStudent(params: {
   student_id?: string
   name?: string
   auth_code?: string
-  phone_student?: string
-  phone_parent?: string
-  email?: string
   photo_data?: string
 }) {
   return request('UPDATE_STUDENT', 'POST', params)
@@ -207,15 +201,6 @@ export function authStudent(studentId: string, authCode: string) {
     student_id: studentId,
     auth_code: authCode,
   })
-}
-
-// ----- SMS -----
-export function sendSms(params: {
-  receivers: Array<{ phone: string; name?: string }>
-  message?: string
-  template?: string
-}) {
-  return request<{ log_id: string; sent_at: string; receiver_count: number }>('SEND_SMS', 'POST', params)
 }
 
 // ----- 생기부 record -----

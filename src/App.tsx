@@ -3,7 +3,6 @@ import { AdminLayout } from '@/components/layout/AdminLayout'
 import { AdminDashboard } from '@/pages/admin/Dashboard'
 import { FormBuilderPage } from '@/pages/admin/FormBuilderPage'
 import { ResponseGridPage } from '@/pages/admin/ResponseGridPage'
-import { SmsPage } from '@/pages/admin/SmsPage'
 import { StudentsPage } from '@/pages/admin/StudentsPage'
 import { RecordDashboardPage } from '@/pages/admin/RecordDashboardPage'
 import { RecordStudentDashboardPage } from '@/pages/admin/RecordStudentDashboardPage'
@@ -38,7 +37,6 @@ function App() {
         <Route index element={<AdminDashboard />} />
         <Route path="forms/new" element={<FormBuilderPage />} />
         <Route path="forms/:formId/responses" element={<ResponseGridPage />} />
-        <Route path="sms" element={<SmsPage />} />
         <Route path="students" element={<StudentsPage />} />
         <Route path="record-dashboard" element={<RecordDashboardPage />} />
         <Route path="record-dashboard/:studentId" element={<RecordStudentDashboardPage />} />

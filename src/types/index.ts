@@ -57,18 +57,7 @@ export interface Student {
   student_id: string
   name: string
   auth_code: string
-  phone_student: string
-  phone_parent: string
-  email?: string
   photo_data?: string
-}
-
-export interface SmsLog {
-  log_id: string
-  sent_at: string
-  receiver_count: number
-  message_content: string
-  status: string
 }
 
 export interface AssignmentRow {

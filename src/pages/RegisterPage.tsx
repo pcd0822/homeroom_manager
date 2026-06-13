@@ -1,13 +1,9 @@
 import { useState } from 'react'
 import { addStudent } from '@/api/api'
-import { formatPhoneKorean } from '@/lib/utils'
 
 export function RegisterPage() {
   const [studentId, setStudentId] = useState('')
   const [name, setName] = useState('')
-  const [phoneStudent, setPhoneStudent] = useState('')
-  const [phoneParent, setPhoneParent] = useState('')
-  const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<{ success: boolean; message: string; authCode?: string } | null>(null)
 
@@ -19,14 +15,9 @@ export function RegisterPage() {
     }
     setSubmitting(true)
     setResult(null)
-    const ps = String(phoneStudent ?? '').trim()
-    const pp = String(phoneParent ?? '').trim()
     addStudent({
       student_id: String(studentId).trim(),
       name: String(name).trim(),
-      phone_student: ps ? formatPhoneKorean(ps) : undefined,
-      phone_parent: pp ? formatPhoneKorean(pp) : undefined,
-      email: String(email ?? '').trim() || undefined,
     })
       .then((res) => {
         if (res.success && res.data) {
@@ -37,9 +28,6 @@ export function RegisterPage() {
           })
           setStudentId('')
           setName('')
-          setPhoneStudent('')
-          setPhoneParent('')
-          setEmail('')
         } else {
           setResult({ success: false, message: res.error || '등록에 실패했습니다.' })
         }
@@ -54,7 +42,7 @@ export function RegisterPage() {
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <h1 className="text-xl font-bold text-gray-900">학생 정보 등록</h1>
           <p className="mt-1 text-sm text-gray-600">
-            학번, 이름, 연락처, 이메일을 입력하면 인증코드가 발급됩니다. 폼 제출 시 인증코드가 필요합니다.
+            학번과 이름을 입력하면 인증코드가 발급됩니다. 폼 제출 시 인증코드가 필요합니다.
           </p>
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div>
@@ -79,39 +67,6 @@ export function RegisterPage() {
                 placeholder="예: 홍길동"
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                 required
-              />
-            </div>
-            <div>
-              <label htmlFor="phone_student" className="mb-1 block text-sm font-medium text-gray-700">학생 번호</label>
-              <input
-                id="phone_student"
-                type="tel"
-                value={phoneStudent}
-                onChange={(e) => setPhoneStudent(e.target.value)}
-                placeholder="예: 010-1234-5678"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label htmlFor="phone_parent" className="mb-1 block text-sm font-medium text-gray-700">부모님 번호</label>
-              <input
-                id="phone_parent"
-                type="tel"
-                value={phoneParent}
-                onChange={(e) => setPhoneParent(e.target.value)}
-                placeholder="예: 010-9876-5432"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-700">이메일</label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="예: student@school.kr"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               />
             </div>
             {result && (

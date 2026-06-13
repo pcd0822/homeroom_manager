@@ -1,6 +1,6 @@
 # 학급 경영 올인원 웹 앱
 
-선생님이 가정통신문·설문·참가 동의서 등을 보내고 데이터를 수집·관리하며, 필요 시 문자를 발송하는 시스템입니다.
+선생님이 가정통신문·설문·참가 동의서 등을 보내고 데이터를 수집·관리하는 시스템입니다.
 
 ## Tech Stack
 
@@ -35,8 +35,7 @@ VITE_GAS_API_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 - **Forms:** form_id, folder_id, title, type, schema, is_active, created_at
 - **Responses:** response_id, form_id, student_id, student_name, answer_data, submitted_at
 - **Folders:** folder_id, name
-- **Students:** student_id, name, auth_code, phone_student, phone_parent, e-mail
-- **SmsLogs:** log_id, sent_at, receiver_count, message_content, status
+- **Students:** student_id, name, auth_code
 - **Class:** grade, class, teacher_name (명렬표 정보 1행, 없으면 GAS가 자동 생성)
 
 ### 3. GAS 배포
@@ -46,28 +45,6 @@ VITE_GAS_API_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 3. Script Property에 `SPREADSHEET_ID` 설정 (또는 코드 내 상수 수정)
 4. 배포 → 웹 앱으로 배포 (실행 사용자: 본인, 액세스: 모든 사용자)
 5. 배포된 URL을 프론트엔드 `VITE_GAS_API_URL`에 설정
-
-### 4. 문자 발송 설정 (선택)
-
-웹에서 **문자 발송** 버튼을 눌렀을 때 실제로 문자가 가려면 **솔라피(SOLAPI)** 계정과 GAS 설정이 필요합니다.
-
-1. **솔라피 가입 및 발신번호 등록**
-   - [솔라피 콘솔](https://console.solapi.com) 가입
-   - [발신번호 관리](https://console.solapi.com/senderids)에서 발신번호 사전 등록 (인증 필요)
-   - [API Key 관리](https://console.solapi.com/credentials)에서 **API Key**와 **API Secret** 발급
-   - 잔액 충전 (문자 1건당 소량 차감)
-
-2. **GAS Script Property 설정**
-   - 스크립트 편집기 → 프로젝트 설정(톱니바퀴) → **스크립트 속성**에서 아래 3개 추가:
-
-   | 속성 이름         | 값 예시        | 설명                    |
-   |------------------|----------------|-------------------------|
-   | `SOLAPI_API_KEY` | NCSAYU7Y...     | 솔라피 API Key          |
-   | `SOLAPI_API_SECRET` | 비밀키 문자열 | 솔라피 API Secret       |
-   | `SOLAPI_SENDER`  | 01012345678     | 사전 등록한 발신번호    |
-
-3. **미설정 시 동작**
-   - 위 3가지 중 하나라도 없으면 **실제 발송은 하지 않고**, "문자 발송 설정이 없습니다…" 라는 에러 메시지만 반환합니다. SmsLogs 시트에는 `config_missing` 상태로 기록됩니다.
 
 ## 데이터 저장·조회 (웹 ↔ 구글 시트)
 
@@ -82,17 +59,16 @@ VITE_GAS_API_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 2. **VITE_GAS_API_URL**:  
    - 로컬: `.env`에 `VITE_GAS_API_URL=실제_GAS_웹앱_URL`  
    - Netlify: Site settings → Environment variables에 `VITE_GAS_API_URL` 추가 후 **사이트 다시 빌드·배포** (빌드 시점에 값이 들어가므로, 추가만 하고 재배포하지 않으면 적용 안 됨)
-3. **스프레드시트**: GAS에서 사용하는 스프레드시트에 위 5개 시트(탭)가 있고, Script Property `SPREADSHEET_ID` 또는 코드 내 스프레드시트 지정이 맞는지 확인
+3. **스프레드시트**: GAS에서 사용하는 스프레드시트에 위 시트(탭)들이 있고, Script Property `SPREADSHEET_ID` 또는 코드 내 스프레드시트 지정이 맞는지 확인
 
 ## 라우트
 
 - `/admin` — 관리자 대시보드 (폴더/문서 카드, +폴더로 폴더 생성)
 - `/admin/forms/new` — 새 문서 만들기 (폼 빌더 + 가정통신문 챗봇)
 - `/admin/forms/:formId/responses` — 해당 문서 응답 그리드
-- `/admin/sms` — 문자 발송 (학생/학부모 번호 선택)
 - `/admin/students` — 학생관리 (학번·이름 등록, 인증코드 발급)
 - `/view/:formId` — 학생용 폼 보기/제출 (인증 후 Survey 또는 Notice 렌더링)
-- `/register` — 학생 자가등록 (학번, 이름, 학생·부모 번호, 이메일 입력 후 인증코드 발급)
+- `/register` — 학생 자가등록 (학번·이름 입력 후 인증코드 발급)
 - `/game/home-run`, `/student/meal-board`, `/cleaning-result` — 학생·공유용 페이지
 
 ## 링크 미리보기 (카카오톡·SNS 제목)

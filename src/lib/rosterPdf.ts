@@ -5,18 +5,12 @@ export type RosterPrintColumnId =
   | 'name'
   | 'student_id'
   | 'auth_code'
-  | 'phone_student'
-  | 'phone_parent'
-  | 'email'
   | 'note'
 
 export const ROSTER_PRINT_COLUMNS: { id: RosterPrintColumnId; label: string }[] = [
   { id: 'name', label: '이름' },
   { id: 'student_id', label: '학번' },
   { id: 'auth_code', label: '인증코드' },
-  { id: 'phone_student', label: '학생 번호' },
-  { id: 'phone_parent', label: '부모님 번호' },
-  { id: 'email', label: '이메일' },
   { id: 'note', label: '비고' },
 ]
 
@@ -46,12 +40,6 @@ export function printRosterAsPdf(
         return String(s.student_id ?? '')
       case 'auth_code':
         return String(s.auth_code ?? '')
-      case 'phone_student':
-        return String(s.phone_student ?? '')
-      case 'phone_parent':
-        return String(s.phone_parent ?? '')
-      case 'email':
-        return String(s.email ?? '')
       case 'note':
         return ''
       default:

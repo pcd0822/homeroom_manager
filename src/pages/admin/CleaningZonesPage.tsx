@@ -111,8 +111,6 @@ export function CleaningZonesPage() {
               student_id: s.student_id,
               name: s.name,
               auth_code: '',
-              phone_student: '',
-              phone_parent: '',
               photo_data: undefined,
             }))
             restoredZones.push({

@@ -17,8 +17,7 @@ homeroom_manager/
 │   │   ├── admin/
 │   │   │   ├── Dashboard.tsx   # 폴더별 문서 목록, 응답률
 │   │   │   ├── FormBuilderPage.tsx
-│   │   │   ├── ResponseGrid.tsx # TanStack Table 응답 데이터
-│   │   │   └── SmsModal.tsx    # SMS 발송 모달
+│   │   │   └── ResponseGrid.tsx # TanStack Table 응답 데이터
 │   │   └── view/
 │   │       └── FormView.tsx    # /view/:formId (학생용)
 │   ├── lib/
@@ -44,6 +43,6 @@ homeroom_manager/
 
 - **src/api**: GAS 배포 URL과 통신하는 fetch 래퍼 및 액션별 함수.
 - **src/components/FormRenderer**: `schema`(JSON)를 받아 텍스트/라디오/체크박스 등 필드를 동적 렌더링.
-- **src/pages/admin**: 대시보드, 폼 빌더, 응답 그리드, SMS 모달.
+- **src/pages/admin**: 대시보드, 폼 빌더, 응답 그리드, 학생관리 등.
 - **src/pages/view**: 공유 링크 `/view/:formId`에서 인증 후 Notice/Survey 렌더링.
-- **gas/Code.gs**: 시트 읽기/쓰기, `action` 파라미터에 따른 라우팅(GET_FORM, SUBMIT_RESPONSE, SEND_SMS 등).
+- **gas/Code.gs**: 시트 읽기/쓰기, `action` 파라미터에 따른 라우팅(GET_FORM, SUBMIT_RESPONSE 등).

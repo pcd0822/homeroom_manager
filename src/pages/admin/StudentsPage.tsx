@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { getStudents, addStudent, updateStudent, deleteStudent, getClassInfo, saveClassInfo } from '@/api/api'
 import type { Student } from '@/types'
-import { cn, formatPhoneKorean } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import {
   printRosterAsPdf,
   ROSTER_PRINT_COLUMNS,
@@ -70,9 +70,6 @@ export function StudentsPage() {
     student_id: '',
     name: '',
     auth_code: '',
-    phone_student: '',
-    phone_parent: '',
-    email: '',
   })
   const [rosterMeta, setRosterMetaState] = useState(getRosterMeta)
   const [savingRosterMeta, setSavingRosterMeta] = useState(false)
@@ -197,9 +194,6 @@ export function StudentsPage() {
       student_id: String(s.student_id ?? ''),
       name: String(s.name ?? ''),
       auth_code: String(s.auth_code ?? ''),
-      phone_student: String(s.phone_student ?? ''),
-      phone_parent: String(s.phone_parent ?? ''),
-      email: String(s.email ?? ''),
     })
     setEditProfileDataUrl(
       (s.photo_data && s.photo_data.length > 0) ? s.photo_data : getProfilePhotoUrl(String(s.student_id))
@@ -272,17 +266,11 @@ export function StudentsPage() {
     setModalError('')
     const oldId = String(modalStudent.student_id)
     const newId = sid
-    const phoneStudentRaw = String(editForm.phone_student ?? '').trim()
-    const phoneParentRaw = String(editForm.phone_parent ?? '').trim()
-    const emailRaw = String(editForm.email ?? '').trim()
     updateStudent({
       find_by_student_id: oldId,
       student_id: newId,
       name: n,
       auth_code: String(editForm.auth_code ?? '').trim() || undefined,
-      phone_student: phoneStudentRaw ? formatPhoneKorean(phoneStudentRaw) : undefined,
-      phone_parent: phoneParentRaw ? formatPhoneKorean(phoneParentRaw) : undefined,
-      email: emailRaw || undefined,
       photo_data: editProfileDataUrl || undefined,
     })
       .then((res) => {
@@ -390,7 +378,7 @@ export function StudentsPage() {
           <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <h2 className="mb-2 text-sm font-medium text-gray-700">학생 자가등록 링크</h2>
             <p className="mb-3 text-xs text-gray-500">
-              아래 링크를 학생에게 공유하면 학생이 직접 학번·이름·연락처·이메일을 등록하고 인증코드를 받을 수 있습니다.
+              아래 링크를 학생에게 공유하면 학생이 직접 학번·이름을 등록하고 인증코드를 받을 수 있습니다.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <input
@@ -412,7 +400,7 @@ export function StudentsPage() {
             <strong>데이터 저장·조회 안내</strong>
             <ul className="mt-1 list-inside list-disc space-y-0.5">
               <li><strong>웹에서 등록</strong> → 구글 스프레드시트 &apos;Students&apos; 탭에 바로 저장됩니다.</li>
-              <li><strong>시트에 직접 입력</strong> → 같은 시트이므로 웹에서 조회할 수 있습니다. (학번, 이름, auth_code, phone_student, phone_parent 열 순서 유지)</li>
+              <li><strong>시트에 직접 입력</strong> → 같은 시트이므로 웹에서 조회할 수 있습니다. (학번, 이름, auth_code 열 순서 유지)</li>
               <li><strong>프로필 사진</strong> → 웹에서만 보이며 DB에는 저장되지 않습니다.</li>
             </ul>
           </div>
@@ -577,14 +565,11 @@ export function StudentsPage() {
                             type="button"
                             className="block w-full px-3 py-1.5 text-left hover:bg-gray-50"
                             onClick={() => {
-                              const headers = ['학번', '이름', '인증코드', '학생 번호', '부모님 번호', '이메일']
+                              const headers = ['학번', '이름', '인증코드']
                               const rows = sortedStudents.map((s) => [
                                 String(s.student_id ?? ''),
                                 String(s.name ?? ''),
                                 String(s.auth_code ?? ''),
-                                String(s.phone_student ?? ''),
-                                String(s.phone_parent ?? ''),
-                                String(s.email ?? ''),
                               ])
                               const escape = (v: string) =>
                                 `"${v.replace(/"/g, '""')}"`
@@ -685,9 +670,6 @@ export function StudentsPage() {
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">이름</th>
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">학번</th>
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">인증코드</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">학생 번호</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">부모님 번호</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">이메일</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
@@ -718,9 +700,6 @@ export function StudentsPage() {
                           </td>
                           <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">{s.student_id}</td>
                           <td className="whitespace-nowrap px-4 py-3 font-mono text-sm text-gray-700">{s.auth_code || '-'}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{s.phone_student || '-'}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{s.phone_parent || '-'}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{s.email || '-'}</td>
                         </tr>
                       )
                     })}
@@ -801,36 +780,6 @@ export function StudentsPage() {
                   onChange={(e) => setEditForm((f) => ({ ...f, auth_code: e.target.value }))}
                   placeholder="비워두면 기존 유지"
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">학생 번호</label>
-                <input
-                  type="tel"
-                  value={editForm.phone_student}
-                  onChange={(e) => setEditForm((f) => ({ ...f, phone_student: e.target.value }))}
-                  placeholder="예: 010-1234-5678"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">부모님 번호</label>
-                <input
-                  type="tel"
-                  value={editForm.phone_parent}
-                  onChange={(e) => setEditForm((f) => ({ ...f, phone_parent: e.target.value }))}
-                  placeholder="예: 010-9876-5432"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">이메일</label>
-                <input
-                  type="email"
-                  value={editForm.email}
-                  onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
-                  placeholder="예: student@school.kr"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                 />
               </div>
               {modalError && (

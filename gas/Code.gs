@@ -1,7 +1,7 @@
 /**
  * 학급 경영 올인원 - Google Apps Script 백엔드
  * doPost/doGet에서 action 파라미터로 분기하여 REST API 역할 수행
- * 시트: Forms, Responses, Folders, Students, SmsLogs
+ * 시트: Forms, Responses, Folders, Students
  */
 
 var SPREADSHEET_ID = null; // 배포 시 스프레드시트 ID로 설정하거나 Script Property 사용
@@ -21,7 +21,6 @@ var SHEETS = {
   RESPONSES: 'Responses',
   FOLDERS: 'Folders',
   STUDENTS: 'Students',
-  SMS_LOGS: 'SmsLogs',
   CLASS: 'Class',
   RECORD: 'record',
   RECORD_SUMMARY: 'RecordSummary',
@@ -213,9 +212,6 @@ function handleRequest(e, method) {
         break;
       case 'SAVE_CLASS_INFO':
         result = saveClassInfo(params);
-        break;
-      case 'SEND_SMS':
-        result = sendSms(params);
         break;
       case 'GET_RECORD_BY_STUDENT':
         result = getRecordByStudent(params.student_id, params);
@@ -452,16 +448,12 @@ function getStudents() {
     headers = getSheetHeaders(sheet);
   }
   var data = sheetToObjects(sheet, headers);
-  // 시트에서 숫자로 읽힌 값(학번, 전화번호 등)을 문자열로 통일해 반환
+  // 시트에서 숫자로 읽힌 값(학번 등)을 문자열로 통일해 반환
   data = data.map(function (row) {
-    var emailVal = row['e-mail'] != null ? row['e-mail'] : (row.email != null ? row.email : '');
     return {
       student_id: String(row.student_id != null ? row.student_id : ''),
       name: String(row.name != null ? row.name : ''),
       auth_code: String(row.auth_code != null ? row.auth_code : ''),
-      phone_student: String(row.phone_student != null ? row.phone_student : ''),
-      phone_parent: String(row.phone_parent != null ? row.phone_parent : ''),
-      email: String(emailVal),
       photo_data: row.photo_data != null ? String(row.photo_data) : ''
     };
   });
@@ -663,10 +655,7 @@ function addStudent(params) {
     }
   }
   var authCode = generateAuthCode();
-  var phone_student = params.phone_student != null ? String(params.phone_student).trim() : '';
-  var phone_parent = params.phone_parent != null ? String(params.phone_parent).trim() : '';
-  var email = params.email != null ? String(params.email).trim() : '';
-  sheet.appendRow([String(student_id).trim(), String(name).trim(), authCode, phone_student, phone_parent, email]);
+  sheet.appendRow([String(student_id).trim(), String(name).trim(), authCode]);
   cacheDelMany([CACHE_KEYS.STUDENTS, CACHE_KEYS.CLASS_SEED_SUMMARY, CACHE_KEYS.POLICY_TREE_DASHBOARD]);
   return { success: true, data: { student_id: String(student_id).trim(), name: String(name).trim(), auth_code: authCode } };
 }
@@ -676,9 +665,6 @@ function updateStudent(params) {
   var student_id = params.student_id != null ? String(params.student_id).trim() : '';
   var name = params.name != null ? String(params.name).trim() : '';
   var auth_code = params.auth_code != null ? String(params.auth_code).trim() : '';
-  var phone_student = params.phone_student != null ? String(params.phone_student).trim() : '';
-  var phone_parent = params.phone_parent != null ? String(params.phone_parent).trim() : '';
-  var email = params.email != null ? String(params.email).trim() : '';
   var photo_data = params.photo_data != null ? String(params.photo_data) : '';
   if (!find_by_student_id) return { success: false, error: 'find_by_student_id required' };
   var ss = getSpreadsheet();
@@ -690,9 +676,6 @@ function updateStudent(params) {
       sheet.getRange(i + 1, 1).setValue(student_id || data[i][0]);
       sheet.getRange(i + 1, 2).setValue(name || data[i][1]);
       sheet.getRange(i + 1, 3).setValue(auth_code || data[i][2]);
-      sheet.getRange(i + 1, 4).setNumberFormat('@').setValue(phone_student);
-      sheet.getRange(i + 1, 5).setNumberFormat('@').setValue(phone_parent);
-      sheet.getRange(i + 1, 6).setValue(email);
       if (photo_data) {
         sheet.getRange(i + 1, 7).setValue(photo_data);
       }
@@ -760,117 +743,6 @@ function saveClassInfo(params) {
     sheet.getRange(2, 3).setValue(teacherName);
   }
   return { success: true, data: { grade: grade, class: classNum, teacher_name: teacherName } };
-}
-
-/**
- * SMS 발송 — SOLAPI(솔라피) 연동
- * 실제 발송을 하려면 Script Property에 아래 3가지를 반드시 설정하세요.
- *   SOLAPI_API_KEY    : 솔라피 콘솔에서 발급한 API Key
- *   SOLAPI_API_SECRET : 솔라피 콘솔에서 발급한 API Secret
- *   SOLAPI_SENDER     : 사전 등록된 발신번호 (예: 01012345678)
- * 미설정 시 발송 없이 로그만 기록하며, 에러 메시지로 설정 안내를 반환합니다.
- */
-function sendSms(params) {
-  var receivers = params.receivers || []; // [{ phone: '010...', name: '홍길동' }]
-  var message = params.message || '';
-  var template = params.template;
-  if (!receivers.length || (!message && !template)) {
-    return { success: false, error: 'receivers and (message or template) required' };
-  }
-  var props = PropertiesService.getScriptProperties();
-  var apiKey = props.getProperty('SOLAPI_API_KEY');
-  var apiSecret = props.getProperty('SOLAPI_API_SECRET');
-  var senderPhone = (props.getProperty('SOLAPI_SENDER') || '').replace(/\D/g, '');
-  var logId = generateId();
-  var sentAt = new Date().toISOString();
-  var ss = getSpreadsheet();
-  var logSheet = ss.getSheetByName(SHEETS.SMS_LOGS);
-
-  if (!apiKey || !apiSecret || !senderPhone) {
-    if (logSheet) {
-      logSheet.appendRow([logId, sentAt, receivers.length, message || template || '', 'config_missing']);
-    }
-    return {
-      success: false,
-      error: '문자 발송 설정이 없습니다. GAS 스크립트 속성에 SOLAPI_API_KEY, SOLAPI_API_SECRET, SOLAPI_SENDER(발신번호)를 설정한 뒤 다시 시도해 주세요. (솔라피 콘솔: console.solapi.com)',
-    };
-  }
-
-  // 수신자별 메시지 — message(또는 template) 안의 {name}, {phone}을 수신자 정보로 치환
-  var baseText = (template || message || '').toString();
-  var textByReceiver = receivers.map(function (r) {
-    var text = baseText
-      .replace(/\{name\}/g, (r.name != null ? r.name : '').toString())
-      .replace(/\{phone\}/g, (r.phone != null ? r.phone : '').toString());
-    return { to: (r.phone || '').replace(/\D/g, ''), text: text };
-  });
-
-  var authHeader = buildSolapiAuthHeader(apiKey, apiSecret);
-  var payload = {
-    messages: textByReceiver.map(function (m) {
-      return {
-        to: m.to,
-        from: senderPhone,
-        text: m.text,
-      };
-    }),
-  };
-
-  try {
-    var response = UrlFetchApp.fetch('https://api.solapi.com/messages/v4/send-many/detail', {
-      method: 'post',
-      contentType: 'application/json',
-      headers: {
-        Authorization: authHeader,
-        'Content-Type': 'application/json',
-      },
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true,
-    });
-    var code = response.getResponseCode();
-    var body = JSON.parse(response.getContentText() || '{}');
-
-    if (logSheet) {
-      var status = code === 200 ? 'sent' : 'api_error';
-      logSheet.appendRow([logId, sentAt, receivers.length, message || template || '', status]);
-    }
-
-    if (code !== 200) {
-      var errMsg = (body.errorMessage || body.message || body.error) || '발송 요청 실패';
-      return { success: false, error: 'SOLAPI: ' + errMsg };
-    }
-
-    var count = (body.groupInfo && body.groupInfo.count && body.groupInfo.count.sentSuccess) != null
-      ? body.groupInfo.count.sentSuccess
-      : receivers.length;
-    return { success: true, data: { log_id: logId, sent_at: sentAt, receiver_count: count } };
-  } catch (e) {
-    if (logSheet) {
-      logSheet.appendRow([logId, sentAt, receivers.length, message || template || '', 'error']);
-    }
-    return { success: false, error: '문자 발송 중 오류: ' + (e.message || String(e)) };
-  }
-}
-
-/**
- * SOLAPI HMAC-SHA256 인증 헤더 생성
- * @see https://developers.solapi.com/references/authentication/api-key
- */
-function buildSolapiAuthHeader(apiKey, apiSecret) {
-  var dateTime = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
-  var salt = Array.apply(null, Array(16))
-    .map(function () {
-      return ('0' + Math.floor(Math.random() * 256).toString(16)).slice(-2);
-    })
-    .join('');
-  var data = dateTime + salt;
-  var signatureBytes = Utilities.computeHmacSha256Signature(data, apiSecret);
-  var signature = signatureBytes
-    .map(function (b) {
-      return ('0' + ((b < 0 ? b + 256 : b) & 0xff).toString(16)).slice(-2);
-    })
-    .join('');
-  return 'HMAC-SHA256 apiKey=' + apiKey + ', date=' + dateTime + ', salt=' + salt + ', signature=' + signature;
 }
 
 // ----- 생기부 record 시트 -----
