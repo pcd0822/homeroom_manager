@@ -8,6 +8,7 @@ import {
   getCleaningHelper,
   getCleaningHelperCounts,
 } from '@/api/api'
+import { buildShareUrl } from '@/lib/gasUrl'
 import type { Student } from '@/types'
 import { cn } from '@/lib/utils'
 import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
@@ -481,8 +482,8 @@ export function CleaningZonesPage() {
               <a
                 href={
                   helperId
-                    ? `${window.location.origin}/cleaning-result?helper=${encodeURIComponent(helperId)}`
-                    : `${window.location.origin}/cleaning-result`
+                    ? buildShareUrl(`/cleaning-result?helper=${encodeURIComponent(helperId)}`)
+                    : buildShareUrl('/cleaning-result')
                 }
                 target="_blank"
                 rel="noopener noreferrer"
@@ -493,8 +494,9 @@ export function CleaningZonesPage() {
               <button
                 type="button"
                 onClick={() => {
-                  const base = `${window.location.origin}/cleaning-result`
-                  const url = helperId ? `${base}?helper=${encodeURIComponent(helperId)}` : base
+                  const url = helperId
+                    ? buildShareUrl(`/cleaning-result?helper=${encodeURIComponent(helperId)}`)
+                    : buildShareUrl('/cleaning-result')
                   navigator.clipboard.writeText(url).then(() => alert('링크가 복사되었습니다.'))
                 }}
                 className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"

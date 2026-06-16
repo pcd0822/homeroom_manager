@@ -1,13 +1,24 @@
 import { useState, useEffect } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
+import { getAdminGasUrl, clearAdminSession } from '@/lib/gasUrl'
+import { ChangePasswordModal } from '@/components/ChangePasswordModal'
 
 const SIDEBAR_STORAGE_KEY = 'homeroom_admin_sidebar_open'
 
 export function AdminLayout() {
   const location = useLocation()
+  const navigate = useNavigate()
   const classGamesActive = location.pathname.startsWith('/admin/class-games')
   const [open, setOpen] = useState(true)
+  const [showChangePw, setShowChangePw] = useState(false)
+  const gasUrl = getAdminGasUrl()
+
+  const handleLogout = () => {
+    if (!confirm('로그아웃하면 이 기기에서 연결이 해제됩니다. 계속할까요?')) return
+    clearAdminSession()
+    navigate('/admin/login', { replace: true })
+  }
 
   useEffect(() => {
     const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY)
@@ -200,13 +211,62 @@ export function AdminLayout() {
             </NavLink>
           </nav>
         )}
+
+        {/* 하단: 연결 정보 + 로그아웃 */}
+        <div className="mt-auto border-t border-gray-200 p-2 print:hidden">
+          {open ? (
+            <div className="space-y-1.5">
+              {gasUrl && (
+                <p className="truncate px-1 text-[10px] text-gray-400" title={gasUrl}>
+                  연결됨: {gasUrl.replace(/^https:\/\/script\.google\.com\/macros\/s\//, '…/')}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowChangePw(true)}
+                className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-800"
+              >
+                <KeyIcon className="h-5 w-5 shrink-0" />
+                비밀번호 변경
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-800"
+              >
+                <LogoutIcon className="h-5 w-5 shrink-0" />
+                로그아웃
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleLogout}
+              title="로그아웃"
+              aria-label="로그아웃"
+              className="flex h-9 w-9 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            >
+              <LogoutIcon className="h-5 w-5" />
+            </button>
+          )}
+        </div>
       </aside>
 
       {/* 메인 영역 - 사이드바와 여백 (인쇄 시 패딩 제거) */}
       <main className="min-w-0 flex-1 pl-6 pr-6 pt-6 pb-8 print:min-w-0 print:p-0">
         <Outlet />
       </main>
+
+      {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
     </div>
+  )
+}
+
+function KeyIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+    </svg>
   )
 }
 
@@ -346,6 +406,14 @@ function GamepadIcon({ className }: { className?: string }) {
         strokeLinejoin="round"
         d="M9 12h2m-1-1v2M6 8h.01M18 8h.01M14 12h2m1-1v2M6 16h2m4 0h2M8 5l-2.5 2.5a4 4 0 00-1 3.2v3.4a2 2 0 002 2h11a2 2 0 002-2v-3.4a4 4 0 00-1-3.2L16 5"
       />
+    </svg>
+  )
+}
+
+function LogoutIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
     </svg>
   )
 }

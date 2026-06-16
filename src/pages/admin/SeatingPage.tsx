@@ -5,6 +5,7 @@ import {
   saveSeatingConfig,
   getSeatingAssignment,
 } from '@/api/api'
+import { buildShareUrl } from '@/lib/gasUrl'
 import type {
   SeatingType,
   SeatingLayout,
@@ -240,7 +241,7 @@ export function SeatingPage() {
       return
     }
     if (res.data) setSavedAt(res.data.updated_at)
-    setShareUrl(`${window.location.origin}/seating-draw`)
+    setShareUrl(buildShareUrl('/seating-draw'))
   }
 
   const copyShareLink = async () => {

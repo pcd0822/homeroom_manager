@@ -5,13 +5,13 @@ import {
   GAME_ID_TEACHER_QUIZ,
   GAMES_META,
 } from '@/constants/games'
+import { buildShareUrl } from '@/lib/gasUrl'
 
 export function ClassGamesPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const origin = typeof window !== 'undefined' ? window.location.origin : ''
 
   const copyShare = (gameId: string, path: string) => {
-    const url = `${origin}${path}`
+    const url = buildShareUrl(path)
     navigator.clipboard.writeText(url).then(() => {
       setCopiedId(gameId)
       setTimeout(() => setCopiedId((cur) => (cur === gameId ? null : cur)), 2000)

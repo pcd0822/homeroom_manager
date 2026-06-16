@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { buildShareUrl } from '@/lib/gasUrl'
 
 const NEIS_BASE = 'https://open.neis.go.kr/hub'
 const MEAL_KEY = '1ff34ee414734a8ab3bf67c55492df58'
@@ -137,7 +138,7 @@ export function MealBoardPage() {
           <button
             type="button"
             onClick={() => {
-              const url = `${window.location.origin}/student/dashboard`
+              const url = buildShareUrl('/student/dashboard')
               navigator.clipboard.writeText(url).then(() => {
                 alert('학생용 대시보드 링크가 복사되었습니다. (급식·과제·정책 등록·관리 모두 이 링크에서 이용)')
               })

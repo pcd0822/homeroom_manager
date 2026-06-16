@@ -1,8 +1,13 @@
 /**
  * GAS 배포 URL과 통신하는 API 서비스 레이어
- * 배포 후 여기 BASE_URL을 웹 앱 URL로 교체
+ *
+ * GAS URL은 빌드에 고정하지 않고 런타임에 해석한다(@/lib/gasUrl).
+ * - 관리자: 로그인 시 연결한 GAS URL(세션)
+ * - 학생: 공유 링크의 ?api= 로 받은 GAS URL
+ * 연결된 URL이 없으면 요청은 친절한 오류로 단락된다.
  */
 
+import { getGasUrl } from '@/lib/gasUrl'
 import type {
   ApiResponse,
   Form,
@@ -29,14 +34,22 @@ import type {
   TeacherQuizSurveyRow,
 } from '@/types'
 
-const BASE_URL = import.meta.env.VITE_GAS_API_URL || 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
-
-async function request<T = unknown>(
+/**
+ * 명시한 GAS URL로 직접 요청한다. 로그인 검증처럼 아직 세션에 저장되지 않은
+ * URL을 대상으로 호출할 때 사용한다.
+ */
+async function requestTo<T = unknown>(
+  baseUrl: string,
   action: string,
   method: 'GET' | 'POST' = 'POST',
   payload?: Record<string, unknown>
 ): Promise<ApiResponse<T>> {
-  const url = new URL(BASE_URL)
+  let url: URL
+  try {
+    url = new URL(baseUrl)
+  } catch {
+    return { success: false, error: '유효하지 않은 GAS URL입니다.' }
+  }
   if (method === 'GET') {
     url.searchParams.set('action', action)
     if (payload) {
@@ -57,7 +70,7 @@ async function request<T = unknown>(
   }
 
   try {
-    const res = await fetch(method === 'GET' ? url.toString() : BASE_URL, options)
+    const res = await fetch(method === 'GET' ? url.toString() : baseUrl, options)
     const data = (await res.json()) as ApiResponse<T>
     if (!res.ok) {
       return { success: false, error: data.error || res.statusText }
@@ -68,11 +81,41 @@ async function request<T = unknown>(
     if (message === 'Failed to fetch' || message.includes('fetch')) {
       return {
         success: false,
-        error: '서버에 연결할 수 없습니다. GAS 배포 URL(VITE_GAS_API_URL)과 스프레드시트 연결을 확인하고, Netlify 배포 시 환경변수 설정 후 다시 빌드해 주세요.',
+        error: '서버에 연결할 수 없습니다. GAS 배포 URL과 스프레드시트 연결을 확인해 주세요. (웹 앱 배포·액세스 권한 "모든 사용자")',
       }
     }
     return { success: false, error: message }
   }
+}
+
+async function request<T = unknown>(
+  action: string,
+  method: 'GET' | 'POST' = 'POST',
+  payload?: Record<string, unknown>
+): Promise<ApiResponse<T>> {
+  const baseUrl = getGasUrl()
+  if (!baseUrl) {
+    return {
+      success: false,
+      error: '연결된 GAS가 없습니다. 관리자는 로그인해서 GAS를 연결하고, 학생은 교사가 공유한 링크로 접속해 주세요.',
+    }
+  }
+  return requestTo<T>(baseUrl, action, method, payload)
+}
+
+// ----- 관리자 인증 (로그인 시 대상 GAS로 직접 검증) -----
+// 초기 비밀번호는 1234. 로그인 후 비밀번호를 바꾸면 그 이후로는 변경된 값으로 검증된다.
+/** 관리자 비밀번호 검증 */
+export function verifyAdminPassword(gasUrl: string, password: string) {
+  return requestTo<{ token: string; is_default?: boolean }>(gasUrl, 'VERIFY_ADMIN', 'POST', { password })
+}
+
+/** 관리자 비밀번호 변경 */
+export function changeAdminPassword(gasUrl: string, oldPassword: string, newPassword: string) {
+  return requestTo<{ token: string }>(gasUrl, 'CHANGE_ADMIN_PASSWORD', 'POST', {
+    old_password: oldPassword,
+    new_password: newPassword,
+  })
 }
 
 // ----- Forms -----

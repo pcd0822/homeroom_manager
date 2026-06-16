@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getForms, getFolders, createFolder, updateForm, deleteForm, getAssignmentsByForm } from '@/api/api'
+import { buildShareUrl } from '@/lib/gasUrl'
 import type { Form, Folder, AssignmentRow } from '@/types'
 import { cn } from '@/lib/utils'
 import { FormEditSlidePanel } from '@/components/FormEditSlidePanel'
@@ -81,7 +82,7 @@ export function AdminDashboard() {
   const [assignmentMap, setAssignmentMap] = useState<Record<string, AssignmentRow[]>>({})
 
   const copyShareLink = (formId: string) => {
-    const url = `${window.location.origin}/view/${formId}`
+    const url = buildShareUrl(`/view/${formId}`)
     navigator.clipboard.writeText(url).then(() => {
       setCopiedFormId(formId)
       setTimeout(() => setCopiedFormId(null), 2000)

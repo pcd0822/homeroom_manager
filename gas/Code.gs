@@ -106,6 +106,74 @@ function cacheDelMany(names) {
   } catch (e) {}
 }
 
+// ===== 관리자 인증 =====
+// 초기 비밀번호는 1234. 관리자가 로그인 후 비밀번호를 바꾸기 전까지 1234로 검증된다.
+// 변경한 비밀번호는 평문이 아니라 salt + SHA-256 해시로 Script Properties에 보관한다.
+// (시트에 저장하지 않으므로 시트를 열람해도 비밀번호가 노출되지 않는다.)
+var DEFAULT_ADMIN_PASSWORD = '1234';
+
+function _adminProps() {
+  return PropertiesService.getScriptProperties();
+}
+
+function _adminPasswordSet() {
+  var p = _adminProps();
+  return !!(p.getProperty('ADMIN_PWD_HASH') && p.getProperty('ADMIN_PWD_SALT'));
+}
+
+function _hashPassword(password, salt) {
+  var bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    String(salt) + ':' + String(password),
+    Utilities.Charset.UTF_8
+  );
+  var hex = '';
+  for (var i = 0; i < bytes.length; i++) {
+    var b = (bytes[i] + 256) % 256;
+    hex += (b < 16 ? '0' : '') + b.toString(16);
+  }
+  return hex;
+}
+
+function _randomToken() {
+  return Utilities.getUuid().replace(/-/g, '');
+}
+
+function _storeAdminPassword(password) {
+  var salt = _randomToken();
+  _adminProps().setProperty('ADMIN_PWD_SALT', salt);
+  _adminProps().setProperty('ADMIN_PWD_HASH', _hashPassword(password, salt));
+}
+
+/** 관리자 비밀번호 검증. 변경 전이면 초기 비밀번호(1234)로 통과 */
+function verifyAdmin(password) {
+  password = password != null ? String(password) : '';
+  if (!_adminPasswordSet()) {
+    if (password === DEFAULT_ADMIN_PASSWORD) {
+      return { success: true, data: { token: _randomToken(), is_default: true } };
+    }
+    return { success: false, error: '비밀번호가 일치하지 않습니다. (초기 비밀번호: 1234)' };
+  }
+  var p = _adminProps();
+  if (_hashPassword(password, p.getProperty('ADMIN_PWD_SALT')) !== p.getProperty('ADMIN_PWD_HASH')) {
+    return { success: false, error: '비밀번호가 일치하지 않습니다.' };
+  }
+  return { success: true, data: { token: _randomToken() } };
+}
+
+/** 관리자 비밀번호 변경. 기존 비밀번호(미변경 시 1234) 확인 후 교체 */
+function changeAdminPassword(oldPassword, newPassword) {
+  var v = verifyAdmin(oldPassword);
+  if (!v.success) return { success: false, error: '기존 비밀번호가 일치하지 않습니다.' };
+  newPassword = newPassword != null ? String(newPassword) : '';
+  if (newPassword.length < 4) return { success: false, error: '새 비밀번호는 4자 이상이어야 합니다.' };
+  if (newPassword === DEFAULT_ADMIN_PASSWORD) {
+    return { success: false, error: '초기 비밀번호(1234)와 다른 비밀번호로 설정해 주세요.' };
+  }
+  _storeAdminPassword(newPassword);
+  return { success: true, data: { token: _randomToken() } };
+}
+
 /**
  * 스프레드시트를 열 때 메뉴에 "생기부" 항목 추가
  */
@@ -179,6 +247,12 @@ function handleRequest(e, method) {
         break;
       case 'AUTH_STUDENT':
         result = authStudent(params.student_id, params.auth_code);
+        break;
+      case 'VERIFY_ADMIN':
+        result = verifyAdmin(params.password);
+        break;
+      case 'CHANGE_ADMIN_PASSWORD':
+        result = changeAdminPassword(params.old_password, params.new_password);
         break;
       case 'UPDATE_RESPONSE':
         result = updateResponse(params);

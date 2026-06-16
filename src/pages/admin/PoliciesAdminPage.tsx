@@ -14,6 +14,7 @@ import {
   grantSeeds,
   setPolicySeeds,
 } from '@/api/api'
+import { buildShareUrl } from '@/lib/gasUrl'
 import type { Policy, PolicyParticipant, PolicyTreeDashboard, Student } from '@/types'
 import { policyLogoSrc } from '@/lib/policyImage'
 import { compressImageFileToPolicyLogoDataUrl } from '@/lib/compressPolicyLogo'
@@ -458,13 +459,13 @@ export function PoliciesAdminPage() {
               type="button"
               onClick={async () => {
                 try {
-                  const url = `${window.location.origin}/student/policy-board`
+                  const url = buildShareUrl('/student/policy-board')
                   await navigator.clipboard.writeText(url)
                   setShareCopied(true)
                   setTimeout(() => setShareCopied(false), 1800)
                 } catch {
                   // 복사 실패 시 새 탭 열기(또는 브라우저 정책 상 clipboard 불가)
-                  window.open(`${window.location.origin}/student/policy-board`, '_blank', 'noopener')
+                  window.open(buildShareUrl('/student/policy-board'), '_blank', 'noopener')
                 }
               }}
               className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition active:scale-[0.99] sm:whitespace-nowrap"

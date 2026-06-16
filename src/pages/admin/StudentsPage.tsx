@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { getStudents, addStudent, updateStudent, deleteStudent, getClassInfo, saveClassInfo } from '@/api/api'
+import { buildShareUrl } from '@/lib/gasUrl'
 import type { Student } from '@/types'
 import { cn } from '@/lib/utils'
 import {
@@ -92,7 +93,7 @@ export function StudentsPage() {
   const [searchField, setSearchField] = useState<'id' | 'name'>('id')
   const [searchQuery, setSearchQuery] = useState('')
 
-  const registerUrl = typeof window !== 'undefined' ? `${window.location.origin}/register` : ''
+  const registerUrl = buildShareUrl('/register')
 
   const copyRegisterLink = () => {
     if (!registerUrl) return
