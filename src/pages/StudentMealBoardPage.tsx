@@ -83,7 +83,10 @@ async function fetchSchedule(range: 'week' | 'month' | 'year', base: Date): Prom
   if (range === 'week') {
     const day = base.getDay() || 7
     start.setDate(base.getDate() - (day - 1))
-    end.setDate(start.getDate() + 6)
+    // 주가 월 경계를 넘을 때 end가 base의 '월'에 setDate되면 범위가 한 달 넘게 부풀어 버린다.
+    // end를 start 기준으로 다시 잡아 정확히 +6일(월~일)이 되게 한다.
+    end.setTime(start.getTime())
+    end.setDate(end.getDate() + 6)
   } else if (range === 'month') {
     start.setDate(1)
     end.setMonth(base.getMonth() + 1, 0)

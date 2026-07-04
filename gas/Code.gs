@@ -3440,15 +3440,20 @@ function getOrCreateCalendarEventsSheet() {
     sheet = ss.insertSheet(SHEETS.CALENDAR_EVENTS);
     sheet.getRange(1, 1, 1, CALENDAR_EVENT_HEADERS.length).setValues([CALENDAR_EVENT_HEADERS]);
   }
-  // '2026-07-04' / '09:00' 같은 문자열이 Sheets에 의해 Date·시간 값으로 자동 변환되면
-  // 다시 읽을 때 형식이 깨져 날짜 매칭이 안 된다. 해당 열을 텍스트(@) 서식으로 강제한다.
+  // 날짜/시간/자유입력 문자열이 Sheets에 의해 Date·시간 값으로 자동 변환되면
+  // 다시 읽을 때 형식이 깨진다(예: 장소 칸에 'Sun Mar 01 2026 …'). 전 열을 텍스트(@) 서식으로 강제한다.
   try {
     var maxR = sheet.getMaxRows();
-    sheet.getRange(1, 2, maxR, 1).setNumberFormat('@'); // date
-    sheet.getRange(1, 5, maxR, 2).setNumberFormat('@'); // start_time, end_time
-    sheet.getRange(1, 10, maxR, 1).setNumberFormat('@'); // created_at
+    sheet.getRange(1, 1, maxR, CALENDAR_EVENT_HEADERS.length).setNumberFormat('@');
   } catch (e) {}
   return sheet;
+}
+
+/** 자유입력 텍스트 정규화. Date로 변환돼 버린 값(장소/제목/내용 등)은 빈 문자열로 버린다. */
+function _fmtText(v) {
+  if (v == null) return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') return '';
+  return String(v);
 }
 
 /** 값이 Date로 변환됐거나 ISO 문자열이어도 'YYYY-MM-DD'로 정규화 */
@@ -3531,11 +3536,11 @@ function _calendarRowToObject(row, col) {
     event_id: String(row[col.event_id] || ''),
     date: _fmtDateKey(row[col.date]),
     type: String(row[col.type] || 'class'),
-    title: String(row[col.title] || ''),
+    title: _fmtText(row[col.title]),
     start_time: _fmtTime(row[col.start_time]),
     end_time: _fmtTime(row[col.end_time]),
-    location: String(row[col.location] || ''),
-    content: String(row[col.content] || ''),
+    location: _fmtText(row[col.location]),
+    content: _fmtText(row[col.content]),
     student_ids: ids.map(String),
     created_at: row[col.created_at] != null ? String(row[col.created_at]) : ''
   };

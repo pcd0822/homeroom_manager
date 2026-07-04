@@ -57,6 +57,20 @@ export function StudentDashboardHubPage() {
     })()
   }, [authState, studentId])
 
+  const handleLogout = () => {
+    if (!confirm('이 기기에서 로그아웃할까요? 다음에 다시 학번·개인코드로 로그인해야 합니다.')) return
+    try {
+      localStorage.removeItem(LOGIN_KEY)
+    } catch {
+      // ignore
+    }
+    setStudentId('')
+    setAuthCode('')
+    setSeedBalance(null)
+    setAuthError('')
+    setAuthState('idle')
+  }
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!studentId.trim() || !authCode.trim()) {
@@ -244,6 +258,17 @@ export function StudentDashboardHubPage() {
         <p className="text-center text-[11px] text-gray-400">
           급식·과제·정책 등록·관리 모두 이 대시보드에서 한 번 로그인하면 이용할 수 있어요.
         </p>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mx-auto flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-500 shadow-sm hover:bg-gray-50 hover:text-gray-700"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          이 기기에서 로그아웃
+        </button>
       </div>
     </div>
   )
