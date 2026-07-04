@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Helmet } from 'react-helmet-async'
-import { getCalendarEvents } from '@/api/api'
-import type { CalendarEvent } from '@/types'
+import { getCalendarEvents, getCounselingTimetable } from '@/api/api'
+import type { CalendarEvent, CounselingTimetable } from '@/types'
 import { CalendarBoard } from '@/components/calendar/CalendarBoard'
 
 const TITLE = '학급 일정 | 상담 캘린더'
@@ -22,6 +22,7 @@ function maskForPublic(events: CalendarEvent[]): CalendarEvent[] {
 
 export function CalendarSharedPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [timetable, setTimetable] = useState<CounselingTimetable | null>(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
 
@@ -29,11 +30,15 @@ export function CalendarSharedPage() {
     let cancelled = false
     ;(async () => {
       setLoading(true)
-      const res = await getCalendarEvents()
+      const [eventsRes, timetableRes] = await Promise.all([
+        getCalendarEvents(),
+        getCounselingTimetable(),
+      ])
       if (cancelled) return
       setLoading(false)
-      if (res.success && res.data) setEvents(res.data)
-      else setErr(res.error || '일정을 불러오지 못했습니다.')
+      if (eventsRes.success && eventsRes.data) setEvents(eventsRes.data)
+      else setErr(eventsRes.error || '일정을 불러오지 못했습니다.')
+      if (timetableRes.success && timetableRes.data) setTimetable(timetableRes.data)
     })()
     return () => {
       cancelled = true
@@ -63,7 +68,7 @@ export function CalendarSharedPage() {
           <p className="py-16 text-center text-sm text-red-600">{err}</p>
         ) : (
           <>
-            <CalendarBoard events={publicEvents} />
+            <CalendarBoard events={publicEvents} timetable={timetable} />
             <p className="mt-3 text-center text-[11px] text-gray-400">
               상담 대상과 상세 내용은 개인정보 보호를 위해 표시되지 않습니다. 내 상담 일정은 학생
               대시보드에서 로그인 후 확인하세요.

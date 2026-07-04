@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { CalendarEvent } from '@/types'
+import type { CalendarEvent, CounselingTimetable, TimetablePeriod } from '@/types'
 import {
   WEEKDAY_LABELS,
   toDateKey,
@@ -21,12 +21,14 @@ export interface CalendarStudentInfo {
 }
 
 type ViewMode = 'calendar' | 'table'
-type RangeMode = 'month' | 'week'
+type RangeMode = 'month' | 'week' | 'day'
 
 interface CalendarBoardProps {
   events: CalendarEvent[]
   /** 학번 → 학생 정보 (상담 대상 이름/사진 표시용) */
   studentsById?: Record<string, CalendarStudentInfo>
+  /** 교시 타임테이블 — '일(day)' 뷰에서 교시별로 일정을 묶어 보여줄 때 사용 */
+  timetable?: CounselingTimetable | null
   /** 교사 화면에서만 true: 날짜 클릭으로 추가, 일정 클릭으로 편집 */
   editable?: boolean
   onDateClick?: (dateKey: string) => void
@@ -46,6 +48,7 @@ function sortEvents(a: CalendarEvent, b: CalendarEvent): number {
 export function CalendarBoard({
   events,
   studentsById,
+  timetable,
   editable = false,
   onDateClick,
   onEventClick,
@@ -69,8 +72,9 @@ export function CalendarBoard({
     return map
   }, [events])
 
-  const goPrev = () => setCursor((c) => (range === 'month' ? addMonths(c, -1) : addDays(c, -7)))
-  const goNext = () => setCursor((c) => (range === 'month' ? addMonths(c, 1) : addDays(c, 7)))
+  const stepDays = range === 'week' ? 7 : 1
+  const goPrev = () => setCursor((c) => (range === 'month' ? addMonths(c, -1) : addDays(c, -stepDays)))
+  const goNext = () => setCursor((c) => (range === 'month' ? addMonths(c, 1) : addDays(c, stepDays)))
   const goToday = () => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
@@ -80,13 +84,16 @@ export function CalendarBoard({
   const rangeLabel =
     range === 'month'
       ? formatMonthLabel(cursor)
-      : (() => {
-          const days = getWeekDays(cursor)
-          return `${toDateKey(days[0]).slice(5)} ~ ${toDateKey(days[6]).slice(5)}`
-        })()
+      : range === 'day'
+        ? formatDateLabel(toDateKey(cursor))
+        : (() => {
+            const days = getWeekDays(cursor)
+            return `${toDateKey(days[0]).slice(5)} ~ ${toDateKey(days[6]).slice(5)}`
+          })()
 
   // 테이블 뷰에서 보여줄 날짜 범위
   const rangeDates = useMemo(() => {
+    if (range === 'day') return [toDateKey(cursor)]
     if (range === 'week') return getWeekDays(cursor).map(toDateKey)
     const grid = getMonthGrid(cursor.getFullYear(), cursor.getMonth())
     return grid.flat().map(toDateKey)
@@ -130,6 +137,7 @@ export function CalendarBoard({
             options={[
               { value: 'month', label: '월' },
               { value: 'week', label: '주' },
+              { value: 'day', label: '일' },
             ]}
           />
           <Segmented
@@ -155,6 +163,16 @@ export function CalendarBoard({
         <MonthView
           cursor={cursor}
           eventsByDate={eventsByDate}
+          editable={editable}
+          onDateClick={onDateClick}
+          onEventClick={onEventClick}
+        />
+      ) : range === 'day' ? (
+        <DayView
+          cursor={cursor}
+          eventsByDate={eventsByDate}
+          timetable={timetable}
+          studentsById={studentsById}
           editable={editable}
           onDateClick={onDateClick}
           onEventClick={onEventClick}
@@ -249,48 +267,64 @@ function MonthView({
           const isToday = isSameDay(day, today)
           const dayEvents = eventsByDate[key] || []
           return (
-            <button
+            <div
               key={key}
-              type="button"
-              disabled={!editable}
-              onClick={() => editable && onDateClick?.(key)}
-              className={`min-h-[76px] border-b border-r border-gray-100 p-1 text-left align-top last:border-r-0 ${
+              className={`min-h-[84px] border-b border-r border-gray-100 p-1 align-top last:border-r-0 ${
                 inMonth ? 'bg-white' : 'bg-gray-50/60'
-              } ${editable ? 'hover:bg-sky-50/60 focus:bg-sky-50' : 'cursor-default'}`}
+              }`}
             >
-              <div className="mb-0.5 flex items-center justify-between">
+              {/* 상단: 날짜(좌측 코너) + 추가 아이콘 */}
+              <div className="mb-0.5 flex items-center gap-1">
                 <span
                   className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-semibold ${
-                    isToday ? 'bg-sky-600 text-white' : inMonth ? 'text-gray-700' : 'text-gray-400'
-                  } ${day.getDay() === 0 && !isToday ? 'text-rose-500' : ''} ${
-                    day.getDay() === 6 && !isToday ? 'text-sky-500' : ''
+                    isToday
+                      ? 'bg-sky-600 text-white'
+                      : day.getDay() === 0
+                        ? 'text-rose-500'
+                        : day.getDay() === 6
+                          ? 'text-sky-500'
+                          : inMonth
+                            ? 'text-gray-700'
+                            : 'text-gray-400'
                   }`}
                 >
                   {day.getDate()}
                 </span>
+                {editable && (
+                  <button
+                    type="button"
+                    onClick={() => onDateClick?.(key)}
+                    className="flex h-4 w-4 items-center justify-center rounded-full text-gray-300 transition-colors hover:bg-sky-100 hover:text-sky-600"
+                    title="일정 추가"
+                    aria-label={`${key} 일정 추가`}
+                  >
+                    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+                    </svg>
+                  </button>
+                )}
               </div>
               <div className="space-y-0.5">
                 {dayEvents.slice(0, 3).map((ev) => (
-                  <span
+                  <button
                     key={ev.event_id}
-                    role={editable ? 'button' : undefined}
-                    onClick={(e) => {
-                      if (!editable) return
-                      e.stopPropagation()
-                      onEventClick?.(ev)
-                    }}
-                    className={`block truncate rounded border px-1 py-0.5 text-[10px] leading-tight ${TYPE_STYLES[ev.type].chip}`}
+                    type="button"
+                    disabled={!editable}
+                    onClick={() => editable && onEventClick?.(ev)}
+                    className={`block w-full truncate rounded border px-1 py-0.5 text-left text-[10px] leading-tight ${TYPE_STYLES[ev.type].chip} ${
+                      editable ? 'cursor-pointer hover:brightness-95' : 'cursor-default'
+                    }`}
                     title={`${ev.start_time} ${ev.title}`}
                   >
                     {ev.start_time && <span className="font-semibold">{ev.start_time.slice(0, 5)} </span>}
                     {ev.title || TYPE_STYLES[ev.type].label}
-                  </span>
+                  </button>
                 ))}
                 {dayEvents.length > 3 && (
                   <span className="block px-1 text-[10px] text-gray-400">+{dayEvents.length - 3}건</span>
                 )}
               </div>
-            </button>
+            </div>
           )
         })}
       </div>
@@ -360,6 +394,116 @@ function WeekView({
           </div>
         )
       })}
+    </div>
+  )
+}
+
+function eventOverlapsPeriod(ev: CalendarEvent, p: TimetablePeriod): boolean {
+  const evStart = timeToMinutes(ev.start_time)
+  const evEnd = Math.max(timeToMinutes(ev.end_time || ev.start_time), evStart + 1)
+  const pStart = timeToMinutes(p.start_time)
+  const pEnd = timeToMinutes(p.end_time || p.start_time)
+  return evStart < pEnd && evEnd > pStart
+}
+
+function DayView({
+  cursor,
+  eventsByDate,
+  timetable,
+  studentsById,
+  editable,
+  onDateClick,
+  onEventClick,
+}: {
+  cursor: Date
+  eventsByDate: Record<string, CalendarEvent[]>
+  timetable?: CounselingTimetable | null
+  studentsById?: Record<string, CalendarStudentInfo>
+  editable: boolean
+  onDateClick?: (dateKey: string) => void
+  onEventClick?: (event: CalendarEvent) => void
+}) {
+  const key = toDateKey(cursor)
+  const dayEvents = eventsByDate[key] || []
+  const periods = timetable?.periods || []
+
+  // 어떤 교시에도 걸치지 않는 일정(교시 외)
+  const matched = new Set<string>()
+  for (const p of periods) {
+    for (const ev of dayEvents) {
+      if (eventOverlapsPeriod(ev, p)) matched.add(ev.event_id)
+    }
+  }
+  const otherEvents = dayEvents.filter((ev) => !matched.has(ev.event_id))
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between px-1">
+        <span className="text-sm font-semibold text-gray-700">{formatDateLabel(key)}</span>
+        {editable && (
+          <button
+            type="button"
+            onClick={() => onDateClick?.(key)}
+            className="rounded-lg bg-sky-600 px-3 py-1 text-xs font-semibold text-white hover:bg-sky-700"
+          >
+            + 일정 추가
+          </button>
+        )}
+      </div>
+
+      {periods.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-gray-200 py-6 text-center text-xs text-gray-400">
+          교시 타임테이블을 먼저 저장하면 교시별로 일정을 볼 수 있어요.
+        </p>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-gray-100">
+          {periods.map((p) => {
+            const inPeriod = dayEvents.filter((ev) => eventOverlapsPeriod(ev, p))
+            return (
+              <div key={p.id} className="flex border-b border-gray-100 last:border-b-0">
+                <div className="w-24 shrink-0 border-r border-gray-100 bg-gray-50 px-2 py-2">
+                  <p className="text-xs font-semibold text-gray-700">{p.label}</p>
+                  <p className="text-[10px] text-gray-400">
+                    {p.start_time}~{p.end_time}
+                  </p>
+                </div>
+                <div className="min-w-0 flex-1 divide-y divide-gray-50">
+                  {inPeriod.length === 0 ? (
+                    <p className="px-3 py-2 text-xs text-gray-300">-</p>
+                  ) : (
+                    inPeriod.map((ev) => (
+                      <EventRow
+                        key={ev.event_id}
+                        event={ev}
+                        studentsById={studentsById}
+                        editable={editable}
+                        onEventClick={onEventClick}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {otherEvents.length > 0 && (
+        <div className="mt-3">
+          <p className="mb-1 px-1 text-xs font-semibold text-gray-400">교시 외 일정</p>
+          <div className="divide-y divide-gray-50 rounded-xl border border-gray-100">
+            {otherEvents.map((ev) => (
+              <EventRow
+                key={ev.event_id}
+                event={ev}
+                studentsById={studentsById}
+                editable={editable}
+                onEventClick={onEventClick}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

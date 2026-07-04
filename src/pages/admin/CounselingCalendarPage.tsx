@@ -251,6 +251,7 @@ export function CounselingCalendarPage() {
       <CalendarBoard
         events={events}
         studentsById={studentsById}
+        timetable={timetable}
         editable
         onDateClick={openAdd}
         onEventClick={openEdit}

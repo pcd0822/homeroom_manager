@@ -3440,7 +3440,46 @@ function getOrCreateCalendarEventsSheet() {
     sheet = ss.insertSheet(SHEETS.CALENDAR_EVENTS);
     sheet.getRange(1, 1, 1, CALENDAR_EVENT_HEADERS.length).setValues([CALENDAR_EVENT_HEADERS]);
   }
+  // '2026-07-04' / '09:00' 같은 문자열이 Sheets에 의해 Date·시간 값으로 자동 변환되면
+  // 다시 읽을 때 형식이 깨져 날짜 매칭이 안 된다. 해당 열을 텍스트(@) 서식으로 강제한다.
+  try {
+    var maxR = sheet.getMaxRows();
+    sheet.getRange(1, 2, maxR, 1).setNumberFormat('@'); // date
+    sheet.getRange(1, 5, maxR, 2).setNumberFormat('@'); // start_time, end_time
+    sheet.getRange(1, 10, maxR, 1).setNumberFormat('@'); // created_at
+  } catch (e) {}
   return sheet;
+}
+
+/** 값이 Date로 변환됐거나 ISO 문자열이어도 'YYYY-MM-DD'로 정규화 */
+function _fmtDateKey(v) {
+  if (v == null || v === '') return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    var y = v.getFullYear();
+    var m = v.getMonth() + 1;
+    var d = v.getDate();
+    return y + '-' + (m < 10 ? '0' : '') + m + '-' + (d < 10 ? '0' : '') + d;
+  }
+  var s = String(v).trim();
+  var mm = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  return mm ? mm[1] + '-' + mm[2] + '-' + mm[3] : s;
+}
+
+/** 값이 Date(시간)로 변환됐거나 문자열이어도 'HH:mm'으로 정규화 */
+function _fmtTime(v) {
+  if (v == null || v === '') return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    var h = v.getHours();
+    var mi = v.getMinutes();
+    return (h < 10 ? '0' : '') + h + ':' + (mi < 10 ? '0' : '') + mi;
+  }
+  var s = String(v).trim();
+  var mm = /(\d{1,2}):(\d{2})/.exec(s);
+  if (mm) {
+    var hh = parseInt(mm[1], 10);
+    return (hh < 10 ? '0' : '') + hh + ':' + mm[2];
+  }
+  return s;
 }
 
 function getCounselingTimetable() {
@@ -3490,11 +3529,11 @@ function _calendarRowToObject(row, col) {
   if (!Array.isArray(ids)) ids = [];
   return {
     event_id: String(row[col.event_id] || ''),
-    date: String(row[col.date] || ''),
+    date: _fmtDateKey(row[col.date]),
     type: String(row[col.type] || 'class'),
     title: String(row[col.title] || ''),
-    start_time: String(row[col.start_time] || ''),
-    end_time: String(row[col.end_time] || ''),
+    start_time: _fmtTime(row[col.start_time]),
+    end_time: _fmtTime(row[col.end_time]),
     location: String(row[col.location] || ''),
     content: String(row[col.content] || ''),
     student_ids: ids.map(String),
