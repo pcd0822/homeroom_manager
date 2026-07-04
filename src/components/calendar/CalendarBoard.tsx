@@ -560,11 +560,20 @@ function TableView({
               </td>
               <td className="whitespace-nowrap px-3 py-2 text-gray-500">{ev.location || '-'}</td>
               <td className="px-3 py-2 text-gray-500">
-                {ev.student_ids.length > 0
-                  ? ev.student_ids
-                      .map((id) => studentsById?.[id]?.name || id)
-                      .join(', ')
-                  : '-'}
+                {ev.type === 'class' ? (
+                  <span className="inline-flex items-center gap-1">
+                    <img
+                      src="/game/teacher-love.png"
+                      alt="담임샘"
+                      className="h-4 w-4 rounded-full object-cover"
+                    />
+                    담임샘
+                  </span>
+                ) : ev.student_ids.length > 0 ? (
+                  ev.student_ids.map((id) => studentsById?.[id]?.name || id).join(', ')
+                ) : (
+                  '-'
+                )}
               </td>
             </tr>
           ))}
@@ -601,7 +610,19 @@ function EventRow({
         </div>
         {ev.location && <p className="text-[11px] text-gray-400">📍 {ev.location}</p>}
         {ev.content && <p className="text-[11px] text-gray-500">{ev.content}</p>}
-        {ev.student_ids.length > 0 && (
+        {ev.type === 'class' && (
+          <div className="mt-1">
+            <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 py-0.5 pl-0.5 pr-2 text-[10px] text-sky-700">
+              <img
+                src="/game/teacher-love.png"
+                alt="담임샘"
+                className="h-4 w-4 rounded-full object-cover"
+              />
+              담임샘
+            </span>
+          </div>
+        )}
+        {ev.type === 'counseling' && ev.student_ids.length > 0 && (
           <div className="mt-1 flex flex-wrap items-center gap-1">
             {ev.student_ids.map((id) => {
               const s = studentsById?.[id]

@@ -113,7 +113,7 @@ export function StudentCounselingPage() {
           <title>{TITLE}</title>
         </Helmet>
         <div className="mx-auto max-w-sm rounded-3xl border border-rose-100 bg-white p-6 shadow-lg">
-          <div className="mb-4 text-center text-4xl">🗣️</div>
+          <div className="mb-4 text-center text-4xl">💗</div>
           <h1 className="mb-1 text-center text-lg font-bold text-gray-900">내 상담 일정</h1>
           <p className="mb-5 text-center text-xs text-gray-500">
             학번과 개인코드로 로그인하면 나에게 등록된 상담 일정을 볼 수 있어요.
@@ -163,10 +163,24 @@ export function StudentCounselingPage() {
       </Helmet>
       <div className="mx-auto max-w-md space-y-5">
         <header className="text-center">
-          <p className="text-3xl">🗣️</p>
+          <p className="text-3xl">💗</p>
           <h1 className="mt-2 text-xl font-bold text-gray-900">내 상담 일정</h1>
           <p className="mt-1 text-xs text-gray-500">선생님이 나에게 등록한 상담 일정이에요.</p>
         </header>
+
+        <Link
+          to="/calendar"
+          className="flex items-center gap-3 rounded-2xl border-2 border-sky-100 bg-white p-3.5 shadow-sm transition-colors hover:border-sky-300 hover:bg-sky-50"
+        >
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-100 text-2xl shadow-inner">
+            🗓️
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-gray-900">학급 전체 일정 보기</p>
+            <p className="text-[11px] text-gray-500">수업시간·상담 일정을 주/월/일로 확인해요</p>
+          </div>
+          <span className="text-sky-300">→</span>
+        </Link>
 
         {loading ? (
           <p className="py-10 text-center text-sm text-gray-500">불러오는 중...</p>

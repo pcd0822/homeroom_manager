@@ -217,7 +217,7 @@ export function StudentDashboardHubPage() {
             }
           >
             <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-100 text-3xl shadow-inner">
-              🗣️
+              💗
             </span>
             <div className="min-w-0 flex-1 text-left">
               <p className="font-bold text-gray-900">내 상담 일정</p>
