@@ -32,6 +32,8 @@ import type {
   TeacherQuizScoreRow,
   TeacherQuizSurveyAnswer,
   TeacherQuizSurveyRow,
+  CounselingTimetable,
+  CalendarEvent,
 } from '@/types'
 
 /**
@@ -542,6 +544,47 @@ export function getTeacherQuizSurveys(studentId: string, playedAt?: string) {
     student_id: studentId,
     played_at: playedAt || '',
   })
+}
+
+// ----- 상담 캘린더 -----
+/** 교시 타임테이블(전체 공통 템플릿) 조회. 미설정이면 null */
+export function getCounselingTimetable() {
+  return request<CounselingTimetable | null>('GET_COUNSELING_TIMETABLE', 'POST')
+}
+
+export function saveCounselingTimetable(config: CounselingTimetable) {
+  return request<{ updated_at: string }>('SAVE_COUNSELING_TIMETABLE', 'POST', {
+    config,
+  } as Record<string, unknown>)
+}
+
+/** 전체 캘린더 일정(수업시간+상담) 조회 */
+export function getCalendarEvents() {
+  return request<CalendarEvent[]>('GET_CALENDAR_EVENTS', 'POST')
+}
+
+/** 일정 생성/수정. event_id가 있으면 수정, 없으면 생성 */
+export function saveCalendarEvent(params: {
+  event_id?: string
+  date: string
+  type: 'class' | 'counseling'
+  title: string
+  start_time: string
+  end_time: string
+  location: string
+  content: string
+  student_ids: string[]
+}) {
+  return request<{ event_id: string; updated: boolean }>('SAVE_CALENDAR_EVENT', 'POST', params as Record<string, unknown>)
+}
+
+export function deleteCalendarEvent(eventId: string) {
+  return request<{ event_id: string }>('DELETE_CALENDAR_EVENT', 'POST', { event_id: eventId })
+}
+
+/** 특정 학생 대상으로 등록된 상담 일정만 조회 */
+export function getCalendarEventsForStudent(studentId: string) {
+  return request<CalendarEvent[]>('GET_CALENDAR_EVENTS_FOR_STUDENT', 'POST', { student_id: studentId })
 }
 
 // ----- Helper: Form with parsed schema -----

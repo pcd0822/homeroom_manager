@@ -182,6 +182,20 @@ export function AdminLayout() {
               자리 배치
             </NavLink>
             <NavLink
+              to="/admin/counseling"
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                )
+              }
+            >
+              <CalendarIcon className="h-5 w-5 shrink-0" />
+              상담 캘린더
+            </NavLink>
+            <NavLink
               to="/admin/night-study"
               className={({ isActive }) =>
                 cn(
@@ -414,6 +428,25 @@ function LogoutIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+    </svg>
+  )
+}
+
+function CalendarIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 9h18" />
+      <path d="M8 3v4M16 3v4" />
+      <path d="M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01" />
     </svg>
   )
 }

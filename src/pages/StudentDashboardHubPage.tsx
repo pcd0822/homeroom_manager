@@ -193,6 +193,26 @@ export function StudentDashboardHubPage() {
           </NavLink>
 
           <NavLink
+            to="/student/counseling"
+            className={({ isActive }) =>
+              `group flex items-center gap-4 rounded-2xl border-2 p-4 shadow-md transition-all ${
+                isActive
+                  ? 'border-rose-500 bg-rose-50 ring-2 ring-rose-200'
+                  : 'border-gray-100 bg-white hover:border-rose-200'
+              }`
+            }
+          >
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-100 text-3xl shadow-inner">
+              🗣️
+            </span>
+            <div className="min-w-0 flex-1 text-left">
+              <p className="font-bold text-gray-900">내 상담 일정</p>
+              <p className="text-[11px] text-gray-500">나에게 등록된 상담 일정 확인</p>
+            </div>
+            <span className="text-gray-300 group-hover:text-rose-400">→</span>
+          </NavLink>
+
+          <NavLink
             to="/student/seed-ledger"
             className={({ isActive }) =>
               `group flex items-center gap-4 rounded-2xl border-2 p-4 shadow-md transition-all ${

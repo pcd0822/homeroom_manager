@@ -358,3 +358,40 @@ export interface SeatingAssignmentData {
   layout: SeatingLayout | null
   assignments: SeatingAssignmentRow[]
 }
+
+// ----- 상담 캘린더 -----
+
+/** 교시 하나 (전체 공통 템플릿의 한 줄) */
+export interface TimetablePeriod {
+  id: string
+  /** 표시 이름 (예: '1교시', '점심') */
+  label: string
+  /** 'HH:mm' */
+  start_time: string
+  /** 'HH:mm' */
+  end_time: string
+}
+
+export interface CounselingTimetable {
+  periods: TimetablePeriod[]
+  updated_at?: string
+}
+
+export type CalendarEventType = 'class' | 'counseling'
+
+export interface CalendarEvent {
+  event_id: string
+  /** 'YYYY-MM-DD' */
+  date: string
+  type: CalendarEventType
+  title: string
+  /** 'HH:mm' */
+  start_time: string
+  /** 'HH:mm' */
+  end_time: string
+  location: string
+  content: string
+  /** 상담 대상 학번 목록 (수업시간이면 빈 배열) */
+  student_ids: string[]
+  created_at?: string
+}
