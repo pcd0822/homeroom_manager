@@ -69,8 +69,6 @@ function injectShareMeta(
     <meta property="og:description" content="${ed}" />
     <meta property="og:url" content="${ec}" />
     <meta property="og:image" content="${ei}" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${et}" />
     <meta name="twitter:description" content="${ed}" />
