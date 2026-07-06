@@ -107,10 +107,9 @@ export default async function shareMeta(request: Request, context: Context): Pro
   let pathname = url.pathname
   if (pathname.length > 1 && pathname.endsWith('/')) pathname = pathname.slice(0, -1)
 
-  const accept = request.headers.get('accept') || ''
-  if (!accept.includes('text/html')) {
-    return context.next()
-  }
+  // 주의: Accept 헤더로 걸러내지 않는다. 카카오 등 일부 크롤러는
+  // 'Accept: text/html'을 보내지 않아, 이 게이트가 있으면 미리보기가 메인 제목으로 고정된다.
+  // 자산(js/css/이미지 등) 요청은 아래 확장자·경로 필터로 충분히 제외된다.
   if (/\.(js|mjs|css|png|jpg|jpeg|gif|svg|ico|woff2?|map|json|webp)(\?|$)/i.test(pathname)) {
     return context.next()
   }
