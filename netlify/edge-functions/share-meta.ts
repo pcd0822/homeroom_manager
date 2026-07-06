@@ -42,26 +42,39 @@ async function fetchFormTitle(gasUrl: string, formId: string): Promise<string | 
   return null
 }
 
-function injectShareMeta(html: string, title: string, desc: string, canonical: string): string {
+function injectShareMeta(
+  html: string,
+  title: string,
+  desc: string,
+  canonical: string,
+  imageUrl: string
+): string {
   const et = escapeAttr(title)
   const ed = escapeAttr(desc)
   const ec = escapeAttr(canonical)
+  const ei = escapeAttr(imageUrl)
   let out = html.replace(/<title>[^<]*<\/title>/i, `<title>${et}</title>`)
   out = out.replace(/\n\s*<meta name="description"[^>]*>\s*/gi, '\n')
   out = out.replace(/\n\s*<meta property="og:type"[^>]*>\s*/gi, '\n')
   out = out.replace(/\n\s*<meta property="og:title"[^>]*>\s*/gi, '\n')
   out = out.replace(/\n\s*<meta property="og:description"[^>]*>\s*/gi, '\n')
+  out = out.replace(/\n\s*<meta property="og:image(:width|:height)?"[^>]*>\s*/gi, '\n')
   out = out.replace(/\n\s*<meta name="twitter:card"[^>]*>\s*/gi, '\n')
   out = out.replace(/\n\s*<meta name="twitter:title"[^>]*>\s*/gi, '\n')
+  out = out.replace(/\n\s*<meta name="twitter:image"[^>]*>\s*/gi, '\n')
   const pack = `
     <meta name="description" content="${ed}" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="${et}" />
     <meta property="og:description" content="${ed}" />
     <meta property="og:url" content="${ec}" />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content="${ei}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${et}" />
     <meta name="twitter:description" content="${ed}" />
+    <meta name="twitter:image" content="${ei}" />
 `
   out = out.replace(/<\/head>/i, `${pack}  </head>`)
   return out
@@ -94,13 +107,13 @@ export default async function shareMeta(request: Request, context: Context): Pro
 
   const gasUrl = Deno.env.get('GAS_API_URL') ?? Deno.env.get('VITE_GAS_API_URL') ?? ''
 
-  let rewrite = false
+  // 크롤러 요청은 항상 재작성해 og:image까지 주입한다(홈페이지 포함).
+  let rewrite = true
   let pageTitle = '학급 경영 올인원'
   let pageDesc = '학급 문서·설문·학생 관리·게임을 한곳에서 관리합니다.'
 
   const viewMatch = pathname.match(/\/view\/([^/?#]+)/)
   if (viewMatch) {
-    rewrite = true
     const formId = viewMatch[1]
     if (gasUrl) {
       const t = await fetchFormTitle(gasUrl, formId)
@@ -141,7 +154,10 @@ export default async function shareMeta(request: Request, context: Context): Pro
 
   const html = await res.text()
   const canonical = url.href.split('#')[0]
-  const body = injectShareMeta(html, pageTitle, pageDesc, canonical)
+  // 요청 도메인 기준 절대 URL로 자동 생성 → netlify.app·커스텀 도메인 모두 대응.
+  // public/og/og-image.png 가 빌드 시 dist/og/og-image.png 로 복사되어 /og/og-image.png 로 서빙됨.
+  const imageUrl = `${url.origin}/og/og-image.png`
+  const body = injectShareMeta(html, pageTitle, pageDesc, canonical, imageUrl)
 
   const headers = new Headers(res.headers)
   headers.delete('content-length')
