@@ -78,6 +78,30 @@ function injectShareMeta(
   return out
 }
 
+/** 학급 식별자. 공유 제목 접두사로 쓰인다. 반 이름이 바뀌면 여기만 수정. */
+const CLASS_NAME = '3-5'
+
+/**
+ * 공유(크롤러) 링크의 경로별 제목·설명.
+ * 위에서부터 첫 매칭을 사용한다. 새 공유 페이지가 생기면 여기 한 줄만 추가.
+ * (/view/:id 문서는 GAS에서 실제 제목을 가져오므로 아래 표에 두지 않는다.)
+ */
+const PAGE_META: Array<{ test: RegExp; title: string; desc: string }> = [
+  { test: /^\/calendar(\/|$|\?)/, title: `${CLASS_NAME} 상담 캘린더`, desc: '학급 상담 일정을 확인합니다.' },
+  { test: /^\/student\/counseling(\/|$|\?)/, title: `${CLASS_NAME} 내 상담 일정`, desc: '학번·개인코드로 나의 상담 일정을 확인합니다.' },
+  { test: /^\/student\/dashboard(\/|$|\?)/, title: `${CLASS_NAME} 학생 대시보드`, desc: '오늘 급식·과제·일정 등 학급 정보를 한곳에서 확인합니다.' },
+  { test: /^\/student\/meal-board(\/|$|\?)/, title: `${CLASS_NAME} 급식·과제 보드`, desc: '학번·개인코드로 오늘 급식, 학사일정, 배당 과제를 확인합니다.' },
+  { test: /^\/student\/policy-board(\/|$|\?)/, title: `${CLASS_NAME} 정책 보드`, desc: '학급 정책 현황판을 확인합니다.' },
+  { test: /^\/student\/policy\/register(\/|$|\?)/, title: `${CLASS_NAME} 정책 등록`, desc: '학급 정책을 등록합니다.' },
+  { test: /^\/student\/policies(\/|$|\?)/, title: `${CLASS_NAME} 학급 정책`, desc: '학급 정책을 확인합니다.' },
+  { test: /^\/student\/seed-ledger(\/|$|\?)/, title: `${CLASS_NAME} 씨앗 원장`, desc: '나의 씨앗(포인트) 내역을 확인합니다.' },
+  { test: /^\/cleaning-result(\/|$|\?)/, title: `${CLASS_NAME} 청소구역 배정 결과`, desc: '학급 청소구역 배정 결과를 확인합니다.' },
+  { test: /^\/seating-draw(\/|$|\?)/, title: `${CLASS_NAME} 자리 뽑기`, desc: '학급 자리 배치를 확인합니다.' },
+  { test: /^\/register(\/|$|\?)/, title: `${CLASS_NAME} 학생 등록`, desc: '학급 명단에 등록합니다.' },
+  { test: /^\/play\/teacher-quiz(\/|$|\?)/, title: `${CLASS_NAME} 퀴즈쇼`, desc: '학급 퀴즈쇼에 참여합니다.' },
+  { test: /^\/game\/home-run(\/|$|\?)/, title: '집 보내주세요! | 학급 게임', desc: '담임샘을 피해 책상 장애물을 점프·슬라이드로 피하며 최대한 오래 달리세요.' },
+]
+
 export default async function shareMeta(request: Request, context: Context): Promise<Response> {
   const url = new URL(request.url)
   let pathname = url.pathname
@@ -112,32 +136,23 @@ export default async function shareMeta(request: Request, context: Context): Pro
 
   const viewMatch = pathname.match(/\/view\/([^/?#]+)/)
   if (viewMatch) {
+    // 문서: GAS에서 실제 제목을 동적으로 가져온다.
     const formId = viewMatch[1]
-    if (gasUrl) {
-      const t = await fetchFormTitle(gasUrl, formId)
-      if (t) {
-        pageTitle = `${t} | 학급 경영`
-        pageDesc = `${t} - 학급 문서·설문`
-      } else {
-        pageTitle = '문서 | 학급 경영'
-        pageDesc = '학급 문서·설문에 참여합니다.'
-      }
+    const t = gasUrl ? await fetchFormTitle(gasUrl, formId) : null
+    if (t) {
+      pageTitle = `${t} | ${CLASS_NAME} 문서`
+      pageDesc = `${t} - 학급 문서·설문`
     } else {
-      pageTitle = '문서 | 학급 경영'
+      pageTitle = `${CLASS_NAME} 문서`
       pageDesc = '학급 문서·설문에 참여합니다.'
     }
-  } else if (/\/game\/home-run(\/|$|\?)/.test(pathname)) {
-    rewrite = true
-    pageTitle = '집 보내주세요! | 학급 게임'
-    pageDesc = '담임샘을 피해 책상 장애물을 점프·슬라이드로 피하며 최대한 오래 달리세요.'
-  } else if (/\/student\/meal-board(\/|$|\?)/.test(pathname)) {
-    rewrite = true
-    pageTitle = '학급 급식·과제 보드 | 학급 경영'
-    pageDesc = '학번·개인코드로 오늘 급식, 학사일정, 배당 과제를 확인합니다.'
-  } else if (/\/cleaning-result(\/|$|\?)/.test(pathname)) {
-    rewrite = true
-    pageTitle = '청소구역 배정 결과 | 학급 경영'
-    pageDesc = '학급 청소구역 배정 결과를 확인합니다.'
+  } else {
+    // 그 외 공유 페이지: 경로 표에서 첫 매칭 제목을 사용. 없으면 기본 제목 유지.
+    const hit = PAGE_META.find((m) => m.test.test(pathname))
+    if (hit) {
+      pageTitle = hit.title
+      pageDesc = hit.desc
+    }
   }
 
   if (!rewrite) {
