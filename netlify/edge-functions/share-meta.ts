@@ -107,7 +107,7 @@ export default async function shareMeta(request: Request, context: Context): Pro
 
   // 크롤러 요청은 항상 재작성해 og:image까지 주입한다(홈페이지 포함).
   let rewrite = true
-  let pageTitle = '학급 경영 올인원'
+  let pageTitle = '3-5 학급 활동 관리앱'
   let pageDesc = '학급 문서·설문·학생 관리·게임을 한곳에서 관리합니다.'
 
   const viewMatch = pathname.match(/\/view\/([^/?#]+)/)
