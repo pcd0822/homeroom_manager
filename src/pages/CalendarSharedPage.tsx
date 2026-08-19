@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async'
 import { Link } from 'react-router-dom'
 import { authStudent, getCalendarEvents, getCounselingTimetable } from '@/api/api'
 import type { CalendarEvent, CounselingTimetable } from '@/types'
-import { CalendarBoard } from '@/components/calendar/CalendarBoard'
+import { CalendarBoard, type CalendarStudentInfo } from '@/components/calendar/CalendarBoard'
 import { toDateKey } from '@/lib/calendar'
 import { CalendarEventModal } from '@/components/calendar/CalendarEventModal'
 
@@ -15,6 +15,7 @@ interface Requester {
   student_id: string
   auth_code: string
   name?: string
+  photo_data?: string
 }
 
 /**
@@ -22,14 +23,14 @@ interface Requester {
  * 열람은 로그인 없이, 상담 신청은 학번+개인코드 로그인 후에만 가능하다.
  *
  * 개인정보 보호: 공개 링크이므로 상담 카드의 대상 학생 이름과 상담 내용은 감춘다.
- * 단, 로그인한 본인이 대상인 상담은 본인 정보이므로 내용을 그대로 보여준다.
+ * 단, 로그인한 본인이 대상인 상담은 본인 정보이므로 내용과 대상(본인)을 그대로 보여준다.
  * (본인 상담 목록은 /student/counseling 에서도 확인할 수 있다.)
  */
 function maskForPublic(events: CalendarEvent[], myId?: string): CalendarEvent[] {
   return events.map((ev) => {
     if (ev.type !== 'counseling') return ev
     const mine = !!myId && ev.student_ids.indexOf(myId) >= 0
-    if (mine) return { ...ev, title: `🙋 ${ev.title || '내 상담'}`, student_ids: [] }
+    if (mine) return { ...ev, title: ev.title || '상담', student_ids: [myId as string] }
     return { ...ev, title: ev.title || '상담', content: '', student_ids: [] }
   })
 }
@@ -87,7 +88,12 @@ export function CalendarSharedPage() {
         if (!p.student_id || !p.auth_code) return
         const res = await authStudent(p.student_id, p.auth_code)
         if (cancelled || !res.success || !res.data) return
-        setMe({ student_id: p.student_id, auth_code: p.auth_code, name: res.data.name })
+        setMe({
+          student_id: p.student_id,
+          auth_code: p.auth_code,
+          name: res.data.name,
+          photo_data: res.data.photo_data,
+        })
         setStudentId(p.student_id)
       } catch {
         // 저장된 로그인이 깨졌으면 그냥 비로그인 상태로 둔다.
@@ -100,6 +106,15 @@ export function CalendarSharedPage() {
 
   const publicEvents = useMemo(() => maskForPublic(events, me?.student_id), [events, me])
 
+  // 캘린더에 이름·사진을 띄울 수 있는 학생은 로그인한 본인뿐이다.
+  const studentsById = useMemo<Record<string, CalendarStudentInfo> | undefined>(
+    () =>
+      me
+        ? { [me.student_id]: { name: me.name || me.student_id, photo_data: me.photo_data } }
+        : undefined,
+    [me]
+  )
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!studentId.trim() || !authCode.trim()) {
@@ -111,7 +126,12 @@ export function CalendarSharedPage() {
     const res = await authStudent(studentId.trim(), authCode.trim())
     setAuthing(false)
     if (res.success && res.data) {
-      setMe({ student_id: studentId.trim(), auth_code: authCode.trim(), name: res.data.name })
+      setMe({
+        student_id: studentId.trim(),
+        auth_code: authCode.trim(),
+        name: res.data.name,
+        photo_data: res.data.photo_data,
+      })
       setShowLogin(false)
       setAuthCode('')
       setNotice('로그인했어요. 신청할 날짜의 + 버튼을 눌러 상담을 신청하세요.')
@@ -255,6 +275,7 @@ export function CalendarSharedPage() {
           <>
             <CalendarBoard
               events={publicEvents}
+              studentsById={studentsById}
               timetable={timetable}
               addable={!!me}
               onDateClick={handleDateClick}

@@ -585,6 +585,9 @@ function authStudent(studentId, authCode) {
   var sidCol = headers.indexOf('student_id');
   var codeCol = headers.indexOf('auth_code');
   var nameCol = headers.indexOf('name');
+  // photo_data 헤더가 없어도 학생 시트 7번째 열이 사진 자리다(getStudents와 동일 규칙).
+  var photoCol = headers.indexOf('photo_data');
+  if (photoCol < 0 && headers.length >= 7) photoCol = 6;
   if (sidCol < 0 || codeCol < 0) return { success: false, error: 'Column not found' };
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][sidCol]) === String(studentId) && String(data[i][codeCol]) === String(authCode)) {
@@ -592,7 +595,8 @@ function authStudent(studentId, authCode) {
         success: true,
         data: {
           student_id: data[i][sidCol],
-          name: nameCol >= 0 ? data[i][nameCol] : ''
+          name: nameCol >= 0 ? data[i][nameCol] : '',
+          photo_data: photoCol >= 0 && data[i][photoCol] != null ? String(data[i][photoCol]) : ''
         }
       };
     }

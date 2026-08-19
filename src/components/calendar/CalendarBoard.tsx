@@ -257,6 +257,10 @@ function MonthView({
   const weeks = getMonthGrid(cursor.getFullYear(), cursor.getMonth())
   const today = new Date()
   const month0 = cursor.getMonth()
+  // 칸이 좁아 기본 3건까지만 보여주고, '+n건'을 누른 날짜만 전부 펼친다.
+  const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({})
+  const toggleDay = (key: string) =>
+    setExpandedDays((cur) => ({ ...cur, [key]: !cur[key] }))
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-100">
@@ -317,7 +321,7 @@ function MonthView({
                 )}
               </div>
               <div className="space-y-0.5">
-                {dayEvents.slice(0, 3).map((ev) => (
+                {(expandedDays[key] ? dayEvents : dayEvents.slice(0, 3)).map((ev) => (
                   <button
                     key={ev.event_id}
                     type="button"
@@ -333,7 +337,13 @@ function MonthView({
                   </button>
                 ))}
                 {dayEvents.length > 3 && (
-                  <span className="block px-1 text-[10px] text-gray-400">+{dayEvents.length - 3}건</span>
+                  <button
+                    type="button"
+                    onClick={() => toggleDay(key)}
+                    className="block w-full rounded px-1 text-left text-[10px] font-medium text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  >
+                    {expandedDays[key] ? '접기 ▲' : `+${dayEvents.length - 3}건 ▼`}
+                  </button>
                 )}
               </div>
             </div>

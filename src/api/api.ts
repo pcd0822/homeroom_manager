@@ -242,7 +242,7 @@ export async function getNonResponders(formId: string) {
 }
 
 export function authStudent(studentId: string, authCode: string) {
-  return request<{ student_id: string; name: string }>('AUTH_STUDENT', 'POST', {
+  return request<{ student_id: string; name: string; photo_data?: string }>('AUTH_STUDENT', 'POST', {
     student_id: studentId,
     auth_code: authCode,
   })
