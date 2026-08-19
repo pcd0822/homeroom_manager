@@ -102,11 +102,16 @@ export function CalendarSharedPage() {
 
   const publicEvents = useMemo(() => maskForPublic(events, me?.student_id), [events, me])
 
-  // 내가 직접 신청한 상담만 모은다(교사가 등록해 준 상담은 수정·취소 대상이 아니다).
-  const myRequests = useMemo(() => {
+  // 내 상담 목록: 내가 신청한 것 + 선생님이 나를 대상으로 등록해 준 것 모두.
+  // 수정·취소는 내가 신청한 건(created_by === 나)만 가능하다 — 서버도 같은 규칙으로 막는다.
+  const myCounselings = useMemo(() => {
     if (!me) return []
     return events
-      .filter((ev) => ev.type === 'counseling' && ev.created_by === me.student_id)
+      .filter(
+        (ev) =>
+          ev.type === 'counseling' &&
+          (ev.created_by === me.student_id || ev.student_ids.indexOf(me.student_id) >= 0)
+      )
       .sort((a, b) =>
         a.date === b.date ? a.start_time.localeCompare(b.start_time) : a.date < b.date ? -1 : 1
       )
@@ -278,57 +283,71 @@ export function CalendarSharedPage() {
           )}
         </div>
 
-        {/* 내가 신청한 상담 — 눌러서 시간·내용을 고치거나 취소할 수 있다 */}
+        {/* 내 상담 일정 — 내가 신청한 건은 눌러서 수정·취소할 수 있다 */}
         {me && (
           <div className="mb-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
             <p className="mb-2 px-1 text-xs font-bold text-gray-700">
-              🙋 내가 신청한 상담
-              {myRequests.length > 0 && (
-                <span className="ml-1 font-normal text-gray-400">{myRequests.length}건</span>
+              🙋 내 상담 일정
+              {myCounselings.length > 0 && (
+                <span className="ml-1 font-normal text-gray-400">{myCounselings.length}건</span>
               )}
             </p>
-            {myRequests.length === 0 ? (
+            {myCounselings.length === 0 ? (
               <p className="px-1 py-3 text-center text-xs text-gray-400">
-                아직 신청한 상담이 없어요. 날짜의 + 버튼을 눌러 신청해 보세요.
+                아직 상담 일정이 없어요. 날짜의 + 버튼을 눌러 신청해 보세요.
               </p>
             ) : (
               <ul className="space-y-1.5">
-                {myRequests.map((ev) => {
+                {myCounselings.map((ev) => {
                   const past = ev.date < toDateKey(new Date())
-                  return (
-                    <li key={ev.event_id}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNotice('')
-                          setEditEvent(ev)
-                        }}
-                        className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left transition-colors ${
-                          past
-                            ? 'border-gray-100 bg-gray-50/70 hover:bg-gray-100'
-                            : 'border-rose-100 bg-rose-50/50 hover:border-rose-300 hover:bg-rose-50'
+                  // 내가 신청한 건만 수정·취소할 수 있다. 선생님이 잡아 준 상담은 읽기 전용.
+                  const mine = ev.created_by === me.student_id
+                  const rowClass = `flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left ${
+                    past
+                      ? 'border-gray-100 bg-gray-50/70'
+                      : mine
+                        ? 'border-rose-100 bg-rose-50/50'
+                        : 'border-sky-100 bg-sky-50/50'
+                  }`
+                  const body = (
+                    <>
+                      <span
+                        className={`shrink-0 text-xs font-bold ${past ? 'text-gray-400' : 'text-gray-800'}`}
+                      >
+                        {formatDateLabel(ev.date)}
+                      </span>
+                      <span
+                        className={`shrink-0 rounded-full bg-white px-2 py-0.5 text-[11px] font-medium ${
+                          past ? 'text-gray-400' : mine ? 'text-rose-600' : 'text-sky-600'
                         }`}
                       >
-                        <span
-                          className={`shrink-0 text-xs font-bold ${past ? 'text-gray-400' : 'text-gray-800'}`}
+                        {formatTimeRange(ev.start_time, ev.end_time)}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-xs text-gray-500">
+                        {ev.title || '상담'}
+                        {ev.location && ` · ${ev.location}`}
+                      </span>
+                      <span className="shrink-0 text-[11px] text-gray-400">
+                        {!mine ? '선생님 등록' : past ? '지난 상담' : '수정 ›'}
+                      </span>
+                    </>
+                  )
+                  return (
+                    <li key={ev.event_id}>
+                      {mine ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNotice('')
+                            setEditEvent(ev)
+                          }}
+                          className={`${rowClass} transition-colors hover:brightness-95`}
                         >
-                          {formatDateLabel(ev.date)}
-                        </span>
-                        <span
-                          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                            past ? 'bg-white text-gray-400' : 'bg-white text-rose-600'
-                          }`}
-                        >
-                          {formatTimeRange(ev.start_time, ev.end_time)}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-xs text-gray-500">
-                          {ev.title || '상담'}
-                          {ev.location && ` · ${ev.location}`}
-                        </span>
-                        <span className="shrink-0 text-[11px] text-gray-400">
-                          {past ? '지난 상담' : '수정 ›'}
-                        </span>
-                      </button>
+                          {body}
+                        </button>
+                      ) : (
+                        <div className={rowClass}>{body}</div>
+                      )}
                     </li>
                   )
                 })}
