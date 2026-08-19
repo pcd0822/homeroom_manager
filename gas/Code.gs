@@ -441,6 +441,9 @@ function handleRequest(e, method) {
       case 'GET_CALENDAR_EVENTS_FOR_STUDENT':
         result = getCalendarEventsForStudent(params.student_id);
         break;
+      case 'REQUEST_COUNSELING_EVENT':
+        result = requestCounselingEvent(params);
+        break;
       default:
         result.error = 'Unknown action: ' + action;
     }
@@ -3694,4 +3697,115 @@ function getCalendarEventsForStudent(studentId) {
     }
   }
   return { success: true, data: out };
+}
+
+// ----- 학생 상담 신청 (공유 캘린더에서 학번+개인코드로 본인 상담만 신청) -----
+
+/** 'HH:mm' → 분. 형식이 아니면 -1 */
+function _calendarTimeToMinutes(t) {
+  var m = /^(\d{1,2}):(\d{2})$/.exec(String(t == null ? '' : t).trim());
+  if (!m) return -1;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+
+/**
+ * 같은 날짜에 시간이 겹치는 일정을 찾는다. 수업/상담 구분 없이 본다
+ * (그 시간대에 선생님이 이미 잡혀 있으므로 상담 신청을 받을 수 없다).
+ * 종료가 비었거나 시작과 같으면 1분짜리 슬롯으로 간주해 '같은 시각 중복'도 잡는다.
+ */
+function _findCalendarConflict(events, date, startTime, endTime, excludeEventId) {
+  var s = _calendarTimeToMinutes(startTime);
+  if (s < 0) return null;
+  var e = _calendarTimeToMinutes(endTime);
+  if (e <= s) e = s + 1;
+  events = events || [];
+  for (var i = 0; i < events.length; i++) {
+    var ev = events[i];
+    if (!ev || ev.date !== date) continue;
+    if (excludeEventId && String(ev.event_id) === String(excludeEventId)) continue;
+    var os = _calendarTimeToMinutes(ev.start_time);
+    if (os < 0) continue;
+    var oe = _calendarTimeToMinutes(ev.end_time);
+    if (oe <= os) oe = os + 1;
+    if (s < oe && os < e) return ev;
+  }
+  return null;
+}
+
+/** 스크립트 타임존 기준 오늘 날짜 키('YYYY-MM-DD') */
+function _todayDateKey() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+/**
+ * 학생이 공유 캘린더에서 상담을 신청한다.
+ * - 학번+개인코드로 인증하고, 상담 대상은 신청자 본인으로 고정한다(임의 지정 불가).
+ * - 같은 날짜에 시간이 겹치는 일정이 먼저 저장돼 있으면 거절한다.
+ * - 두 학생이 같은 슬롯을 동시에 신청하는 경합을 막기 위해 중복검사+기록을 스크립트 락으로 감싼다.
+ */
+function requestCounselingEvent(params) {
+  params = params || {};
+  var studentId = params.student_id != null ? String(params.student_id).trim() : '';
+  var authCode = params.auth_code != null ? String(params.auth_code).trim() : '';
+  var auth = authStudent(studentId, authCode);
+  if (!auth.success) {
+    return { success: false, error: '학번 또는 개인코드가 올바르지 않습니다.' };
+  }
+
+  var date = params.date != null ? String(params.date).trim() : '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return { success: false, error: 'date(YYYY-MM-DD) required' };
+  }
+  if (date < _todayDateKey()) {
+    return { success: false, error: '지난 날짜에는 상담을 신청할 수 없습니다.' };
+  }
+
+  var startTime = _fmtTime(params.start_time);
+  if (!/^\d{2}:\d{2}$/.test(startTime)) {
+    return { success: false, error: '시작 시간을 입력해 주세요.' };
+  }
+  var endTime = _fmtTime(params.end_time) || startTime;
+  if (endTime < startTime) {
+    var tmp = startTime;
+    startTime = endTime;
+    endTime = tmp;
+  }
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+  } catch (e) {
+    return { success: false, error: '다른 신청이 처리 중입니다. 잠시 후 다시 시도해 주세요.' };
+  }
+  try {
+    // 캐시(최대 60초)를 믿으면 방금 들어온 신청을 놓칠 수 있으므로 시트에서 새로 읽는다.
+    cacheDel(CACHE_KEYS.CALENDAR_EVENTS);
+    var all = getCalendarEvents();
+    if (!all.success) return all;
+
+    var conflict = _findCalendarConflict(all.data, date, startTime, endTime, '');
+    if (conflict) {
+      var label = conflict.type === 'counseling' ? '상담' : '수업';
+      var when = conflict.end_time && conflict.end_time !== conflict.start_time
+        ? conflict.start_time + '~' + conflict.end_time
+        : conflict.start_time;
+      return {
+        success: false,
+        error: '이미 ' + label + ' 일정(' + when + ')이 있어 신청할 수 없습니다. 다른 시간을 선택해 주세요.'
+      };
+    }
+
+    return saveCalendarEvent({
+      date: date,
+      type: 'counseling',
+      title: params.title != null ? String(params.title) : '',
+      start_time: startTime,
+      end_time: endTime,
+      location: params.location != null ? String(params.location) : '',
+      content: params.content != null ? String(params.content) : '',
+      student_ids: [studentId]
+    });
+  } finally {
+    lock.releaseLock();
+  }
 }

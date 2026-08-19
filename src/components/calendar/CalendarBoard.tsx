@@ -29,8 +29,10 @@ interface CalendarBoardProps {
   studentsById?: Record<string, CalendarStudentInfo>
   /** 교시 타임테이블 — '일(day)' 뷰에서 교시별로 일정을 묶어 보여줄 때 사용 */
   timetable?: CounselingTimetable | null
-  /** 교사 화면에서만 true: 날짜 클릭으로 추가, 일정 클릭으로 편집 */
+  /** 교사 화면에서만 true: 일정 클릭으로 편집 */
   editable?: boolean
+  /** 날짜 클릭(+)으로 새 일정을 추가할 수 있는지. 미지정이면 editable을 따른다. */
+  addable?: boolean
   onDateClick?: (dateKey: string) => void
   onEventClick?: (event: CalendarEvent) => void
 }
@@ -50,6 +52,7 @@ export function CalendarBoard({
   studentsById,
   timetable,
   editable = false,
+  addable = editable,
   onDateClick,
   onEventClick,
 }: CalendarBoardProps) {
@@ -164,6 +167,7 @@ export function CalendarBoard({
           cursor={cursor}
           eventsByDate={eventsByDate}
           editable={editable}
+          addable={addable}
           onDateClick={onDateClick}
           onEventClick={onEventClick}
         />
@@ -174,6 +178,7 @@ export function CalendarBoard({
           timetable={timetable}
           studentsById={studentsById}
           editable={editable}
+          addable={addable}
           onDateClick={onDateClick}
           onEventClick={onEventClick}
         />
@@ -183,6 +188,7 @@ export function CalendarBoard({
           eventsByDate={eventsByDate}
           studentsById={studentsById}
           editable={editable}
+          addable={addable}
           onDateClick={onDateClick}
           onEventClick={onEventClick}
         />
@@ -196,7 +202,11 @@ export function CalendarBoard({
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> 상담
         </span>
-        {editable && <span className="ml-auto">날짜를 누르면 일정을 추가할 수 있어요</span>}
+        {addable && (
+          <span className="ml-auto">
+            {editable ? '날짜를 누르면 일정을 추가할 수 있어요' : '날짜를 누르면 상담을 신청할 수 있어요'}
+          </span>
+        )}
       </div>
     </div>
   )
@@ -233,12 +243,14 @@ function MonthView({
   cursor,
   eventsByDate,
   editable,
+  addable,
   onDateClick,
   onEventClick,
 }: {
   cursor: Date
   eventsByDate: Record<string, CalendarEvent[]>
   editable: boolean
+  addable: boolean
   onDateClick?: (dateKey: string) => void
   onEventClick?: (event: CalendarEvent) => void
 }) {
@@ -290,7 +302,7 @@ function MonthView({
                 >
                   {day.getDate()}
                 </span>
-                {editable && (
+                {addable && (
                   <button
                     type="button"
                     onClick={() => onDateClick?.(key)}
@@ -337,6 +349,7 @@ function WeekView({
   eventsByDate,
   studentsById,
   editable,
+  addable,
   onDateClick,
   onEventClick,
 }: {
@@ -344,6 +357,7 @@ function WeekView({
   eventsByDate: Record<string, CalendarEvent[]>
   studentsById?: Record<string, CalendarStudentInfo>
   editable: boolean
+  addable: boolean
   onDateClick?: (dateKey: string) => void
   onEventClick?: (event: CalendarEvent) => void
 }) {
@@ -366,7 +380,7 @@ function WeekView({
                 {day.getMonth() + 1}/{day.getDate()} ({WEEKDAY_LABELS[day.getDay()]})
                 {isToday && <span className="ml-1 rounded bg-sky-600 px-1 text-[10px] text-white">오늘</span>}
               </span>
-              {editable && (
+              {addable && (
                 <button
                   type="button"
                   onClick={() => onDateClick?.(key)}
@@ -412,6 +426,7 @@ function DayView({
   timetable,
   studentsById,
   editable,
+  addable,
   onDateClick,
   onEventClick,
 }: {
@@ -420,6 +435,7 @@ function DayView({
   timetable?: CounselingTimetable | null
   studentsById?: Record<string, CalendarStudentInfo>
   editable: boolean
+  addable: boolean
   onDateClick?: (dateKey: string) => void
   onEventClick?: (event: CalendarEvent) => void
 }) {
@@ -440,7 +456,7 @@ function DayView({
     <div>
       <div className="mb-2 flex items-center justify-between px-1">
         <span className="text-sm font-semibold text-gray-700">{formatDateLabel(key)}</span>
-        {editable && (
+        {addable && (
           <button
             type="button"
             onClick={() => onDateClick?.(key)}

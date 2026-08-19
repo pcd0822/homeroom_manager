@@ -587,6 +587,28 @@ export function getCalendarEventsForStudent(studentId: string) {
   return request<CalendarEvent[]>('GET_CALENDAR_EVENTS_FOR_STUDENT', 'POST', { student_id: studentId })
 }
 
+/**
+ * 학생 본인이 상담 일정을 신청한다(공유 캘린더 → 학번+개인코드 인증).
+ * 대상 학생은 서버에서 신청자 본인으로 고정되고, 같은 날짜에 시간이 겹치는
+ * 일정이 이미 있으면 등록되지 않는다.
+ */
+export function requestCounselingEvent(params: {
+  student_id: string
+  auth_code: string
+  date: string
+  title: string
+  start_time: string
+  end_time: string
+  location: string
+  content: string
+}) {
+  return request<{ event_id: string; updated: boolean }>(
+    'REQUEST_COUNSELING_EVENT',
+    'POST',
+    params as unknown as Record<string, unknown>
+  )
+}
+
 // ----- Helper: Form with parsed schema -----
 export function parseFormSchema(form: Form): FormWithParsedSchema {
   let schema: FormSchema | null = null

@@ -1,6 +1,11 @@
 import { useMemo, useState } from 'react'
 import type { CalendarEvent, CalendarEventType, CounselingTimetable, Student } from '@/types'
-import { saveCalendarEvent, deleteCalendarEvent, compareStudentIds } from '@/api/api'
+import {
+  saveCalendarEvent,
+  deleteCalendarEvent,
+  requestCounselingEvent,
+  compareStudentIds,
+} from '@/api/api'
 import { formatDateLabel } from '@/lib/calendar'
 
 interface CalendarEventModalProps {
@@ -8,7 +13,13 @@ interface CalendarEventModalProps {
   /** 편집 대상 (없으면 새로 추가) */
   existing?: CalendarEvent | null
   timetable: CounselingTimetable | null
-  students: Student[]
+  /**
+   * 학생 신청 모드. 값이 있으면 공유 캘린더에서 학생 본인이 상담을 신청하는 화면이 된다.
+   * (구분은 '상담' 고정, 대상 학생은 서버에서 본인으로 지정, 삭제 불가)
+   */
+  requester?: { student_id: string; auth_code: string; name?: string } | null
+  /** 상담 대상 선택용 학생 목록 (교사 화면 전용) */
+  students?: Student[]
   onClose: () => void
   onSaved: () => void
 }
@@ -17,14 +28,18 @@ export function CalendarEventModal({
   dateKey,
   existing,
   timetable,
-  students,
+  students = [],
+  requester,
   onClose,
   onSaved,
 }: CalendarEventModalProps) {
   const periods = timetable?.periods || []
+  const isRequest = !!requester
   const firstPeriod = periods[0]
 
-  const [type, setType] = useState<CalendarEventType>(existing?.type || 'class')
+  const [type, setType] = useState<CalendarEventType>(
+    requester ? 'counseling' : existing?.type || 'class'
+  )
   const [title, setTitle] = useState(existing?.title || '')
   const [location, setLocation] = useState(existing?.location || '')
   const [content, setContent] = useState(existing?.content || '')
@@ -72,11 +87,28 @@ export function CalendarEventModal({
       setError('시작 시간을 입력해 주세요.')
       return
     }
-    if (type === 'counseling' && selectedIds.length === 0) {
+    if (!isRequest && type === 'counseling' && selectedIds.length === 0) {
       setError('상담 대상 학생을 1명 이상 선택해 주세요.')
       return
     }
     setSaving(true)
+    if (requester) {
+      // 학생 신청: 대상은 서버에서 본인으로 고정되고, 겹치는 일정이 있으면 거절된다.
+      const reqRes = await requestCounselingEvent({
+        student_id: requester.student_id,
+        auth_code: requester.auth_code,
+        date: dateKey,
+        title: title.trim() || '상담',
+        start_time: startTime,
+        end_time: endTime || startTime,
+        location: location.trim(),
+        content: content.trim(),
+      })
+      setSaving(false)
+      if (reqRes.success) onSaved()
+      else setError(reqRes.error || '신청에 실패했습니다.')
+      return
+    }
     const res = await saveCalendarEvent({
       event_id: existing?.event_id,
       date: dateKey,
@@ -121,7 +153,7 @@ export function CalendarEventModal({
         <div className="mb-3 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-gray-900">
-              {existing ? '일정 수정' : '일정 추가'}
+              {isRequest ? '상담 신청' : existing ? '일정 수정' : '일정 추가'}
             </h2>
             <p className="text-xs text-gray-500">{formatDateLabel(dateKey)}</p>
           </div>
@@ -135,7 +167,8 @@ export function CalendarEventModal({
           </button>
         </div>
 
-        {/* 구분 토글 */}
+        {/* 구분 토글 (학생 신청 모드에서는 '상담' 고정) */}
+        {!isRequest && (
         <div className="mb-4 grid grid-cols-2 gap-2">
           {(['class', 'counseling'] as const).map((t) => (
             <button
@@ -154,6 +187,14 @@ export function CalendarEventModal({
             </button>
           ))}
         </div>
+        )}
+
+        {isRequest && (
+          <div className="mb-4 rounded-xl border-2 border-rose-100 bg-rose-50/70 px-3 py-2.5 text-xs leading-relaxed text-rose-700">
+            🙋 <b>{requester?.name || requester?.student_id}</b> 님의 상담 신청이에요. 상담 대상은 본인으로
+            자동 지정됩니다.
+          </div>
+        )}
 
         <div className="space-y-4">
           {/* 교시 빠른 선택 */}
@@ -234,6 +275,7 @@ export function CalendarEventModal({
           {/* 상담 전용: 대상 학생 + 내용 */}
           {type === 'counseling' && (
             <>
+              {!isRequest && (
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-700">
                   대상 학생 {selectedIds.length > 0 && `(${selectedIds.length}명)`}
@@ -296,6 +338,7 @@ export function CalendarEventModal({
                   )}
                 </div>
               </div>
+              )}
 
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-700">상담 내용</label>
@@ -315,7 +358,7 @@ export function CalendarEventModal({
 
         {/* 하단 버튼 */}
         <div className="mt-5 flex items-center gap-2">
-          {existing && (
+          {existing && !isRequest && (
             <button
               type="button"
               onClick={handleDelete}
@@ -338,7 +381,7 @@ export function CalendarEventModal({
             disabled={saving || deleting}
             className="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-sky-700 disabled:opacity-50"
           >
-            {saving ? '저장 중...' : '저장'}
+            {saving ? (isRequest ? '신청 중...' : '저장 중...') : isRequest ? '신청하기' : '저장'}
           </button>
         </div>
       </div>
