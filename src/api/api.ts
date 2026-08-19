@@ -609,6 +609,38 @@ export function requestCounselingEvent(params: {
   )
 }
 
+/** 학생이 자기가 신청한 상담을 수정한다. 본인이 신청한 일정만 서버에서 허용된다. */
+export function updateCounselingRequest(params: {
+  student_id: string
+  auth_code: string
+  event_id: string
+  date: string
+  title: string
+  start_time: string
+  end_time: string
+  location: string
+  content: string
+}) {
+  return request<{ event_id: string; updated: boolean }>(
+    'UPDATE_COUNSELING_REQUEST',
+    'POST',
+    params as unknown as Record<string, unknown>
+  )
+}
+
+/** 학생이 자기가 신청한 상담을 취소한다. */
+export function deleteCounselingRequest(params: {
+  student_id: string
+  auth_code: string
+  event_id: string
+}) {
+  return request<{ event_id: string }>(
+    'DELETE_COUNSELING_REQUEST',
+    'POST',
+    params as unknown as Record<string, unknown>
+  )
+}
+
 // ----- Helper: Form with parsed schema -----
 export function parseFormSchema(form: Form): FormWithParsedSchema {
   let schema: FormSchema | null = null

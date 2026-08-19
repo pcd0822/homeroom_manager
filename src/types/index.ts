@@ -394,4 +394,6 @@ export interface CalendarEvent {
   /** 상담 대상 학번 목록 (수업시간이면 빈 배열) */
   student_ids: string[]
   created_at?: string
+  /** 학생이 직접 신청한 상담이면 그 학번. 교사가 등록한 일정은 빈 값 */
+  created_by?: string
 }

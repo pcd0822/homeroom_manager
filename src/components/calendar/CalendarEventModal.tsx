@@ -4,6 +4,8 @@ import {
   saveCalendarEvent,
   deleteCalendarEvent,
   requestCounselingEvent,
+  updateCounselingRequest,
+  deleteCounselingRequest,
   compareStudentIds,
 } from '@/api/api'
 import { formatDateLabel } from '@/lib/calendar'
@@ -94,7 +96,7 @@ export function CalendarEventModal({
     setSaving(true)
     if (requester) {
       // 학생 신청: 대상은 서버에서 본인으로 고정되고, 겹치는 일정이 있으면 거절된다.
-      const reqRes = await requestCounselingEvent({
+      const payload = {
         student_id: requester.student_id,
         auth_code: requester.auth_code,
         date: dateKey,
@@ -103,10 +105,13 @@ export function CalendarEventModal({
         end_time: endTime || startTime,
         location: location.trim(),
         content: content.trim(),
-      })
+      }
+      const reqRes = existing
+        ? await updateCounselingRequest({ ...payload, event_id: existing.event_id })
+        : await requestCounselingEvent(payload)
       setSaving(false)
       if (reqRes.success) onSaved()
-      else setError(reqRes.error || '신청에 실패했습니다.')
+      else setError(reqRes.error || (existing ? '수정에 실패했습니다.' : '신청에 실패했습니다.'))
       return
     }
     const res = await saveCalendarEvent({
@@ -130,9 +135,15 @@ export function CalendarEventModal({
 
   const handleDelete = async () => {
     if (!existing) return
-    if (!confirm('이 일정을 삭제할까요?')) return
+    if (!confirm(isRequest ? '이 상담 신청을 취소할까요?' : '이 일정을 삭제할까요?')) return
     setDeleting(true)
-    const res = await deleteCalendarEvent(existing.event_id)
+    const res = requester
+      ? await deleteCounselingRequest({
+          student_id: requester.student_id,
+          auth_code: requester.auth_code,
+          event_id: existing.event_id,
+        })
+      : await deleteCalendarEvent(existing.event_id)
     setDeleting(false)
     if (res.success) {
       onSaved()
@@ -153,7 +164,13 @@ export function CalendarEventModal({
         <div className="mb-3 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-gray-900">
-              {isRequest ? '상담 신청' : existing ? '일정 수정' : '일정 추가'}
+              {isRequest
+                ? existing
+                  ? '상담 신청 수정'
+                  : '상담 신청'
+                : existing
+                  ? '일정 수정'
+                  : '일정 추가'}
             </h2>
             <p className="text-xs text-gray-500">{formatDateLabel(dateKey)}</p>
           </div>
@@ -358,14 +375,14 @@ export function CalendarEventModal({
 
         {/* 하단 버튼 */}
         <div className="mt-5 flex items-center gap-2">
-          {existing && !isRequest && (
+          {existing && (
             <button
               type="button"
               onClick={handleDelete}
               disabled={deleting || saving}
               className="rounded-xl border border-red-200 px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
             >
-              {deleting ? '삭제 중...' : '삭제'}
+              {deleting ? (isRequest ? '취소 중...' : '삭제 중...') : isRequest ? '신청 취소' : '삭제'}
             </button>
           )}
           <button
@@ -381,7 +398,15 @@ export function CalendarEventModal({
             disabled={saving || deleting}
             className="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-sky-700 disabled:opacity-50"
           >
-            {saving ? (isRequest ? '신청 중...' : '저장 중...') : isRequest ? '신청하기' : '저장'}
+            {saving
+              ? isRequest
+                ? '보내는 중...'
+                : '저장 중...'
+              : isRequest
+                ? existing
+                  ? '수정하기'
+                  : '신청하기'
+                : '저장'}
           </button>
         </div>
       </div>
@@ -399,8 +424,11 @@ function StudentAvatar({
   size: 'sm' | 'md'
 }) {
   const cls = size === 'sm' ? 'h-5 w-5' : 'h-8 w-8'
-  if (student?.photo_data) {
-    return <img src={student.photo_data} alt="" className={`${cls} rounded-full object-cover`} />
+  // 사진 값이 data: URI가 아니면 base64로 간주해 접두사를 붙인다(다른 화면과 동일 규칙).
+  const photo = student?.photo_data
+  if (photo) {
+    const src = photo.startsWith('data:') ? photo : `data:image/jpeg;base64,${photo}`
+    return <img src={src} alt="" className={`${cls} rounded-full object-cover`} />
   }
   return (
     <span

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { authStudent, getCalendarEvents, getCounselingTimetable } from '@/api/api'
 import type { CalendarEvent, CounselingTimetable } from '@/types'
 import { CalendarBoard, type CalendarStudentInfo } from '@/components/calendar/CalendarBoard'
-import { toDateKey } from '@/lib/calendar'
+import { formatDateLabel, formatTimeRange, toDateKey } from '@/lib/calendar'
 import { CalendarEventModal } from '@/components/calendar/CalendarEventModal'
 
 const LOGIN_KEY = 'homeroom_login'
@@ -49,14 +49,10 @@ export function CalendarSharedPage() {
   const [authError, setAuthError] = useState('')
   const [authing, setAuthing] = useState(false)
 
-  // 신청 모달 + 안내 메시지
+  // 신청 모달(새 신청 / 내 신청 수정) + 안내 메시지
   const [requestDate, setRequestDate] = useState<string | null>(null)
+  const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null)
   const [notice, setNotice] = useState('')
-
-  const loadEvents = async () => {
-    const res = await getCalendarEvents()
-    if (res.success && res.data) setEvents(res.data)
-  }
 
   useEffect(() => {
     let cancelled = false
@@ -105,6 +101,16 @@ export function CalendarSharedPage() {
   }, [])
 
   const publicEvents = useMemo(() => maskForPublic(events, me?.student_id), [events, me])
+
+  // 내가 직접 신청한 상담만 모은다(교사가 등록해 준 상담은 수정·취소 대상이 아니다).
+  const myRequests = useMemo(() => {
+    if (!me) return []
+    return events
+      .filter((ev) => ev.type === 'counseling' && ev.created_by === me.student_id)
+      .sort((a, b) =>
+        a.date === b.date ? a.start_time.localeCompare(b.start_time) : a.date < b.date ? -1 : 1
+      )
+  }, [events, me])
 
   // 캘린더에 이름·사진을 띄울 수 있는 학생은 로그인한 본인뿐이다.
   const studentsById = useMemo<Record<string, CalendarStudentInfo> | undefined>(
@@ -162,10 +168,21 @@ export function CalendarSharedPage() {
     setRequestDate(dateKey)
   }
 
-  const handleRequested = async () => {
+  const closeModal = () => {
     setRequestDate(null)
-    setNotice('상담 신청이 등록되었어요. 캘린더에서 확인할 수 있어요.')
-    await loadEvents()
+    setEditEvent(null)
+  }
+
+  /** 신청·수정·취소가 끝난 뒤: 목록을 새로 받아 무엇이 일어났는지 알려 준다. */
+  const handleSaved = async () => {
+    const editedId = editEvent?.event_id
+    closeModal()
+    const res = await getCalendarEvents()
+    const list = res.success && res.data ? res.data : events
+    setEvents(list)
+    if (!editedId) setNotice('상담 신청이 등록되었어요. 캘린더에서 확인할 수 있어요.')
+    else if (list.some((ev) => ev.event_id === editedId)) setNotice('상담 신청을 수정했어요.')
+    else setNotice('상담 신청을 취소했어요.')
   }
 
   return (
@@ -261,6 +278,65 @@ export function CalendarSharedPage() {
           )}
         </div>
 
+        {/* 내가 신청한 상담 — 눌러서 시간·내용을 고치거나 취소할 수 있다 */}
+        {me && (
+          <div className="mb-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
+            <p className="mb-2 px-1 text-xs font-bold text-gray-700">
+              🙋 내가 신청한 상담
+              {myRequests.length > 0 && (
+                <span className="ml-1 font-normal text-gray-400">{myRequests.length}건</span>
+              )}
+            </p>
+            {myRequests.length === 0 ? (
+              <p className="px-1 py-3 text-center text-xs text-gray-400">
+                아직 신청한 상담이 없어요. 날짜의 + 버튼을 눌러 신청해 보세요.
+              </p>
+            ) : (
+              <ul className="space-y-1.5">
+                {myRequests.map((ev) => {
+                  const past = ev.date < toDateKey(new Date())
+                  return (
+                    <li key={ev.event_id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNotice('')
+                          setEditEvent(ev)
+                        }}
+                        className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left transition-colors ${
+                          past
+                            ? 'border-gray-100 bg-gray-50/70 hover:bg-gray-100'
+                            : 'border-rose-100 bg-rose-50/50 hover:border-rose-300 hover:bg-rose-50'
+                        }`}
+                      >
+                        <span
+                          className={`shrink-0 text-xs font-bold ${past ? 'text-gray-400' : 'text-gray-800'}`}
+                        >
+                          {formatDateLabel(ev.date)}
+                        </span>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                            past ? 'bg-white text-gray-400' : 'bg-white text-rose-600'
+                          }`}
+                        >
+                          {formatTimeRange(ev.start_time, ev.end_time)}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-xs text-gray-500">
+                          {ev.title || '상담'}
+                          {ev.location && ` · ${ev.location}`}
+                        </span>
+                        <span className="shrink-0 text-[11px] text-gray-400">
+                          {past ? '지난 상담' : '수정 ›'}
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+
         {notice && (
           <p className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-center text-xs font-medium text-emerald-700">
             {notice}
@@ -292,13 +368,14 @@ export function CalendarSharedPage() {
         )}
       </div>
 
-      {requestDate && me && (
+      {me && (requestDate || editEvent) && (
         <CalendarEventModal
-          dateKey={requestDate}
+          dateKey={editEvent ? editEvent.date : (requestDate as string)}
+          existing={editEvent}
           timetable={timetable}
           requester={me}
-          onClose={() => setRequestDate(null)}
-          onSaved={handleRequested}
+          onClose={closeModal}
+          onSaved={handleSaved}
         />
       )}
     </div>

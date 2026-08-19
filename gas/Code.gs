@@ -444,6 +444,12 @@ function handleRequest(e, method) {
       case 'REQUEST_COUNSELING_EVENT':
         result = requestCounselingEvent(params);
         break;
+      case 'UPDATE_COUNSELING_REQUEST':
+        result = updateCounselingRequest(params);
+        break;
+      case 'DELETE_COUNSELING_REQUEST':
+        result = deleteCounselingRequest(params);
+        break;
       default:
         result.error = 'Unknown action: ' + action;
     }
@@ -3427,7 +3433,8 @@ var CALENDAR_EVENT_HEADERS = [
   'location',
   'content',
   'student_ids', // JSON 배열 문자열 (상담 대상 학번들)
-  'created_at'
+  'created_at',
+  'created_by'   // 학생이 직접 신청한 경우 그 학번. 교사가 등록한 일정은 빈 값
 ];
 
 function getOrCreateCounselingTimetableSheet() {
@@ -3446,6 +3453,16 @@ function getOrCreateCalendarEventsSheet() {
   if (!sheet) {
     sheet = ss.insertSheet(SHEETS.CALENDAR_EVENTS);
     sheet.getRange(1, 1, 1, CALENDAR_EVENT_HEADERS.length).setValues([CALENDAR_EVENT_HEADERS]);
+  } else {
+    // 헤더가 늘어난 뒤(created_by) 만들어진 시트가 아니면 빠진 열을 뒤에 덧붙인다. 1회성 마이그레이션.
+    var lastCol = sheet.getLastColumn();
+    var headerRow = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(String) : [];
+    for (var hi = 0; hi < CALENDAR_EVENT_HEADERS.length; hi++) {
+      if (headerRow.indexOf(CALENDAR_EVENT_HEADERS[hi]) < 0) {
+        sheet.getRange(1, headerRow.length + 1).setValue(CALENDAR_EVENT_HEADERS[hi]);
+        headerRow.push(CALENDAR_EVENT_HEADERS[hi]);
+      }
+    }
   }
   // 날짜/시간/자유입력 문자열이 Sheets에 의해 Date·시간 값으로 자동 변환되면
   // 다시 읽을 때 형식이 깨진다(예: 장소 칸에 'Sun Mar 01 2026 …'). 전 열을 텍스트(@) 서식으로 강제한다.
@@ -3549,7 +3566,8 @@ function _calendarRowToObject(row, col) {
     location: _fmtText(row[col.location]),
     content: _fmtText(row[col.content]),
     student_ids: ids.map(String),
-    created_at: row[col.created_at] != null ? String(row[col.created_at]) : ''
+    created_at: row[col.created_at] != null ? String(row[col.created_at]) : '',
+    created_by: row[col.created_by] != null ? String(row[col.created_by]) : ''
   };
 }
 
@@ -3626,10 +3644,14 @@ function saveCalendarEvent(params) {
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][col.event_id]) === eventId) {
         var createdAt = data[i][col.created_at] != null ? String(data[i][col.created_at]) : new Date().toISOString();
+        // 신청자(created_by)는 최초 기록이 진실이다. 교사가 내용을 고쳐도 지우지 않는다.
+        var createdBy = data[i][col.created_by] != null ? String(data[i][col.created_by]) : '';
+        if (!createdBy && params.created_by) createdBy = String(params.created_by);
         var updated = _buildCalendarRow(headers, col, {
           event_id: eventId, date: date, type: type, title: title,
           start_time: startTime, end_time: endTime, location: location,
-          content: content, student_ids: studentIdsJson, created_at: createdAt
+          content: content, student_ids: studentIdsJson, created_at: createdAt,
+          created_by: createdBy
         });
         sheet.getRange(i + 1, 1, 1, headers.length).setValues([updated]);
         return { success: true, data: { event_id: eventId, updated: true } };
@@ -3643,27 +3665,33 @@ function saveCalendarEvent(params) {
   var rowOut = _buildCalendarRow(headers, col, {
     event_id: newId, date: date, type: type, title: title,
     start_time: startTime, end_time: endTime, location: location,
-    content: content, student_ids: studentIdsJson, created_at: createdNow
+    content: content, student_ids: studentIdsJson, created_at: createdNow,
+    created_by: params.created_by != null ? String(params.created_by) : ''
   });
   var r = sheet.getLastRow() + 1;
   sheet.getRange(r, 1, 1, headers.length).setValues([rowOut]);
   return { success: true, data: { event_id: newId, updated: false } };
 }
 
-/** 헤더 순서에 맞춰 행 배열 구성 */
+/** 헤더 순서에 맞춰 행 배열 구성. 시트에 없는 열(구버전 시트의 created_by 등)은 건너뛴다. */
 function _buildCalendarRow(headers, col, obj) {
   var row = [];
   for (var i = 0; i < headers.length; i++) row.push('');
-  row[col.event_id] = obj.event_id;
-  row[col.date] = obj.date;
-  row[col.type] = obj.type;
-  row[col.title] = obj.title;
-  row[col.start_time] = obj.start_time;
-  row[col.end_time] = obj.end_time;
-  row[col.location] = obj.location;
-  row[col.content] = obj.content;
-  row[col.student_ids] = obj.student_ids;
-  row[col.created_at] = obj.created_at;
+  function put(key, val) {
+    var idx = col[key];
+    if (idx != null && idx >= 0 && idx < row.length) row[idx] = val == null ? '' : val;
+  }
+  put('event_id', obj.event_id);
+  put('date', obj.date);
+  put('type', obj.type);
+  put('title', obj.title);
+  put('start_time', obj.start_time);
+  put('end_time', obj.end_time);
+  put('location', obj.location);
+  put('content', obj.content);
+  put('student_ids', obj.student_ids);
+  put('created_at', obj.created_at);
+  put('created_by', obj.created_by);
   return row;
 }
 
@@ -3756,24 +3784,11 @@ function requestCounselingEvent(params) {
     return { success: false, error: '학번 또는 개인코드가 올바르지 않습니다.' };
   }
 
-  var date = params.date != null ? String(params.date).trim() : '';
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return { success: false, error: 'date(YYYY-MM-DD) required' };
-  }
-  if (date < _todayDateKey()) {
-    return { success: false, error: '지난 날짜에는 상담을 신청할 수 없습니다.' };
-  }
-
-  var startTime = _fmtTime(params.start_time);
-  if (!/^\d{2}:\d{2}$/.test(startTime)) {
-    return { success: false, error: '시작 시간을 입력해 주세요.' };
-  }
-  var endTime = _fmtTime(params.end_time) || startTime;
-  if (endTime < startTime) {
-    var tmp = startTime;
-    startTime = endTime;
-    endTime = tmp;
-  }
+  var slot = _normalizeCounselingSlot(params);
+  if (slot.error) return { success: false, error: slot.error };
+  var date = slot.date;
+  var startTime = slot.start_time;
+  var endTime = slot.end_time;
 
   var lock = LockService.getScriptLock();
   try {
@@ -3788,20 +3803,12 @@ function requestCounselingEvent(params) {
     if (!all.success) return all;
 
     var conflict = _findCalendarConflict(all.data, date, startTime, endTime, '');
-    if (conflict) {
-      var label = conflict.type === 'counseling' ? '상담' : '수업';
-      var when = conflict.end_time && conflict.end_time !== conflict.start_time
-        ? conflict.start_time + '~' + conflict.end_time
-        : conflict.start_time;
-      return {
-        success: false,
-        error: '이미 ' + label + ' 일정(' + when + ')이 있어 신청할 수 없습니다. 다른 시간을 선택해 주세요.'
-      };
-    }
+    if (conflict) return { success: false, error: _calendarConflictMessage(conflict) };
 
     return saveCalendarEvent({
       date: date,
       type: 'counseling',
+      created_by: studentId,
       title: params.title != null ? String(params.title) : '',
       start_time: startTime,
       end_time: endTime,
@@ -3812,4 +3819,132 @@ function requestCounselingEvent(params) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/** 학생 신청/수정 공통 입력 검증. 날짜·시간을 정규화해 돌려주고, 문제가 있으면 error를 담는다. */
+function _normalizeCounselingSlot(params) {
+  params = params || {};
+  var date = params.date != null ? String(params.date).trim() : '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return { error: 'date(YYYY-MM-DD) required' };
+  }
+  if (date < _todayDateKey()) {
+    return { error: '지난 날짜에는 상담을 신청할 수 없습니다.' };
+  }
+  var startTime = _fmtTime(params.start_time);
+  if (!/^\d{2}:\d{2}$/.test(startTime)) {
+    return { error: '시작 시간을 입력해 주세요.' };
+  }
+  var endTime = _fmtTime(params.end_time) || startTime;
+  if (endTime < startTime) {
+    var tmp = startTime;
+    startTime = endTime;
+    endTime = tmp;
+  }
+  return { date: date, start_time: startTime, end_time: endTime };
+}
+
+/** 겹치는 일정 안내 문구. 남의 상담이어도 시간만 알려 주고 대상·내용은 밝히지 않는다. */
+function _calendarConflictMessage(conflict) {
+  var label = conflict.type === 'counseling' ? '상담' : '수업';
+  var when = conflict.end_time && conflict.end_time !== conflict.start_time
+    ? conflict.start_time + '~' + conflict.end_time
+    : conflict.start_time;
+  return '이미 ' + label + ' 일정(' + when + ')이 있어 신청할 수 없습니다. 다른 시간을 선택해 주세요.';
+}
+
+/**
+ * 학생이 직접 신청한 상담인지 확인한다.
+ * 교사가 등록한 상담(created_by 빈 값)은 학생이 고치거나 지울 수 없다.
+ */
+function _findOwnCounselingRequest(events, eventId, studentId) {
+  events = events || [];
+  for (var i = 0; i < events.length; i++) {
+    var ev = events[i];
+    if (String(ev.event_id) !== String(eventId)) continue;
+    if (ev.type !== 'counseling' || String(ev.created_by || '') !== String(studentId)) {
+      return { error: '본인이 신청한 상담만 수정하거나 취소할 수 있습니다.' };
+    }
+    return { event: ev };
+  }
+  return { error: '이미 삭제된 일정입니다. 화면을 새로고침해 주세요.' };
+}
+
+/** 학생 신청/수정/취소 공통: 학번+개인코드 인증 */
+function _authCounselingRequester(params) {
+  var studentId = params.student_id != null ? String(params.student_id).trim() : '';
+  var authCode = params.auth_code != null ? String(params.auth_code).trim() : '';
+  var auth = authStudent(studentId, authCode);
+  if (!auth.success) return { error: '학번 또는 개인코드가 올바르지 않습니다.' };
+  return { student_id: studentId };
+}
+
+/**
+ * 학생이 자기가 신청한 상담을 수정한다.
+ * 대상 학생과 신청자는 그대로 두고 날짜/시간/제목/장소/내용만 바꾼다.
+ * 자기 자신을 제외한 다른 일정과 겹치면 거절한다.
+ */
+function updateCounselingRequest(params) {
+  params = params || {};
+  var who = _authCounselingRequester(params);
+  if (who.error) return { success: false, error: who.error };
+  var studentId = who.student_id;
+
+  var eventId = params.event_id != null ? String(params.event_id).trim() : '';
+  if (!eventId) return { success: false, error: 'event_id required' };
+
+  var slot = _normalizeCounselingSlot(params);
+  if (slot.error) return { success: false, error: slot.error };
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+  } catch (e) {
+    return { success: false, error: '다른 신청이 처리 중입니다. 잠시 후 다시 시도해 주세요.' };
+  }
+  try {
+    cacheDel(CACHE_KEYS.CALENDAR_EVENTS);
+    var all = getCalendarEvents();
+    if (!all.success) return all;
+
+    var own = _findOwnCounselingRequest(all.data, eventId, studentId);
+    if (own.error) return { success: false, error: own.error };
+
+    var conflict = _findCalendarConflict(all.data, slot.date, slot.start_time, slot.end_time, eventId);
+    if (conflict) return { success: false, error: _calendarConflictMessage(conflict) };
+
+    return saveCalendarEvent({
+      event_id: eventId,
+      date: slot.date,
+      type: 'counseling',
+      created_by: studentId,
+      title: params.title != null ? String(params.title) : '',
+      start_time: slot.start_time,
+      end_time: slot.end_time,
+      location: params.location != null ? String(params.location) : '',
+      content: params.content != null ? String(params.content) : '',
+      student_ids: [studentId]
+    });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 학생이 자기가 신청한 상담을 취소(삭제)한다. */
+function deleteCounselingRequest(params) {
+  params = params || {};
+  var who = _authCounselingRequester(params);
+  if (who.error) return { success: false, error: who.error };
+
+  var eventId = params.event_id != null ? String(params.event_id).trim() : '';
+  if (!eventId) return { success: false, error: 'event_id required' };
+
+  cacheDel(CACHE_KEYS.CALENDAR_EVENTS);
+  var all = getCalendarEvents();
+  if (!all.success) return all;
+
+  var own = _findOwnCounselingRequest(all.data, eventId, who.student_id);
+  if (own.error) return { success: false, error: own.error };
+
+  return deleteCalendarEvent(eventId);
 }

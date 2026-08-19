@@ -596,7 +596,11 @@ function TableView({
                     담임샘
                   </span>
                 ) : ev.student_ids.length > 0 ? (
-                  ev.student_ids.map((id) => studentsById?.[id]?.name || id).join(', ')
+                  <div className="flex flex-wrap items-center gap-1">
+                    {ev.student_ids.map((id) => (
+                      <StudentChip key={id} id={id} info={studentsById?.[id]} />
+                    ))}
+                  </div>
                 ) : (
                   '-'
                 )}
@@ -606,6 +610,29 @@ function TableView({
         </tbody>
       </table>
     </div>
+  )
+}
+
+/** 사진 값이 data: URI가 아니면 base64로 간주해 접두사를 붙인다(다른 화면과 동일 규칙). */
+function photoSrc(photo?: string): string {
+  if (!photo) return ''
+  return photo.startsWith('data:') ? photo : `data:image/jpeg;base64,${photo}`
+}
+
+/** 상담 대상 학생 칩 (사진 + 이름). 사진이 없으면 이름 첫 글자 아바타로 대체 */
+function StudentChip({ id, info }: { id: string; info?: CalendarStudentInfo }) {
+  const src = photoSrc(info?.photo_data)
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 py-0.5 pl-0.5 pr-2 text-[10px] text-gray-600">
+      {src ? (
+        <img src={src} alt="" className="h-4 w-4 rounded-full object-cover" />
+      ) : (
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-gray-300 text-[8px] text-white">
+          {(info?.name || id).slice(0, 1)}
+        </span>
+      )}
+      {info?.name || id}
+    </span>
   )
 }
 
@@ -650,24 +677,9 @@ function EventRow({
         )}
         {ev.type === 'counseling' && ev.student_ids.length > 0 && (
           <div className="mt-1 flex flex-wrap items-center gap-1">
-            {ev.student_ids.map((id) => {
-              const s = studentsById?.[id]
-              return (
-                <span
-                  key={id}
-                  className="inline-flex items-center gap-1 rounded-full bg-gray-100 py-0.5 pl-0.5 pr-2 text-[10px] text-gray-600"
-                >
-                  {s?.photo_data ? (
-                    <img src={s.photo_data} alt="" className="h-4 w-4 rounded-full object-cover" />
-                  ) : (
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-gray-300 text-[8px] text-white">
-                      {(s?.name || id).slice(0, 1)}
-                    </span>
-                  )}
-                  {s?.name || id}
-                </span>
-              )
-            })}
+            {ev.student_ids.map((id) => (
+              <StudentChip key={id} id={id} info={studentsById?.[id]} />
+            ))}
           </div>
         )}
       </div>
