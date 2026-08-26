@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { Link } from 'react-router-dom'
 import {
@@ -102,10 +102,10 @@ export function CalendarSharedPage() {
   // 학부모: 자녀 선택 + 이 브라우저의 신청 목록
   const [roster, setRoster] = useState<CounselingRosterStudent[]>([])
   const [rosterLoading, setRosterLoading] = useState(false)
-  /** 명단을 한 번이라도 받아 봤는지. 빈 반·오류일 때 재요청이 반복되지 않게 막는다. */
-  const [rosterFetched, setRosterFetched] = useState(false)
   const [rosterError, setRosterError] = useState('')
   const [child, setChild] = useState<CounselingRosterStudent | null>(null)
+  /** 명단을 이미 요청했는지 (중복 요청 방지) */
+  const rosterRequested = useRef(false)
   const [tickets, setTickets] = useState<ParentTicket[]>(() => readParentTickets())
 
   // 신청 모달(새 신청 / 내 신청 수정) + 안내 메시지
@@ -172,34 +172,38 @@ export function CalendarSharedPage() {
     }
   }, [])
 
+  /**
+   * 자녀 선택용 명단 로드.
+   * 요청 여부를 ref로 기억한다 — 로딩 상태를 의존성에 두면 이펙트가 재실행되며
+   * cleanup으로 자기 요청을 취소해 로딩이 끝나지 않는다.
+   */
+  const loadRoster = useCallback(async () => {
+    rosterRequested.current = true
+    setRosterLoading(true)
+    setRosterError('')
+    const res = await getCounselingRoster()
+    setRosterLoading(false)
+    if (res.success && res.data) {
+      setRoster(res.data)
+      try {
+        const savedId = localStorage.getItem(PARENT_CHILD_KEY)
+        const found = savedId ? res.data.find((s) => s.student_id === savedId) : undefined
+        if (found) setChild(found)
+      } catch {
+        // ignore
+      }
+    } else {
+      // 실패하면 '다시 시도'로 재요청할 수 있게 열어 둔다.
+      rosterRequested.current = false
+      setRosterError(res.error || '학생 명단을 불러오지 못했습니다.')
+    }
+  }, [])
+
   // 학부모 모드가 되면 자녀 선택용 명단을 불러온다.
   useEffect(() => {
-    if (role !== 'parent' || rosterFetched || rosterLoading) return
-    let cancelled = false
-    ;(async () => {
-      setRosterLoading(true)
-      setRosterError('')
-      const res = await getCounselingRoster()
-      if (cancelled) return
-      setRosterLoading(false)
-      setRosterFetched(true)
-      if (res.success && res.data) {
-        setRoster(res.data)
-        try {
-          const savedId = localStorage.getItem(PARENT_CHILD_KEY)
-          const found = savedId ? res.data.find((s) => s.student_id === savedId) : undefined
-          if (found) setChild(found)
-        } catch {
-          // ignore
-        }
-      } else {
-        setRosterError(res.error || '학생 명단을 불러오지 못했습니다.')
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [role, rosterFetched, rosterLoading])
+    if (role !== 'parent' || rosterRequested.current) return
+    void loadRoster()
+  }, [role, loadRoster])
 
   const isParent = role === 'parent'
   /** 이 브라우저에서 학부모로 신청한 일정 id */
@@ -480,7 +484,16 @@ export function CalendarSharedPage() {
                     학생 명단을 불러오는 중...
                   </p>
                 ) : rosterError ? (
-                  <p className="text-xs text-red-600">{rosterError}</p>
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-red-600">{rosterError}</p>
+                    <button
+                      type="button"
+                      onClick={() => void loadRoster()}
+                      className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      다시 시도
+                    </button>
+                  </div>
                 ) : (
                   <ChildPicker students={roster} onSelect={selectChild} />
                 )}
