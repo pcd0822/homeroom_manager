@@ -450,6 +450,18 @@ function handleRequest(e, method) {
       case 'DELETE_COUNSELING_REQUEST':
         result = deleteCounselingRequest(params);
         break;
+      case 'GET_COUNSELING_ROSTER':
+        result = getCounselingRoster();
+        break;
+      case 'REQUEST_PARENT_COUNSELING_EVENT':
+        result = requestParentCounselingEvent(params);
+        break;
+      case 'UPDATE_PARENT_COUNSELING_REQUEST':
+        result = updateParentCounselingRequest(params);
+        break;
+      case 'DELETE_PARENT_COUNSELING_REQUEST':
+        result = deleteParentCounselingRequest(params);
+        break;
       default:
         result.error = 'Unknown action: ' + action;
     }
@@ -3434,7 +3446,9 @@ var CALENDAR_EVENT_HEADERS = [
   'content',
   'student_ids', // JSON 배열 문자열 (상담 대상 학번들)
   'created_at',
-  'created_by'   // 학생이 직접 신청한 경우 그 학번. 교사가 등록한 일정은 빈 값
+  'created_by',      // 학생이 직접 신청한 경우 그 학번. 교사·학부모가 등록한 일정은 빈 값
+  'requester_role',  // '' (교사 등록) | 'parent' (학부모가 로그인 없이 신청). 학생 신청은 created_by로 판별한다
+  'request_token'    // 학부모 신청 전용. 로그인이 없으므로 이 토큰을 가진 브라우저만 수정·취소할 수 있다
 ];
 
 function getOrCreateCounselingTimetableSheet() {
@@ -3567,7 +3581,9 @@ function _calendarRowToObject(row, col) {
     content: _fmtText(row[col.content]),
     student_ids: ids.map(String),
     created_at: row[col.created_at] != null ? String(row[col.created_at]) : '',
-    created_by: row[col.created_by] != null ? String(row[col.created_by]) : ''
+    created_by: row[col.created_by] != null ? String(row[col.created_by]) : '',
+    requester_role: row[col.requester_role] != null ? String(row[col.requester_role]) : ''
+    // request_token은 공개 조회(GET_CALENDAR_EVENTS)로 새어 나가면 안 되므로 포함하지 않는다.
   };
 }
 
@@ -3647,11 +3663,16 @@ function saveCalendarEvent(params) {
         // 신청자(created_by)는 최초 기록이 진실이다. 교사가 내용을 고쳐도 지우지 않는다.
         var createdBy = data[i][col.created_by] != null ? String(data[i][col.created_by]) : '';
         if (!createdBy && params.created_by) createdBy = String(params.created_by);
+        // 신청 주체(학부모 여부)와 신청 토큰도 최초 기록이 진실이다. 교사가 고쳐도 지우지 않는다.
+        var reqRole = data[i][col.requester_role] != null ? String(data[i][col.requester_role]) : '';
+        if (!reqRole && params.requester_role) reqRole = String(params.requester_role);
+        var reqToken = data[i][col.request_token] != null ? String(data[i][col.request_token]) : '';
+        if (!reqToken && params.request_token) reqToken = String(params.request_token);
         var updated = _buildCalendarRow(headers, col, {
           event_id: eventId, date: date, type: type, title: title,
           start_time: startTime, end_time: endTime, location: location,
           content: content, student_ids: studentIdsJson, created_at: createdAt,
-          created_by: createdBy
+          created_by: createdBy, requester_role: reqRole, request_token: reqToken
         });
         sheet.getRange(i + 1, 1, 1, headers.length).setValues([updated]);
         return { success: true, data: { event_id: eventId, updated: true } };
@@ -3666,7 +3687,9 @@ function saveCalendarEvent(params) {
     event_id: newId, date: date, type: type, title: title,
     start_time: startTime, end_time: endTime, location: location,
     content: content, student_ids: studentIdsJson, created_at: createdNow,
-    created_by: params.created_by != null ? String(params.created_by) : ''
+    created_by: params.created_by != null ? String(params.created_by) : '',
+    requester_role: params.requester_role != null ? String(params.requester_role) : '',
+    request_token: params.request_token != null ? String(params.request_token) : ''
   });
   var r = sheet.getLastRow() + 1;
   sheet.getRange(r, 1, 1, headers.length).setValues([rowOut]);
@@ -3692,6 +3715,8 @@ function _buildCalendarRow(headers, col, obj) {
   put('student_ids', obj.student_ids);
   put('created_at', obj.created_at);
   put('created_by', obj.created_by);
+  put('requester_role', obj.requester_role);
+  put('request_token', obj.request_token);
   return row;
 }
 
@@ -3947,4 +3972,190 @@ function deleteCounselingRequest(params) {
   if (own.error) return { success: false, error: own.error };
 
   return deleteCalendarEvent(eventId);
+}
+
+// ----- 학부모 상담 신청 (공유 캘린더 → 로그인 없이 자녀를 골라 신청) -----
+// 학부모는 계정이 없다. 그래서
+//  1) 신청할 때 자녀(학생)를 목록에서 고르게 하고, 그 학생을 상담 대상으로 기록한다.
+//  2) requester_role='parent'로 표시해 교사 화면에서 '학부모 신청'임을 알 수 있게 한다.
+//  3) 신청 시 1회용 request_token을 발급해 신청한 브라우저에만 저장한다.
+//     수정·취소는 이 토큰을 제시한 요청만 허용한다(남의 신청은 건드릴 수 없다).
+
+/**
+ * 학부모의 '자녀 선택' 드롭다운용 학생 명단.
+ * 개인코드(auth_code)는 절대 내보내지 않는다. 사진·이름·학번만 준다.
+ */
+function getCounselingRoster() {
+  var res = getStudents();
+  if (!res.success) return res;
+  var out = (res.data || []).map(function (s) {
+    return {
+      student_id: String(s.student_id || ''),
+      name: String(s.name || ''),
+      photo_data: s.photo_data != null ? String(s.photo_data) : ''
+    };
+  }).filter(function (s) { return s.student_id; });
+  return { success: true, data: out };
+}
+
+/** 학번이 실제 우리 반 학생인지 확인하고 이름을 돌려준다. */
+function _findRosterStudent(studentId) {
+  studentId = studentId != null ? String(studentId).trim() : '';
+  if (!studentId) return { error: '자녀(학생)를 선택해 주세요.' };
+  var res = getStudents();
+  if (!res.success) return { error: res.error || '학생 명단을 불러오지 못했습니다.' };
+  var list = res.data || [];
+  for (var i = 0; i < list.length; i++) {
+    if (String(list[i].student_id) === studentId) {
+      return { student_id: studentId, name: String(list[i].name || '') };
+    }
+  }
+  return { error: '학생 명단에 없는 학번입니다. 자녀를 다시 선택해 주세요.' };
+}
+
+/** 시트에서 해당 일정의 신청 주체·토큰만 직접 읽는다(캐시/공개 응답에는 토큰이 없다). */
+function _getCalendarRequestMeta(eventId) {
+  eventId = eventId != null ? String(eventId).trim() : '';
+  if (!eventId) return null;
+  var sheet = getOrCreateCalendarEventsSheet();
+  if (sheet.getLastRow() < 2) return null;
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0].map(String);
+  var col = _calendarColMap(headers);
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][col.event_id]) === eventId) {
+      return {
+        requester_role: data[i][col.requester_role] != null ? String(data[i][col.requester_role]) : '',
+        request_token: data[i][col.request_token] != null ? String(data[i][col.request_token]) : ''
+      };
+    }
+  }
+  return null;
+}
+
+/** 학부모 수정·취소 공통: event_id + request_token으로 본인 신청인지 확인 */
+function _authParentCounselingRequest(params) {
+  var eventId = params.event_id != null ? String(params.event_id).trim() : '';
+  var token = params.request_token != null ? String(params.request_token).trim() : '';
+  if (!eventId) return { error: 'event_id required' };
+  if (!token) return { error: '이 기기에서 신청한 상담만 수정하거나 취소할 수 있습니다.' };
+  var meta = _getCalendarRequestMeta(eventId);
+  if (!meta) return { error: '이미 삭제된 일정입니다. 화면을 새로고침해 주세요.' };
+  if (meta.requester_role !== 'parent' || !meta.request_token || meta.request_token !== token) {
+    return { error: '이 기기에서 신청한 상담만 수정하거나 취소할 수 있습니다.' };
+  }
+  return { event_id: eventId, request_token: token };
+}
+
+/**
+ * 학부모가 자녀 이름으로 상담을 신청한다(로그인 없음).
+ * 겹치는 일정 검사와 스크립트 락은 학생 신청과 동일하게 적용한다.
+ */
+function requestParentCounselingEvent(params) {
+  params = params || {};
+  var child = _findRosterStudent(params.child_student_id);
+  if (child.error) return { success: false, error: child.error };
+
+  var slot = _normalizeCounselingSlot(params);
+  if (slot.error) return { success: false, error: slot.error };
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+  } catch (e) {
+    return { success: false, error: '다른 신청이 처리 중입니다. 잠시 후 다시 시도해 주세요.' };
+  }
+  try {
+    cacheDel(CACHE_KEYS.CALENDAR_EVENTS);
+    var all = getCalendarEvents();
+    if (!all.success) return all;
+
+    var conflict = _findCalendarConflict(all.data, slot.date, slot.start_time, slot.end_time, '');
+    if (conflict) return { success: false, error: _calendarConflictMessage(conflict) };
+
+    var token = _randomToken();
+    var saved = saveCalendarEvent({
+      date: slot.date,
+      type: 'counseling',
+      created_by: '',
+      requester_role: 'parent',
+      request_token: token,
+      title: params.title != null ? String(params.title) : '',
+      start_time: slot.start_time,
+      end_time: slot.end_time,
+      location: params.location != null ? String(params.location) : '',
+      content: params.content != null ? String(params.content) : '',
+      student_ids: [child.student_id]
+    });
+    if (!saved.success) return saved;
+    // 토큰은 신청한 브라우저에만 돌려준다. 이후 수정·취소의 유일한 열쇠다.
+    return {
+      success: true,
+      data: {
+        event_id: saved.data.event_id,
+        updated: false,
+        request_token: token,
+        student_id: child.student_id
+      }
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 학부모가 자기가 신청한 상담을 수정한다. 자녀(상담 대상)는 바꿀 수 없다. */
+function updateParentCounselingRequest(params) {
+  params = params || {};
+  var who = _authParentCounselingRequest(params);
+  if (who.error) return { success: false, error: who.error };
+
+  var slot = _normalizeCounselingSlot(params);
+  if (slot.error) return { success: false, error: slot.error };
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+  } catch (e) {
+    return { success: false, error: '다른 신청이 처리 중입니다. 잠시 후 다시 시도해 주세요.' };
+  }
+  try {
+    cacheDel(CACHE_KEYS.CALENDAR_EVENTS);
+    var all = getCalendarEvents();
+    if (!all.success) return all;
+
+    var target = null;
+    var events = all.data || [];
+    for (var i = 0; i < events.length; i++) {
+      if (String(events[i].event_id) === who.event_id) { target = events[i]; break; }
+    }
+    if (!target) return { success: false, error: '이미 삭제된 일정입니다. 화면을 새로고침해 주세요.' };
+
+    var conflict = _findCalendarConflict(events, slot.date, slot.start_time, slot.end_time, who.event_id);
+    if (conflict) return { success: false, error: _calendarConflictMessage(conflict) };
+
+    var saved = saveCalendarEvent({
+      event_id: who.event_id,
+      date: slot.date,
+      type: 'counseling',
+      title: params.title != null ? String(params.title) : '',
+      start_time: slot.start_time,
+      end_time: slot.end_time,
+      location: params.location != null ? String(params.location) : '',
+      content: params.content != null ? String(params.content) : '',
+      student_ids: target.student_ids && target.student_ids.length ? target.student_ids : []
+    });
+    if (!saved.success) return saved;
+    return { success: true, data: { event_id: who.event_id, updated: true, request_token: who.request_token } };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 학부모가 자기가 신청한 상담을 취소(삭제)한다. */
+function deleteParentCounselingRequest(params) {
+  params = params || {};
+  var who = _authParentCounselingRequest(params);
+  if (who.error) return { success: false, error: who.error };
+  cacheDel(CACHE_KEYS.CALENDAR_EVENTS);
+  return deleteCalendarEvent(who.event_id);
 }

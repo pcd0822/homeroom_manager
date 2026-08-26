@@ -6,9 +6,34 @@ import {
   requestCounselingEvent,
   updateCounselingRequest,
   deleteCounselingRequest,
+  requestParentCounselingEvent,
+  updateParentCounselingRequest,
+  deleteParentCounselingRequest,
   compareStudentIds,
 } from '@/api/api'
 import { formatDateLabel } from '@/lib/calendar'
+
+/** 공유 캘린더에서 상담을 신청하는 사람 */
+export interface CalendarRequester {
+  /** 상담 대상 학번. 학생 모드면 본인, 학부모 모드면 선택한 자녀 */
+  student_id: string
+  /** 학생 모드 전용 개인코드 */
+  auth_code?: string
+  name?: string
+  /** 사진 (학부모 모드에서 자녀 확인용) */
+  photo_data?: string
+  /** 기본값은 학생 본인 신청 */
+  role?: 'student' | 'parent'
+  /** 학부모 모드에서 기존 신청을 수정·취소할 때 제시하는 토큰 */
+  request_token?: string
+}
+
+/** 저장 결과 — 학부모 신청이면 이후 수정·취소에 쓸 토큰이 함께 온다 */
+export interface CalendarSaveResult {
+  event_id?: string
+  request_token?: string
+  student_id?: string
+}
 
 interface CalendarEventModalProps {
   dateKey: string
@@ -16,14 +41,15 @@ interface CalendarEventModalProps {
   existing?: CalendarEvent | null
   timetable: CounselingTimetable | null
   /**
-   * 학생 신청 모드. 값이 있으면 공유 캘린더에서 학생 본인이 상담을 신청하는 화면이 된다.
-   * (구분은 '상담' 고정, 대상 학생은 서버에서 본인으로 지정, 삭제 불가)
+   * 신청 모드. 값이 있으면 공유 캘린더에서 상담을 신청하는 화면이 된다.
+   * (구분은 '상담' 고정, 대상 학생은 서버에서 지정, 대상 선택 UI 없음)
+   * role이 'parent'면 로그인 없이 자녀 이름으로 신청하는 학부모 모드.
    */
-  requester?: { student_id: string; auth_code: string; name?: string } | null
+  requester?: CalendarRequester | null
   /** 상담 대상 선택용 학생 목록 (교사 화면 전용) */
   students?: Student[]
   onClose: () => void
-  onSaved: () => void
+  onSaved: (result?: CalendarSaveResult) => void
 }
 
 export function CalendarEventModal({
@@ -37,6 +63,7 @@ export function CalendarEventModal({
 }: CalendarEventModalProps) {
   const periods = timetable?.periods || []
   const isRequest = !!requester
+  const isParent = requester?.role === 'parent'
   const firstPeriod = periods[0]
 
   const [type, setType] = useState<CalendarEventType>(
@@ -95,16 +122,33 @@ export function CalendarEventModal({
     }
     setSaving(true)
     if (requester) {
-      // 학생 신청: 대상은 서버에서 본인으로 고정되고, 겹치는 일정이 있으면 거절된다.
-      const payload = {
-        student_id: requester.student_id,
-        auth_code: requester.auth_code,
+      // 신청 모드: 상담 대상은 서버에서 정해지고, 겹치는 일정이 있으면 거절된다.
+      const slot = {
         date: dateKey,
         title: title.trim() || '상담',
         start_time: startTime,
         end_time: endTime || startTime,
         location: location.trim(),
         content: content.trim(),
+      }
+      if (isParent) {
+        // 학부모: 로그인이 없으므로 신청 때 받은 토큰으로 본인 확인한다.
+        const parentRes = existing
+          ? await updateParentCounselingRequest({
+              ...slot,
+              event_id: existing.event_id,
+              request_token: requester.request_token || '',
+            })
+          : await requestParentCounselingEvent({ ...slot, child_student_id: requester.student_id })
+        setSaving(false)
+        if (parentRes.success) onSaved(parentRes.data as CalendarSaveResult)
+        else setError(parentRes.error || (existing ? '수정에 실패했습니다.' : '신청에 실패했습니다.'))
+        return
+      }
+      const payload = {
+        ...slot,
+        student_id: requester.student_id,
+        auth_code: requester.auth_code || '',
       }
       const reqRes = existing
         ? await updateCounselingRequest({ ...payload, event_id: existing.event_id })
@@ -137,13 +181,18 @@ export function CalendarEventModal({
     if (!existing) return
     if (!confirm(isRequest ? '이 상담 신청을 취소할까요?' : '이 일정을 삭제할까요?')) return
     setDeleting(true)
-    const res = requester
-      ? await deleteCounselingRequest({
-          student_id: requester.student_id,
-          auth_code: requester.auth_code,
+    const res = isParent
+      ? await deleteParentCounselingRequest({
           event_id: existing.event_id,
+          request_token: requester?.request_token || '',
         })
-      : await deleteCalendarEvent(existing.event_id)
+      : requester
+        ? await deleteCounselingRequest({
+            student_id: requester.student_id,
+            auth_code: requester.auth_code || '',
+            event_id: existing.event_id,
+          })
+        : await deleteCalendarEvent(existing.event_id)
     setDeleting(false)
     if (res.success) {
       onSaved()
@@ -207,9 +256,30 @@ export function CalendarEventModal({
         )}
 
         {isRequest && (
-          <div className="mb-4 rounded-xl border-2 border-rose-100 bg-rose-50/70 px-3 py-2.5 text-xs leading-relaxed text-rose-700">
-            🙋 <b>{requester?.name || requester?.student_id}</b> 님의 상담 신청이에요. 상담 대상은 본인으로
-            자동 지정됩니다.
+          <div className="mb-4 flex items-center gap-2 rounded-xl border-2 border-rose-100 bg-rose-50/70 px-3 py-2.5 text-xs leading-relaxed text-rose-700">
+            {isParent ? (
+              <>
+                <StudentAvatar
+                  student={{
+                    student_id: requester?.student_id || '',
+                    name: requester?.name || '',
+                    auth_code: '',
+                    photo_data: requester?.photo_data,
+                  }}
+                  fallbackId={requester?.student_id || ''}
+                  size="md"
+                />
+                <span>
+                  👪 <b>{requester?.name || requester?.student_id}</b>({requester?.student_id}) 학생의{' '}
+                  <b>학부모</b> 상담 신청이에요. 선생님께는 <b>학부모 신청</b>으로 표시됩니다.
+                </span>
+              </>
+            ) : (
+              <span>
+                🙋 <b>{requester?.name || requester?.student_id}</b> 님의 상담 신청이에요. 상담 대상은
+                본인으로 자동 지정됩니다.
+              </span>
+            )}
           </div>
         )}
 

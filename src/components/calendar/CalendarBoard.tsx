@@ -333,6 +333,7 @@ function MonthView({
                     title={`${ev.start_time} ${ev.title}`}
                   >
                     {ev.start_time && <span className="font-semibold">{ev.start_time.slice(0, 5)} </span>}
+                    {ev.requester_role === 'parent' && <span title="학부모 신청">👪 </span>}
                     {ev.title || TYPE_STYLES[ev.type].label}
                   </button>
                 ))}
@@ -598,7 +599,12 @@ function TableView({
                 ) : ev.student_ids.length > 0 ? (
                   <div className="flex flex-wrap items-center gap-1">
                     {ev.student_ids.map((id) => (
-                      <StudentChip key={id} id={id} info={studentsById?.[id]} />
+                      <StudentChip
+                        key={id}
+                        id={id}
+                        info={studentsById?.[id]}
+                        byParent={ev.requester_role === 'parent'}
+                      />
                     ))}
                   </div>
                 ) : (
@@ -619,11 +625,26 @@ function photoSrc(photo?: string): string {
   return photo.startsWith('data:') ? photo : `data:image/jpeg;base64,${photo}`
 }
 
-/** 상담 대상 학생 칩 (사진 + 이름). 사진이 없으면 이름 첫 글자 아바타로 대체 */
-function StudentChip({ id, info }: { id: string; info?: CalendarStudentInfo }) {
+/**
+ * 상담 대상 학생 칩 (사진 + 이름). 사진이 없으면 이름 첫 글자 아바타로 대체.
+ * byParent면 학부모가 자녀 이름으로 신청한 상담이므로 '학부모' 배지를 덧붙인다.
+ */
+function StudentChip({
+  id,
+  info,
+  byParent,
+}: {
+  id: string
+  info?: CalendarStudentInfo
+  byParent?: boolean
+}) {
   const src = photoSrc(info?.photo_data)
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 py-0.5 pl-0.5 pr-2 text-[10px] text-gray-600">
+    <span
+      className={`inline-flex items-center gap-1 rounded-full py-0.5 pl-0.5 pr-2 text-[10px] ${
+        byParent ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-600'
+      }`}
+    >
       {src ? (
         <img src={src} alt="" className="h-4 w-4 rounded-full object-cover" />
       ) : (
@@ -632,6 +653,11 @@ function StudentChip({ id, info }: { id: string; info?: CalendarStudentInfo }) {
         </span>
       )}
       {info?.name || id}
+      {byParent && (
+        <span className="rounded-full bg-violet-600 px-1.5 py-px text-[9px] font-semibold text-white">
+          학부모
+        </span>
+      )}
     </span>
   )
 }
@@ -678,7 +704,12 @@ function EventRow({
         {ev.type === 'counseling' && ev.student_ids.length > 0 && (
           <div className="mt-1 flex flex-wrap items-center gap-1">
             {ev.student_ids.map((id) => (
-              <StudentChip key={id} id={id} info={studentsById?.[id]} />
+              <StudentChip
+                key={id}
+                id={id}
+                info={studentsById?.[id]}
+                byParent={ev.requester_role === 'parent'}
+              />
             ))}
           </div>
         )}

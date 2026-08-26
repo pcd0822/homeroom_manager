@@ -394,6 +394,15 @@ export interface CalendarEvent {
   /** 상담 대상 학번 목록 (수업시간이면 빈 배열) */
   student_ids: string[]
   created_at?: string
-  /** 학생이 직접 신청한 상담이면 그 학번. 교사가 등록한 일정은 빈 값 */
+  /** 학생이 직접 신청한 상담이면 그 학번. 교사·학부모가 등록한 일정은 빈 값 */
   created_by?: string
+  /** 'parent'면 학부모가 자녀 이름으로 신청한 상담. 교사 등록·학생 신청은 빈 값 */
+  requester_role?: '' | 'parent'
+}
+
+/** 학부모의 '자녀 선택' 드롭다운용 학생 정보 (개인코드는 내려오지 않는다) */
+export interface CounselingRosterStudent {
+  student_id: string
+  name: string
+  photo_data?: string
 }

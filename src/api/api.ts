@@ -34,6 +34,7 @@ import type {
   TeacherQuizSurveyRow,
   CounselingTimetable,
   CalendarEvent,
+  CounselingRosterStudent,
 } from '@/types'
 
 /**
@@ -636,6 +637,66 @@ export function deleteCounselingRequest(params: {
 }) {
   return request<{ event_id: string }>(
     'DELETE_COUNSELING_REQUEST',
+    'POST',
+    params as unknown as Record<string, unknown>
+  )
+}
+
+// ----- 학부모 상담 신청 (로그인 없이 자녀를 골라 신청) -----
+// 학부모는 계정이 없다. 신청할 때 서버가 발급한 request_token을 그 브라우저에만 저장해 두고,
+// 수정·취소할 때 다시 제시한다. 토큰이 없으면 남의 신청은 손댈 수 없다.
+
+/** 자녀 선택 드롭다운용 학생 명단 (학번·이름·사진). 개인코드는 포함되지 않는다. */
+export async function getCounselingRoster() {
+  const res = await request<CounselingRosterStudent[]>('GET_COUNSELING_ROSTER', 'POST')
+  if (res.success && res.data) {
+    res.data.sort((a, b) => compareStudentIds(a.student_id, b.student_id))
+  }
+  return res
+}
+
+/** 학부모가 자녀 이름으로 상담을 신청한다. 성공하면 수정·취소용 request_token을 돌려준다. */
+export function requestParentCounselingEvent(params: {
+  child_student_id: string
+  date: string
+  title: string
+  start_time: string
+  end_time: string
+  location: string
+  content: string
+}) {
+  return request<{ event_id: string; updated: boolean; request_token: string; student_id: string }>(
+    'REQUEST_PARENT_COUNSELING_EVENT',
+    'POST',
+    params as unknown as Record<string, unknown>
+  )
+}
+
+/** 학부모가 자기가 신청한 상담을 수정한다. 자녀(상담 대상)는 바뀌지 않는다. */
+export function updateParentCounselingRequest(params: {
+  event_id: string
+  request_token: string
+  date: string
+  title: string
+  start_time: string
+  end_time: string
+  location: string
+  content: string
+}) {
+  return request<{ event_id: string; updated: boolean }>(
+    'UPDATE_PARENT_COUNSELING_REQUEST',
+    'POST',
+    params as unknown as Record<string, unknown>
+  )
+}
+
+/** 학부모가 자기가 신청한 상담을 취소한다. */
+export function deleteParentCounselingRequest(params: {
+  event_id: string
+  request_token: string
+}) {
+  return request<{ event_id: string }>(
+    'DELETE_PARENT_COUNSELING_REQUEST',
     'POST',
     params as unknown as Record<string, unknown>
   )

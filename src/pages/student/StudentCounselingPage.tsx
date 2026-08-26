@@ -165,7 +165,9 @@ export function StudentCounselingPage() {
         <header className="text-center">
           <p className="text-3xl">💗</p>
           <h1 className="mt-2 text-xl font-bold text-gray-900">내 상담 일정</h1>
-          <p className="mt-1 text-xs text-gray-500">선생님이 나에게 등록한 상담 일정이에요.</p>
+          <p className="mt-1 text-xs text-gray-500">
+            선생님이 등록했거나 학부모님이 신청한 내 상담 일정이에요.
+          </p>
         </header>
 
         <Link
@@ -229,7 +231,14 @@ function CounselingCard({ event: ev, highlight }: { event: CalendarEvent; highli
       }`}
     >
       <div className="flex items-center justify-between">
-        <span className="text-sm font-bold text-gray-900">{formatDateLabel(ev.date)}</span>
+        <span className="flex items-center gap-1.5 text-sm font-bold text-gray-900">
+          {formatDateLabel(ev.date)}
+          {ev.requester_role === 'parent' && (
+            <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">
+              👪 학부모 신청
+            </span>
+          )}
+        </span>
         <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-700">
           {formatTimeRange(ev.start_time, ev.end_time)}
         </span>
