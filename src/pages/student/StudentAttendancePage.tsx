@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Helmet } from 'react-helmet-async'
-import { Link } from 'react-router-dom'
+import { StudentNavBar } from '@/components/student/StudentNavBar'
 import { authStudent, getAttendanceForStudent } from '@/api/api'
 import type { StudentAttendanceData } from '@/types'
 import {
@@ -8,6 +8,7 @@ import {
   REWARD_RANK_LIMIT,
   SCORE_CUTOFF_DATE,
   aggregateStats,
+  friendlyPossessive,
   mondayOf,
   rankBy,
   shortDate,
@@ -185,6 +186,7 @@ export function StudentAttendancePage() {
         <title>{TITLE}</title>
       </Helmet>
       <div className="mx-auto max-w-md space-y-5">
+        <StudentNavBar />
         <header className="text-center">
           <p className="text-3xl">📋</p>
           <h1 className="mt-2 text-xl font-bold text-gray-900">개인별 출결 현황</h1>
@@ -230,7 +232,7 @@ export function StudentAttendancePage() {
 
             <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <h2 className="mb-2 text-sm font-semibold text-gray-800">
-                {data.name ? `${data.name}의 ` : '나의 '}개인별 통계
+                {friendlyPossessive(data.name)} 개인별 통계
               </h2>
               <PersonalStatsTable stat={myStat} ranks={myRanks} total={stats.length} />
               <div className="mt-3">
@@ -252,13 +254,6 @@ export function StudentAttendancePage() {
             </section>
           </>
         )}
-
-        <Link
-          to="/student/dashboard"
-          className="block text-center text-xs text-gray-400 underline hover:text-gray-600"
-        >
-          ← 학생 대시보드로 돌아가기
-        </Link>
       </div>
     </div>
   )

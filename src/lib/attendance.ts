@@ -95,6 +95,20 @@ export function weekRange(monday: Date): { from: string; to: string } {
   return { from: toDateKey(monday), to: toDateKey(addDays(monday, 6)) }
 }
 
+/**
+ * 성을 뗀 이름에 친근한 소유격을 붙인다. 끝소리(받침)가 있으면 '이의', 없으면 '의'.
+ * 김리헌 → 리헌이의, 김지우 → 지우의, 김솔 → 솔이의, 남궁민수 → 민수의.
+ * 한글이 아니면 이름 그대로 + '의'.
+ */
+export function friendlyPossessive(fullName: string): string {
+  const name = fullName.trim()
+  if (!name) return '나의'
+  const given = name.length >= 3 ? name.slice(-2) : name.length === 2 ? name.slice(-1) : name
+  const code = given.charCodeAt(given.length - 1) - 0xac00
+  if (code < 0 || code > 11171) return `${name}의`
+  return code % 28 !== 0 ? `${given}이의` : `${given}의`
+}
+
 /** 'YYYY-MM-DD' → 'M/D' */
 export function shortDate(key: string): string {
   const [, m, d] = key.split('-')

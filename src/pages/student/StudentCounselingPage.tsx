@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet-async'
 import { Link } from 'react-router-dom'
 import { authStudent, getCalendarEventsForStudent } from '@/api/api'
 import type { CalendarEvent } from '@/types'
+import { StudentNavBar } from '@/components/student/StudentNavBar'
 import { formatDateLabel, formatTimeRange, parseDateKey } from '@/lib/calendar'
 
 const LOGIN_KEY = 'homeroom_login'
@@ -162,6 +163,7 @@ export function StudentCounselingPage() {
         <title>{TITLE}</title>
       </Helmet>
       <div className="mx-auto max-w-md space-y-5">
+        <StudentNavBar />
         <header className="text-center">
           <p className="text-3xl">💗</p>
           <h1 className="mt-2 text-xl font-bold text-gray-900">내 상담 일정</h1>
@@ -211,13 +213,6 @@ export function StudentCounselingPage() {
             )}
           </>
         )}
-
-        <Link
-          to="/student/dashboard"
-          className="block text-center text-xs text-gray-400 underline hover:text-gray-600"
-        >
-          ← 학생 대시보드로 돌아가기
-        </Link>
       </div>
     </div>
   )
