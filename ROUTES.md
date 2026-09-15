@@ -13,6 +13,7 @@
 | `/admin/forms/new` | `FormBuilderPage` | 새 문서 만들기 (폼 빌더 + 가정통신문 챗봇) |
 | `/admin/forms/:formId/responses` | `ResponseGridPage` | 문서별 응답 그리드 |
 | `/admin/students` | `StudentsPage` | 학생 관리 (학번·이름·사진, 개인코드 발급) |
+| `/admin/attendance` | `AttendancePage` | 출석 관리 — 캘린더 일자별 지각·조퇴·서류 체크, 개인별/학급별 점수 통계, 주간 청소 대상 |
 | `/admin/record-dashboard` | `RecordDashboardPage` | 생기부 기록 대시보드 |
 | `/admin/record-dashboard/:studentId` | `RecordStudentDashboardPage` | 학생별 생기부 상세 |
 | `/admin/cleaning-zones` | `CleaningZonesPage` | 청소구역 배정 |
@@ -36,6 +37,7 @@
 | `/view/:formId` | `FormView` | 학번+코드 | 폼·가정통신문 보기/제출 |
 | `/calendar` | `CalendarSharedPage` | 열람 없음 / 학생 신청 시 학번+코드 / 학부모는 자녀 선택만 | 학급 일정 캘린더 + **상담 신청·수정·취소**(학생·학부모) |
 | `/student/counseling` | `StudentCounselingPage` | 학번+코드 | 내 상담 일정 목록 |
+| `/student/attendance` | `StudentAttendancePage` | 학번+코드 | 개인별 출결 현황 — 내 지각·조퇴·총점 순위, 개인별 통계, 학급별 통계(다른 학생 익명) |
 | `/student/dashboard` | `StudentDashboardHubPage` | 학번+코드 | 학생 대시보드 허브 |
 | `/student/meal-board` | `StudentMealBoardPage` | 학번+코드 | 급식 게시판 |
 | `/student/policies` | `StudentPoliciesPage` | 학번+코드 | 학급 정책 참여 |

@@ -41,7 +41,8 @@ var SHEETS = {
   TEACHER_QUIZ_SCORES: 'HomeroomTeacherQuizScores',
   TEACHER_QUIZ_SURVEYS: 'HomeroomTeacherQuizSurveys',
   COUNSELING_TIMETABLE: 'HomeroomCounselingTimetable',
-  CALENDAR_EVENTS: 'HomeroomCalendarEvents'
+  CALENDAR_EVENTS: 'HomeroomCalendarEvents',
+  ATTENDANCE: 'HomeroomAttendance'
 };
 
 // 생기부 record 시트 헤더 (순서 유지)
@@ -62,7 +63,8 @@ var CACHE_KEYS = {
   POLICY_TREE_DASHBOARD: 'policy_tree_dashboard',
   POLICY_HYPE_TOTALS: 'policy_hype_totals',
   COUNSELING_TIMETABLE: 'counseling_timetable',
-  CALENDAR_EVENTS: 'calendar_events'
+  CALENDAR_EVENTS: 'calendar_events',
+  ATTENDANCE: 'attendance'
 };
 
 // CacheService 1개 값 최대 100KB. 직렬화 후 초과 시 캐시 건너뜀.
@@ -461,6 +463,15 @@ function handleRequest(e, method) {
         break;
       case 'DELETE_PARENT_COUNSELING_REQUEST':
         result = deleteParentCounselingRequest(params);
+        break;
+      case 'GET_ATTENDANCE_RECORDS':
+        result = getAttendanceRecords();
+        break;
+      case 'SAVE_ATTENDANCE_DAY':
+        result = saveAttendanceDay(params);
+        break;
+      case 'GET_ATTENDANCE_FOR_STUDENT':
+        result = getAttendanceForStudent(params);
         break;
       default:
         result.error = 'Unknown action: ' + action;
@@ -4158,4 +4169,181 @@ function deleteParentCounselingRequest(params) {
   if (who.error) return { success: false, error: who.error };
   cacheDel(CACHE_KEYS.CALENDAR_EVENTS);
   return deleteCalendarEvent(who.event_id);
+}
+
+// ===== 출결(지각·조퇴) =====
+// 한 행 = 한 학생의 하루 기록. 지각·조퇴 중 하나라도 체크된 학생만 행을 남긴다.
+// 점수·순위·청소 점수 계산은 프론트(src/lib/attendance.ts) 한 곳에서만 한다.
+var ATTENDANCE_HEADERS = ['date', 'student_id', 'late', 'early', 'late_doc', 'early_doc', 'updated_at'];
+
+function getOrCreateAttendanceSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.ATTENDANCE);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.ATTENDANCE);
+    sheet.getRange(1, 1, 1, ATTENDANCE_HEADERS.length).setValues([ATTENDANCE_HEADERS]);
+  }
+  return sheet;
+}
+
+function _attFlag(v) {
+  if (v === true || v === 1) return true;
+  var s = String(v == null ? '' : v).trim().toUpperCase();
+  return s === '1' || s === 'TRUE' || s === 'Y' || s === 'O';
+}
+
+/** 전체 출결 기록. 서류 체크는 지각/조퇴가 함께 체크된 경우에만 유효하다. */
+function _readAttendanceRecords() {
+  var cached = cacheGet(CACHE_KEYS.ATTENDANCE);
+  if (cached) return cached;
+  var sheet = getOrCreateAttendanceSheet();
+  var out = [];
+  var last = sheet.getLastRow();
+  if (last >= 2) {
+    var rows = sheet.getRange(2, 1, last - 1, ATTENDANCE_HEADERS.length).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var date = _fmtDateKey(r[0]);
+      var sid = String(r[1] == null ? '' : r[1]).trim();
+      if (!date || !sid) continue;
+      var late = _attFlag(r[2]);
+      var early = _attFlag(r[3]);
+      if (!late && !early) continue;
+      out.push({
+        date: date,
+        student_id: sid,
+        late: late,
+        early: early,
+        late_doc: late && _attFlag(r[4]),
+        early_doc: early && _attFlag(r[5])
+      });
+    }
+  }
+  cachePut(CACHE_KEYS.ATTENDANCE, out, 300);
+  return out;
+}
+
+function getAttendanceRecords() {
+  return { success: true, data: _readAttendanceRecords() };
+}
+
+/**
+ * 하루치 출결 저장(신규·수정 공용). 그 날짜의 기존 행을 모두 지우고 보낸 기록으로 교체한다.
+ * params: { date: 'YYYY-MM-DD', records: [{ student_id, late, early, late_doc, early_doc }] }
+ */
+function saveAttendanceDay(params) {
+  params = params || {};
+  var date = _fmtDateKey(params.date);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { success: false, error: '날짜 형식이 올바르지 않습니다.' };
+  var list = Array.isArray(params.records) ? params.records : [];
+  var now = new Date().toISOString();
+  var fresh = [];
+  var seen = {};
+  for (var i = 0; i < list.length; i++) {
+    var item = list[i] || {};
+    var sid = String(item.student_id == null ? '' : item.student_id).trim();
+    if (!sid || seen[sid]) continue;
+    seen[sid] = true;
+    var late = !!item.late;
+    var early = !!item.early;
+    var lateDoc = !!item.late_doc;
+    var earlyDoc = !!item.early_doc;
+    if (lateDoc && !late) return { success: false, error: sid + ': 지각 서류 제출은 지각이 체크되어 있어야 저장할 수 있습니다.' };
+    if (earlyDoc && !early) return { success: false, error: sid + ': 조퇴 서류 제출은 조퇴가 체크되어 있어야 저장할 수 있습니다.' };
+    if (!late && !early) continue;
+    fresh.push([date, sid, late ? 1 : 0, early ? 1 : 0, lateDoc ? 1 : 0, earlyDoc ? 1 : 0, now]);
+  }
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+  } catch (e) {
+    return { success: false, error: '다른 저장이 처리 중입니다. 잠시 후 다시 시도해 주세요.' };
+  }
+  try {
+    cacheDel(CACHE_KEYS.ATTENDANCE);
+    var sheet = getOrCreateAttendanceSheet();
+    var cols = ATTENDANCE_HEADERS.length;
+    var last = sheet.getLastRow();
+    var kept = [];
+    if (last >= 2) {
+      var rows = sheet.getRange(2, 1, last - 1, cols).getValues();
+      for (var k = 0; k < rows.length; k++) {
+        var rowDate = _fmtDateKey(rows[k][0]);
+        if (!rowDate || rowDate === date) continue;
+        rows[k][0] = rowDate;
+        rows[k][1] = String(rows[k][1] == null ? '' : rows[k][1]).trim();
+        kept.push(rows[k]);
+      }
+      sheet.getRange(2, 1, last - 1, cols).clearContent();
+    }
+    var all = kept.concat(fresh);
+    all.sort(function (a, b) {
+      if (a[0] !== b[0]) return a[0] < b[0] ? -1 : 1;
+      return String(a[1]).localeCompare(String(b[1]), 'ko', { numeric: true });
+    });
+    if (all.length) {
+      // 날짜·학번이 Date/숫자로 자동 변환되지 않도록 텍스트 서식으로 쓴다.
+      sheet.getRange(2, 1, all.length, 2).setNumberFormat('@');
+      sheet.getRange(2, 1, all.length, cols).setValues(all);
+    }
+    // 쓰는 도중 다른 요청이 옛 값을 캐시에 다시 넣었을 수 있어 한 번 더 지운다.
+    cacheDel(CACHE_KEYS.ATTENDANCE);
+    return { success: true, data: { date: date, count: fresh.length, saved_at: now } };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * 학생 개인 대시보드용 출결 데이터. 학번+개인코드로 인증한다.
+ * 다른 학생의 학번은 내려보내지 않고, 요청마다 섞은 익명 키('s1'…)로 바꿔 순위 계산만 가능하게 한다.
+ */
+function getAttendanceForStudent(params) {
+  params = params || {};
+  var auth = authStudent(params.student_id, params.auth_code);
+  if (!auth.success) return { success: false, error: auth.error || '인증에 실패했습니다.' };
+  var me = String(params.student_id).trim();
+  var stuRes = getStudents();
+  if (!stuRes.success) return stuRes;
+  var others = [];
+  (stuRes.data || []).forEach(function (s) {
+    var id = String(s.student_id || '').trim();
+    if (id && id !== me) others.push(id);
+  });
+  for (var i = others.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = others[i];
+    others[i] = others[j];
+    others[j] = tmp;
+  }
+  var keyOf = {};
+  keyOf[me] = 'me';
+  var keys = ['me'];
+  for (var n = 0; n < others.length; n++) {
+    keyOf[others[n]] = 's' + (n + 1);
+    keys.push('s' + (n + 1));
+  }
+  var records = [];
+  _readAttendanceRecords().forEach(function (r) {
+    var key = keyOf[r.student_id];
+    if (!key) return;
+    records.push({
+      date: r.date,
+      student_id: key,
+      late: r.late,
+      early: r.early,
+      late_doc: r.late_doc,
+      early_doc: r.early_doc
+    });
+  });
+  // 시트는 학번순이라, 같은 날짜 안의 순서로 익명 키의 학번 대소가 드러나지 않게 키 기준으로 다시 정렬한다.
+  records.sort(function (a, b) {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    return a.student_id < b.student_id ? -1 : a.student_id > b.student_id ? 1 : 0;
+  });
+  return {
+    success: true,
+    data: { name: auth.data && auth.data.name ? auth.data.name : '', keys: keys, records: records }
+  };
 }

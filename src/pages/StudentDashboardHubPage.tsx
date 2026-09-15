@@ -227,6 +227,26 @@ export function StudentDashboardHubPage() {
           </NavLink>
 
           <NavLink
+            to="/student/attendance"
+            className={({ isActive }) =>
+              `group flex items-center gap-4 rounded-2xl border-2 p-4 shadow-md transition-all ${
+                isActive
+                  ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200'
+                  : 'border-gray-100 bg-white hover:border-indigo-200'
+              }`
+            }
+          >
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100 text-3xl shadow-inner">
+              📋
+            </span>
+            <div className="min-w-0 flex-1 text-left">
+              <p className="font-bold text-gray-900">개인별 출결 현황</p>
+              <p className="text-[11px] text-gray-500">내 지각·조퇴 기록, 점수와 순위 확인</p>
+            </div>
+            <span className="text-gray-300 group-hover:text-indigo-400">→</span>
+          </NavLink>
+
+          <NavLink
             to="/student/seed-ledger"
             className={({ isActive }) =>
               `group flex items-center gap-4 rounded-2xl border-2 p-4 shadow-md transition-all ${

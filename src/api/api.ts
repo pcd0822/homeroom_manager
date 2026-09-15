@@ -35,6 +35,8 @@ import type {
   CounselingTimetable,
   CalendarEvent,
   CounselingRosterStudent,
+  AttendanceRecord,
+  StudentAttendanceData,
 } from '@/types'
 
 /**
@@ -343,6 +345,27 @@ export function getNightStudyForStudent(studentId: string, date: string) {
   return request<NightStudyForStudent>('GET_NIGHT_STUDY_FOR_STUDENT', 'POST', {
     student_id: studentId,
     date,
+  })
+}
+
+// ----- 출결(지각·조퇴) -----
+
+export function getAttendanceRecords() {
+  return request<AttendanceRecord[]>('GET_ATTENDANCE_RECORDS', 'POST')
+}
+
+/** 하루치 저장(신규·수정 공용). 그 날짜 기록을 보낸 목록으로 통째 교체한다. */
+export function saveAttendanceDay(date: string, records: AttendanceRecord[]) {
+  return request<{ date: string; count: number; saved_at: string }>('SAVE_ATTENDANCE_DAY', 'POST', {
+    date,
+    records,
+  })
+}
+
+export function getAttendanceForStudent(studentId: string, authCode: string) {
+  return request<StudentAttendanceData>('GET_ATTENDANCE_FOR_STUDENT', 'POST', {
+    student_id: studentId,
+    auth_code: authCode,
   })
 }
 

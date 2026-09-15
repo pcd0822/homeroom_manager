@@ -60,6 +60,23 @@ export interface Student {
   photo_data?: string
 }
 
+/** 출결 하루 기록 한 건 (HomeroomAttendance 시트 한 행) */
+export interface AttendanceRecord {
+  date: string // 'YYYY-MM-DD'
+  student_id: string
+  late: boolean
+  early: boolean
+  late_doc: boolean
+  early_doc: boolean
+}
+
+/** 학생 대시보드용 출결 데이터. 다른 학생은 익명 키(s1…)로, 본인은 'me'로 내려온다. */
+export interface StudentAttendanceData {
+  name: string
+  keys: string[]
+  records: AttendanceRecord[]
+}
+
 export interface AssignmentRow {
   form_id: string
   student_id: string

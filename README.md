@@ -56,6 +56,7 @@ VITE_GAS_API_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 | 학급 정책(새싹) | `HomeroomPolicies`, `HomeroomPolicySeeds`, `HomeroomPolicyHype`, `HomeroomSeedLedger`, `HomeroomSeedProducts` |
 | 자리 배치 | `HomeroomSeatingConfig`, `HomeroomSeatingAssignment` |
 | 상담 캘린더 | `HomeroomCounselingTimetable`, `HomeroomCalendarEvents` |
+| 출석 관리 | `HomeroomAttendance` (date, student_id, late, early, late_doc, early_doc, updated_at) |
 
 ### 3. GAS 배포
 
@@ -125,6 +126,18 @@ VITE_GAS_API_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 - `request_token`은 **공개 조회(`GET_CALENDAR_EVENTS`) 응답에 포함되지 않습니다.** 시트에서만 확인할 수 있습니다.
 
 관련 GAS 액션: `GET/SAVE_COUNSELING_TIMETABLE`, `GET/SAVE/DELETE_CALENDAR_EVENT`, `GET_CALENDAR_EVENTS_FOR_STUDENT`, `REQUEST_COUNSELING_EVENT`, `UPDATE_COUNSELING_REQUEST`, `DELETE_COUNSELING_REQUEST`, `GET_COUNSELING_ROSTER`, `REQUEST_PARENT_COUNSELING_EVENT`, `UPDATE_PARENT_COUNSELING_REQUEST`, `DELETE_PARENT_COUNSELING_REQUEST`.
+
+## 출석 관리 (지각·조퇴 점수)
+
+- **교사 — `/admin/attendance`**: 왼쪽 캘린더에서 날짜를 고르면 학생(번호순, 사진·이름) 목록에 **지각 / 조퇴 / 지각 서류 제출 / 조퇴 서류 제출**을 체크하고 저장합니다. 이미 저장된 날짜는 그대로 불러와 고친 뒤 **수정 저장**합니다(그 날짜 기록을 통째 교체).
+  - 서류 제출은 해당 지각/조퇴가 함께 체크되어야 저장됩니다(프론트·GAS 양쪽에서 검사). 지각·조퇴 동시 체크 가능.
+- **점수 규칙** (`src/lib/attendance.ts` 한 곳에서 계산):
+  - 지각 1점, 조퇴 2점. 서류를 내도 **점수는 누적**합니다.
+  - **청소 점수**는 서류 없는 지각·조퇴만 셉니다. 한 주(월~일) 청소 점수가 3점 이상이면 **다음 주 청소 대상** → 오른쪽 "주간 청소" 탭.
+  - 개인별·학급별 통계와 순위는 `SCORE_CUTOFF_DATE`(2026-10-16)까지의 기록만 집계합니다. 적을수록 높은 순위, 동점은 같은 순위. 총점 10위 이내(동점 포함)에 🎁 표시.
+- **학생 — `/student/attendance`** (대시보드의 "개인별 출결 현황"): 학번+개인코드로 인증 후 내 지각·조퇴·총점 순위, 개인별 통계, 학급별 통계를 봅니다. GAS가 인증을 다시 확인하고, **다른 학생의 학번·이름은 내려보내지 않고** 요청마다 섞은 익명 키로만 순위 계산에 씁니다.
+
+관련 GAS 액션: `GET_ATTENDANCE_RECORDS`, `SAVE_ATTENDANCE_DAY`, `GET_ATTENDANCE_FOR_STUDENT`.
 
 ## 데이터 저장·조회 (웹 ↔ 구글 시트)
 

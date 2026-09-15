@@ -9,6 +9,8 @@ import { RecordStudentDashboardPage } from '@/pages/admin/RecordStudentDashboard
 import { CleaningZonesPage } from '@/pages/admin/CleaningZonesPage'
 import { MealBoardPage } from '@/pages/admin/MealBoardPage'
 import { NightStudyPage } from '@/pages/admin/NightStudyPage'
+import { AttendancePage } from '@/pages/admin/AttendancePage'
+import { StudentAttendancePage } from '@/pages/student/StudentAttendancePage'
 import { ClassGamesPage } from '@/pages/admin/ClassGamesPage'
 import { ClassGameRankingPage } from '@/pages/admin/ClassGameRankingPage'
 import { HomeRunGamePage } from '@/pages/game/HomeRunGamePage'
@@ -51,6 +53,7 @@ function App() {
         <Route path="forms/new" element={<FormBuilderPage />} />
         <Route path="forms/:formId/responses" element={<ResponseGridPage />} />
         <Route path="students" element={<StudentsPage />} />
+        <Route path="attendance" element={<AttendancePage />} />
         <Route path="record-dashboard" element={<RecordDashboardPage />} />
         <Route path="record-dashboard/:studentId" element={<RecordStudentDashboardPage />} />
         <Route path="cleaning-zones" element={<CleaningZonesPage />} />
@@ -75,6 +78,7 @@ function App() {
       <Route path="/student/seed-ledger" element={<StudentSeedLedgerPage />} />
       <Route path="/student/policy/register" element={<StudentPolicyRegisterPage />} />
       <Route path="/student/counseling" element={<StudentCounselingPage />} />
+      <Route path="/student/attendance" element={<StudentAttendancePage />} />
       <Route path="/game/home-run" element={<HomeRunGamePage />} />
       <Route path="/play/teacher-quiz" element={<TeacherQuizPlayPage />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
