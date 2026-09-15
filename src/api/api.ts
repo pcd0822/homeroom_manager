@@ -362,6 +362,20 @@ export function saveAttendanceDay(date: string, records: AttendanceRecord[]) {
   })
 }
 
+export function getAttendancePeriods() {
+  return request<{ starts: string[] }>('GET_ATTENDANCE_PERIODS', 'POST')
+}
+
+/** 리셋: 이 날짜부터 새 집계 기간 시작 (기록은 지우지 않음) */
+export function addAttendancePeriod(startDate: string) {
+  return request<{ starts: string[] }>('ADD_ATTENDANCE_PERIOD', 'POST', { start_date: startDate })
+}
+
+/** 리셋 취소: 시작일 경계를 없애 앞 기간과 합침 */
+export function deleteAttendancePeriod(startDate: string) {
+  return request<{ starts: string[] }>('DELETE_ATTENDANCE_PERIOD', 'POST', { start_date: startDate })
+}
+
 export function getAttendanceForStudent(studentId: string, authCode: string) {
   return request<StudentAttendanceData>('GET_ATTENDANCE_FOR_STUDENT', 'POST', {
     student_id: studentId,

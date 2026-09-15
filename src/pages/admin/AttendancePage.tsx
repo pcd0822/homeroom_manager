@@ -1,18 +1,29 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getAttendanceRecords, getStudents, saveAttendanceDay } from '@/api/api'
+import {
+  addAttendancePeriod,
+  deleteAttendancePeriod,
+  getAttendancePeriods,
+  getAttendanceRecords,
+  getStudents,
+  saveAttendanceDay,
+} from '@/api/api'
 import type { AttendanceRecord, Student } from '@/types'
 import {
   CLEANING_THRESHOLD,
   EMPTY_FLAGS,
-  SCORE_CUTOFF_DATE,
+  REWARD_RANK_LIMIT,
   aggregateStats,
+  buildPeriods,
   invalidDocFields,
   mondayOf,
+  periodIndexOf,
+  periodLabel,
   rankBy,
   shortDate,
   weekRange,
   type AttendanceField,
   type AttendanceFlags,
+  type AttendancePeriod,
 } from '@/lib/attendance'
 import {
   WEEKDAY_LABELS,
@@ -71,9 +82,16 @@ export function AttendancePage() {
   const [selectedStudentId, setSelectedStudentId] = useState('')
   const [weekMonday, setWeekMonday] = useState(() => mondayOf(new Date()))
 
+  const [periodStarts, setPeriodStarts] = useState<string[]>([])
+  // null이면 오늘이 속한 기간
+  const [periodIdx, setPeriodIdx] = useState<number | null>(null)
+  const [showReset, setShowReset] = useState(false)
+
   useEffect(() => {
-    Promise.all([getStudents(), getAttendanceRecords()])
-      .then(([stuRes, attRes]) => {
+    Promise.all([getStudents(), getAttendanceRecords(), getAttendancePeriods()])
+      .then(([stuRes, attRes, perRes]) => {
+        if (perRes.success && perRes.data) setPeriodStarts(perRes.data.starts)
+        else setLoadError(perRes.error || '집계 기간을 불러오지 못했습니다.')
         if (stuRes.success && stuRes.data) {
           setStudents(stuRes.data)
           if (stuRes.data[0]) setSelectedStudentId(stuRes.data[0].student_id)
@@ -107,10 +125,18 @@ export function AttendancePage() {
   )
 
   const studentIds = useMemo(() => students.map((s) => s.student_id), [students])
+  const periods = useMemo(() => buildPeriods(periodStarts), [periodStarts])
+  const activeIdx = Math.min(periodIdx ?? periodIndexOf(periods, todayKey), periods.length - 1)
+  const period = periods[activeIdx]
   const stats = useMemo(
-    () => aggregateStats(studentIds, records, undefined, SCORE_CUTOFF_DATE),
-    [studentIds, records]
+    () => aggregateStats(studentIds, records, period.from, period.to),
+    [studentIds, records, period.from, period.to]
   )
+
+  const applyStarts = (starts: string[]) => {
+    setPeriodStarts(starts)
+    setPeriodIdx(null)
+  }
   const statRanks = useMemo(
     () => ({ late: rankBy(stats, 'late'), early: rankBy(stats, 'early'), score: rankBy(stats, 'score') }),
     [stats]
@@ -307,10 +333,42 @@ export function AttendancePage() {
 
         {/* 오른쪽 단: 점수 통계 */}
         <section className="h-fit rounded-xl bg-white p-4 shadow-sm xl:sticky xl:top-6">
-          <h2 className="text-sm font-semibold text-gray-800">점수 통계</h2>
-          <p className="mb-3 text-[11px] text-gray-500">
-            {shortDate(SCORE_CUTOFF_DATE)}까지의 기록으로 집계 · 점수 낮은 순 10명 문화상품권
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-gray-800">점수 통계</h2>
+            <button
+              type="button"
+              onClick={() => setShowReset((v) => !v)}
+              className="rounded border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+            >
+              {showReset ? '닫기' : '리셋'}
+            </button>
+          </div>
+          <div className="mt-2 flex items-center gap-2 text-xs">
+            <span className="shrink-0 text-gray-500">집계 기간</span>
+            <select
+              value={activeIdx}
+              onChange={(e) => setPeriodIdx(Number(e.target.value))}
+              className="min-w-0 flex-1 rounded border border-gray-300 px-2 py-1 text-xs"
+            >
+              {periods.map((p, i) => (
+                <option key={i} value={i}>
+                  {i + 1}차 · {periodLabel(p)}
+                  {i === periodIndexOf(periods, todayKey) ? ' (현재)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <p className="mb-3 mt-1 text-[11px] text-gray-500">
+            기간마다 점수 낮은 순 {REWARD_RANK_LIMIT}명 문화상품권 · 주간 청소는 기간과 상관없이 계산
           </p>
+          {showReset && (
+            <ResetPanel
+              todayKey={todayKey}
+              periods={periods}
+              periodStarts={periodStarts}
+              onChange={applyStarts}
+            />
+          )}
           <div className="mb-3 flex gap-1 rounded-lg bg-gray-100 p-1 text-sm">
             {(
               [
@@ -341,6 +399,7 @@ export function AttendancePage() {
               stats={stats}
               ranks={statRanks}
               records={records}
+              period={period}
             />
           )}
 
@@ -371,6 +430,99 @@ export function AttendancePage() {
           )}
         </section>
       </div>
+    </div>
+  )
+}
+
+/** 리셋 = 새 집계 기간 시작. 기록은 지우지 않으므로 잘못 눌러도 취소하면 원래대로 돌아간다. */
+function ResetPanel({
+  todayKey,
+  periods,
+  periodStarts,
+  onChange,
+}: {
+  todayKey: string
+  periods: AttendancePeriod[]
+  periodStarts: string[]
+  onChange: (starts: string[]) => void
+}) {
+  const [startDate, setStartDate] = useState(todayKey)
+  const [busy, setBusy] = useState(false)
+
+  const handleReset = async () => {
+    if (!startDate) return
+    if (periodStarts.includes(startDate)) {
+      alert('그 날짜에 시작하는 집계 기간이 이미 있습니다.')
+      return
+    }
+    const splitting = periods[periodIndexOf(periods, startDate)]
+    const msg =
+      `${shortDate(startDate)}부터 점수·순위를 0에서 새로 집계합니다.\n` +
+      `지금의 "${periodLabel(splitting)}" 기간은 그 전날까지로 나뉘고, 기록과 통계는 그대로 남아 ` +
+      '집계 기간 선택에서 볼 수 있습니다.\n\n리셋할까요?'
+    if (!confirm(msg)) return
+    setBusy(true)
+    const res = await addAttendancePeriod(startDate)
+    setBusy(false)
+    if (res.success && res.data) onChange(res.data.starts)
+    else alert(res.error || '리셋에 실패했습니다.')
+  }
+
+  const handleUndo = async (date: string) => {
+    if (!confirm(`${shortDate(date)} 리셋을 취소할까요? 그 기간은 앞 기간과 합쳐져 다시 계산됩니다.`)) return
+    setBusy(true)
+    const res = await deleteAttendancePeriod(date)
+    setBusy(false)
+    if (res.success && res.data) onChange(res.data.starts)
+    else alert(res.error || '취소에 실패했습니다.')
+  }
+
+  return (
+    <div className="mb-3 space-y-2 rounded-lg border border-red-200 bg-red-50/50 p-3 text-xs">
+      <p className="font-semibold text-red-700">점수 리셋 (새 집계 기간 시작)</p>
+      <p className="text-gray-600">
+        지각·조퇴 기록은 지워지지 않습니다. 고른 날짜부터 점수와 순위를 새로 셉니다. 미리 다음 기간 시작일을 넣어 둬도
+        됩니다.
+      </p>
+      <div className="flex items-center gap-2">
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          className="rounded border border-gray-300 px-2 py-1 text-xs"
+        />
+        <span className="text-gray-500">부터 새로 집계</span>
+        <button
+          type="button"
+          onClick={handleReset}
+          disabled={busy || !startDate}
+          className="ml-auto rounded bg-red-600 px-3 py-1 font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+        >
+          리셋
+        </button>
+      </div>
+      {periodStarts.length > 0 && (
+        <div>
+          <p className="mb-1 text-gray-500">리셋한 날짜</p>
+          <ul className="flex flex-wrap gap-1.5">
+            {periodStarts.map((d) => (
+              <li key={d} className="flex items-center gap-1 rounded-full bg-white px-2 py-0.5 ring-1 ring-gray-200">
+                {shortDate(d)}부터
+                <button
+                  type="button"
+                  onClick={() => handleUndo(d)}
+                  disabled={busy}
+                  className="text-gray-400 hover:text-red-600"
+                  title="이 리셋 취소"
+                  aria-label={`${shortDate(d)} 리셋 취소`}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }
@@ -475,6 +627,7 @@ function PersonalTab({
   stats,
   ranks,
   records,
+  period,
 }: {
   students: Student[]
   selectedId: string
@@ -482,6 +635,7 @@ function PersonalTab({
   stats: ReturnType<typeof aggregateStats>
   ranks: Record<'late' | 'early' | 'score', Map<string, number>>
   records: AttendanceRecord[]
+  period: AttendancePeriod
 }) {
   const stat = stats.find((s) => s.student_id === selectedId)
   const thisWeek = weekRange(mondayOf(new Date()))
@@ -489,7 +643,12 @@ function PersonalTab({
     ? aggregateStats([selectedId], records, thisWeek.from, thisWeek.to)[0].cleaning_score
     : 0
   const history = records
-    .filter((r) => r.student_id === selectedId && r.date <= SCORE_CUTOFF_DATE)
+    .filter(
+      (r) =>
+        r.student_id === selectedId &&
+        (!period.from || r.date >= period.from) &&
+        (!period.to || r.date <= period.to)
+    )
     .sort((a, b) => (a.date < b.date ? 1 : -1))
 
   return (

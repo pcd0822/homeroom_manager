@@ -473,6 +473,15 @@ function handleRequest(e, method) {
       case 'GET_ATTENDANCE_FOR_STUDENT':
         result = getAttendanceForStudent(params);
         break;
+      case 'GET_ATTENDANCE_PERIODS':
+        result = getAttendancePeriods();
+        break;
+      case 'ADD_ATTENDANCE_PERIOD':
+        result = addAttendancePeriod(params);
+        break;
+      case 'DELETE_ATTENDANCE_PERIOD':
+        result = deleteAttendancePeriod(params);
+        break;
       default:
         result.error = 'Unknown action: ' + action;
     }
@@ -4344,6 +4353,68 @@ function getAttendanceForStudent(params) {
   });
   return {
     success: true,
-    data: { name: auth.data && auth.data.name ? auth.data.name : '', keys: keys, records: records }
+    data: {
+      name: auth.data && auth.data.name ? auth.data.name : '',
+      keys: keys,
+      records: records,
+      period_starts: _getAttendancePeriodStarts()
+    }
   };
+}
+
+// ----- 출결 집계 기간(리셋) -----
+// 리셋은 기록을 지우지 않고 "이 날짜부터 새로 집계" 경계만 남긴다. 기간 계산은 프론트에서 한다.
+// 몇 개 안 되는 날짜 목록이라 시트 대신 Script Properties에 JSON으로 보관한다(시트 읽기 없음).
+var ATTENDANCE_PERIODS_PROP = 'ATTENDANCE_PERIOD_STARTS';
+
+function _getAttendancePeriodStarts() {
+  var raw = PropertiesService.getScriptProperties().getProperty(ATTENDANCE_PERIODS_PROP);
+  var list = [];
+  try {
+    list = raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    list = [];
+  }
+  if (!Array.isArray(list)) list = [];
+  var seen = {};
+  var out = [];
+  for (var i = 0; i < list.length; i++) {
+    var d = _fmtDateKey(list[i]);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d) && !seen[d]) {
+      seen[d] = true;
+      out.push(d);
+    }
+  }
+  out.sort();
+  return out;
+}
+
+function _setAttendancePeriodStarts(list) {
+  PropertiesService.getScriptProperties().setProperty(ATTENDANCE_PERIODS_PROP, JSON.stringify(list));
+}
+
+function getAttendancePeriods() {
+  return { success: true, data: { starts: _getAttendancePeriodStarts() } };
+}
+
+/** 리셋: start_date부터 새 집계 기간을 시작한다. */
+function addAttendancePeriod(params) {
+  params = params || {};
+  var date = _fmtDateKey(params.start_date);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { success: false, error: '날짜 형식이 올바르지 않습니다.' };
+  var starts = _getAttendancePeriodStarts();
+  if (starts.indexOf(date) >= 0) return { success: false, error: date + '에 시작하는 집계 기간이 이미 있습니다.' };
+  starts.push(date);
+  starts.sort();
+  _setAttendancePeriodStarts(starts);
+  return { success: true, data: { starts: starts } };
+}
+
+/** 리셋 취소: 해당 시작일 경계를 없애 앞 기간과 합친다. */
+function deleteAttendancePeriod(params) {
+  params = params || {};
+  var date = _fmtDateKey(params.start_date);
+  var starts = _getAttendancePeriodStarts().filter(function (d) { return d !== date; });
+  _setAttendancePeriodStarts(starts);
+  return { success: true, data: { starts: starts } };
 }

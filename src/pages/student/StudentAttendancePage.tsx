@@ -6,14 +6,16 @@ import type { StudentAttendanceData } from '@/types'
 import {
   CLEANING_THRESHOLD,
   REWARD_RANK_LIMIT,
-  SCORE_CUTOFF_DATE,
   aggregateStats,
+  buildPeriods,
   friendlyPossessive,
   mondayOf,
+  periodIndexOf,
+  periodLabel,
   rankBy,
-  shortDate,
   weekRange,
 } from '@/lib/attendance'
+import { toDateKey } from '@/lib/calendar'
 import {
   ClassStatsTable,
   PersonalStatsTable,
@@ -80,9 +82,17 @@ export function StudentAttendancePage() {
     }
   }, [authState, studentId, authCode])
 
+  const todayKey = toDateKey(new Date())
+  const periods = useMemo(() => buildPeriods(data?.period_starts ?? []), [data])
+  const currentIdx = periodIndexOf(periods, todayKey)
+  // null이면 오늘이 속한 기간
+  const [periodIdx, setPeriodIdx] = useState<number | null>(null)
+  const activeIdx = Math.min(periodIdx ?? currentIdx, periods.length - 1)
+  const period = periods[activeIdx]
+
   const stats = useMemo(
-    () => (data ? aggregateStats(data.keys, data.records, undefined, SCORE_CUTOFF_DATE) : []),
-    [data]
+    () => (data ? aggregateStats(data.keys, data.records, period.from, period.to) : []),
+    [data, period.from, period.to]
   )
   const myStat = stats.find((s) => s.student_id === ME)
   const myRanks = useMemo(
@@ -191,9 +201,27 @@ export function StudentAttendancePage() {
           <p className="text-3xl">📋</p>
           <h1 className="mt-2 text-xl font-bold text-gray-900">개인별 출결 현황</h1>
           <p className="mt-1 text-xs text-gray-500">
-            {shortDate(SCORE_CUTOFF_DATE)}까지 점수가 낮은 순으로 {REWARD_RANK_LIMIT}명에게 문화상품권을 드려요.
+            집계 기간마다 점수가 낮은 순으로 {REWARD_RANK_LIMIT}명에게 문화상품권을 드려요.
           </p>
         </header>
+
+        {data && (
+          <label className="flex items-center gap-2 rounded-2xl border border-indigo-100 bg-white px-3 py-2 text-xs shadow-sm">
+            <span className="shrink-0 font-medium text-gray-600">집계 기간</span>
+            <select
+              value={activeIdx}
+              onChange={(e) => setPeriodIdx(Number(e.target.value))}
+              className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-sm"
+            >
+              {periods.map((p, i) => (
+                <option key={i} value={i}>
+                  {i + 1}차 · {periodLabel(p)}
+                  {i === currentIdx ? ' (현재)' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         {loadError && <p className="text-center text-sm text-red-600">{loadError}</p>}
         {!data && !loadError && <p className="py-10 text-center text-sm text-gray-500">불러오는 중...</p>}
@@ -226,7 +254,7 @@ export function StudentAttendancePage() {
 
             {myRanks.score <= REWARD_RANK_LIMIT && (
               <p className="rounded-xl bg-emerald-50 px-3 py-2 text-center text-xs font-medium text-emerald-700">
-                🎁 지금 총점 순위로는 문화상품권 대상이에요! (동점자 포함)
+                🎁 {activeIdx === currentIdx ? '지금' : '이 기간'} 총점 순위로는 문화상품권 대상이에요! (동점자 포함)
               </p>
             )}
 

@@ -4,12 +4,12 @@
  * - 지각 1점, 조퇴 2점. 같은 날 둘 다 체크 가능.
  * - 서류(진료확인서·처방전·약봉투 등)를 냈어도 점수는 그대로 누적한다.
  * - 청소 점수는 서류 없는 지각·조퇴만 센다. 한 주(월~일) 청소 점수가 3점 이상이면 다음 주 청소 대상.
- * - 점수·순위는 SCORE_CUTOFF_DATE까지의 기록만 집계한다(점수 낮은 순 10명 문화상품권).
+ * - 점수·순위는 집계 기간별로 따로 센다. 교사가 리셋하면 그 날짜부터 새 기간(기록은 그대로).
+ *   기간마다 점수 낮은 순 10명 문화상품권.
  */
 import type { AttendanceRecord } from '@/types'
-import { addDays, toDateKey } from '@/lib/calendar'
+import { addDays, parseDateKey, toDateKey } from '@/lib/calendar'
 
-export const SCORE_CUTOFF_DATE = '2026-10-16'
 export const CLEANING_THRESHOLD = 3
 export const REWARD_RANK_LIMIT = 10
 
@@ -113,4 +113,36 @@ export function friendlyPossessive(fullName: string): string {
 export function shortDate(key: string): string {
   const [, m, d] = key.split('-')
   return `${parseInt(m, 10)}/${parseInt(d, 10)}`
+}
+
+/** 집계 기간. from/to가 없으면 그쪽 끝이 열려 있음(처음부터 / 다음 리셋 전까지). */
+export interface AttendancePeriod {
+  from?: string
+  to?: string
+}
+
+/**
+ * 리셋 시작일 목록 → 연속된 기간 목록.
+ * 예: ['2026-10-17', '2026-11-17'] → [~10/16], [10/17~11/16], [11/17~]
+ */
+export function buildPeriods(starts: string[]): AttendancePeriod[] {
+  const sorted = [...new Set(starts)].sort()
+  if (sorted.length === 0) return [{}]
+  const dayBefore = (key: string) => toDateKey(addDays(parseDateKey(key), -1))
+  const periods: AttendancePeriod[] = [{ to: dayBefore(sorted[0]) }]
+  sorted.forEach((from, i) => {
+    periods.push({ from, to: sorted[i + 1] ? dayBefore(sorted[i + 1]) : undefined })
+  })
+  return periods
+}
+
+/** 날짜가 속한 기간의 인덱스 */
+export function periodIndexOf(periods: AttendancePeriod[], dateKey: string): number {
+  const i = periods.findIndex((p) => (!p.from || p.from <= dateKey) && (!p.to || dateKey <= p.to))
+  return i >= 0 ? i : periods.length - 1
+}
+
+export function periodLabel(p: AttendancePeriod): string {
+  if (!p.from && !p.to) return '전체 기간'
+  return `${p.from ? shortDate(p.from) : '처음'} ~ ${p.to ? shortDate(p.to) : '진행 중'}`
 }

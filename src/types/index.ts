@@ -75,6 +75,8 @@ export interface StudentAttendanceData {
   name: string
   keys: string[]
   records: AttendanceRecord[]
+  /** 집계 기간(리셋) 시작일 목록, 오름차순 */
+  period_starts: string[]
 }
 
 export interface AssignmentRow {
