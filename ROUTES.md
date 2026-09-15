@@ -37,7 +37,7 @@
 | `/view/:formId` | `FormView` | 학번+코드 | 폼·가정통신문 보기/제출 |
 | `/calendar` | `CalendarSharedPage` | 열람 없음 / 학생 신청 시 학번+코드 / 학부모는 자녀 선택만 | 학급 일정 캘린더 + **상담 신청·수정·취소**(학생·학부모) |
 | `/student/counseling` | `StudentCounselingPage` | 학번+코드 | 내 상담 일정 목록 |
-| `/student/attendance` | `StudentAttendancePage` | 학번+코드 | 개인별 출결 현황 — 내 지각·조퇴·총점 순위, 개인별 통계, 학급별 통계(다른 학생 익명) |
+| `/student/attendance` | `StudentAttendancePage` | 학번+코드 | 개인별 출결 현황 — 내 지각·조퇴·총점 순위, 개인별 통계, 학급별 통계(본인 외 순위·점수 블라인드), 다음주 청소 확정 배너 |
 | `/student/dashboard` | `StudentDashboardHubPage` | 학번+코드 | 학생 대시보드 허브 |
 | `/student/meal-board` | `StudentMealBoardPage` | 학번+코드 | 급식 게시판 |
 | `/student/policies` | `StudentPoliciesPage` | 학번+코드 | 학급 정책 참여 |

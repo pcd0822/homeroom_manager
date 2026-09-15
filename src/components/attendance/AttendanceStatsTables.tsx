@@ -1,8 +1,10 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import {
+  CLEANING_THRESHOLD,
   RANK_KEY_LABELS,
   REWARD_RANK_LIMIT,
   rankBy,
+  shortDate,
   type AttendanceStat,
   type RankKey,
 } from '@/lib/attendance'
@@ -65,20 +67,45 @@ export function PersonalStatsTable({
   )
 }
 
+/** 한 주 청소 점수 안내. 기준 이상이면 다음 주 청소 확정 문구를 띄운다. (교사·학생 화면 공용) */
+export function WeeklyCleaningNotice({ score, from, to }: { score: number; from: string; to: string }) {
+  const confirmed = score >= CLEANING_THRESHOLD
+  return (
+    <div
+      className={cn(
+        'rounded-lg px-3 py-2 text-xs',
+        confirmed ? 'border border-amber-300 bg-amber-50 text-amber-900' : 'bg-gray-50 text-gray-600'
+      )}
+    >
+      <p>
+        이번 주({shortDate(from)}~{shortDate(to)}) 청소 누적 점수{' '}
+        <span className="font-semibold tabular-nums">{score}점</span>
+        {!confirmed && ` / ${CLEANING_THRESHOLD}점이 되면 다음 주 청소를 해요.`}
+      </p>
+      {confirmed && <p className="mt-1 text-sm font-bold">🧹 다음주 청소 확정이에요!</p>}
+    </div>
+  )
+}
+
 export interface ClassStatsRow {
   stat: AttendanceStat
   label: ReactNode
 }
 
-/** 학급별 통계: 지각·조퇴·총점 열 머리글을 눌러 정렬. 적을수록 높은 순위, 동점은 같은 순위. */
+/**
+ * 학급별 통계: 지각·조퇴·총점 열 머리글을 눌러 정렬. 적을수록 높은 순위, 동점은 같은 순위.
+ * blindOthers면 highlightId 외 학생의 순위·점수를 가린다(학생 화면).
+ */
 export function ClassStatsTable({
   rows,
   highlightId,
   onSelect,
+  blindOthers = false,
 }: {
   rows: ClassStatsRow[]
   highlightId?: string
   onSelect?: (studentId: string) => void
+  blindOthers?: boolean
 }) {
   const [sortKey, setSortKey] = useState<RankKey>('score')
   const stats = useMemo(() => rows.map((r) => r.stat), [rows])
@@ -121,6 +148,19 @@ export function ClassStatsTable({
             const rank = ranks.get(stat.student_id) ?? 0
             const rewarded = sortKey === 'score' && rank <= REWARD_RANK_LIMIT
             const mine = highlightId === stat.student_id
+            if (blindOthers && !mine) {
+              return (
+                <tr key={stat.student_id} className="border-b border-gray-100 text-gray-300">
+                  <td className="py-1.5 text-center">🔒</td>
+                  <td className="py-1.5">{label}</td>
+                  {(['late', 'early', 'score'] as const).map((k) => (
+                    <td key={k} className="select-none py-1.5 pr-2 text-right">
+                      ●
+                    </td>
+                  ))}
+                </tr>
+              )
+            }
             return (
               <tr
                 key={stat.student_id}
@@ -155,6 +195,7 @@ export function ClassStatsTable({
       <p className="mt-2 text-[11px] text-gray-400">
         머리글을 누르면 그 항목이 적은 순으로 정렬됩니다. 동점은 같은 순위입니다. 🎁는 총점 {REWARD_RANK_LIMIT}위
         이내(동점 포함)입니다.
+        {blindOthers && ' 다른 친구의 순위와 점수는 가려져 있어요.'}
       </p>
     </div>
   )

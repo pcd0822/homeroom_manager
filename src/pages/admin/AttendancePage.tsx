@@ -23,7 +23,11 @@ import {
   getMonthGrid,
   toDateKey,
 } from '@/lib/calendar'
-import { ClassStatsTable, PersonalStatsTable } from '@/components/attendance/AttendanceStatsTables'
+import {
+  ClassStatsTable,
+  PersonalStatsTable,
+  WeeklyCleaningNotice,
+} from '@/components/attendance/AttendanceStatsTables'
 import { cn } from '@/lib/utils'
 
 const CHECK_COLUMNS: Array<{ field: AttendanceField; label: string }> = [
@@ -480,6 +484,10 @@ function PersonalTab({
   records: AttendanceRecord[]
 }) {
   const stat = stats.find((s) => s.student_id === selectedId)
+  const thisWeek = weekRange(mondayOf(new Date()))
+  const weekCleaning = selectedId
+    ? aggregateStats([selectedId], records, thisWeek.from, thisWeek.to)[0].cleaning_score
+    : 0
   const history = records
     .filter((r) => r.student_id === selectedId && r.date <= SCORE_CUTOFF_DATE)
     .sort((a, b) => (a.date < b.date ? 1 : -1))
@@ -508,6 +516,7 @@ function PersonalTab({
               score: ranks.score.get(stat.student_id) ?? 0,
             }}
           />
+          <WeeklyCleaningNotice score={weekCleaning} from={thisWeek.from} to={thisWeek.to} />
           <div>
             <p className="mb-1 text-xs font-semibold text-gray-700">기록 내역</p>
             {history.length === 0 ? (
@@ -592,7 +601,12 @@ function CleaningTab({
                 <span className="font-medium text-gray-900">
                   {nameOf.get(s.student_id)} <span className="text-[11px] text-gray-500">{s.student_id}</span>
                 </span>
-                <span className="tabular-nums text-amber-800">{s.cleaning_score}점</span>
+                <span className="tabular-nums text-amber-800">
+                  {s.cleaning_score}점
+                  <span className="ml-1.5 rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold">
+                    다음주 청소 확정
+                  </span>
+                </span>
               </li>
             ))}
           </ul>

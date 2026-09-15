@@ -13,7 +13,11 @@ import {
   shortDate,
   weekRange,
 } from '@/lib/attendance'
-import { ClassStatsTable, PersonalStatsTable } from '@/components/attendance/AttendanceStatsTables'
+import {
+  ClassStatsTable,
+  PersonalStatsTable,
+  WeeklyCleaningNotice,
+} from '@/components/attendance/AttendanceStatsTables'
 
 const LOGIN_KEY = 'homeroom_login'
 const TITLE = '개인별 출결 현황 | 학급 경영'
@@ -194,6 +198,14 @@ export function StudentAttendancePage() {
 
         {data && myStat && (
           <>
+            {myWeekCleaning >= CLEANING_THRESHOLD && (
+              <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-center shadow-sm">
+                <p className="text-lg font-bold text-amber-900">🧹 다음주 청소 확정이에요!</p>
+                <p className="mt-1 text-xs text-amber-800">
+                  이번 주 청소 누적 점수가 {myWeekCleaning}점이에요. ({CLEANING_THRESHOLD}점 이상)
+                </p>
+              </div>
+            )}
             <section className="grid grid-cols-3 gap-2">
               {(
                 [
@@ -221,27 +233,21 @@ export function StudentAttendancePage() {
                 {data.name ? `${data.name}의 ` : '나의 '}개인별 통계
               </h2>
               <PersonalStatsTable stat={myStat} ranks={myRanks} total={stats.length} />
-              <p
-                className={`mt-3 rounded-lg px-3 py-2 text-xs ${
-                  myWeekCleaning >= CLEANING_THRESHOLD ? 'bg-amber-50 text-amber-800' : 'bg-gray-50 text-gray-600'
-                }`}
-              >
-                이번 주({shortDate(thisWeek.from)}~{shortDate(thisWeek.to)}) 청소 점수 {myWeekCleaning}점
-                {myWeekCleaning >= CLEANING_THRESHOLD
-                  ? ` — ${CLEANING_THRESHOLD}점 이상이라 다음 주 청소 대상이에요.`
-                  : ` / ${CLEANING_THRESHOLD}점이 되면 다음 주 청소를 해요.`}
-              </p>
+              <div className="mt-3">
+                <WeeklyCleaningNotice score={myWeekCleaning} from={thisWeek.from} to={thisWeek.to} />
+              </div>
             </section>
 
             <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <h2 className="mb-1 text-sm font-semibold text-gray-800">학급별 통계</h2>
-              <p className="mb-2 text-[11px] text-gray-400">다른 친구의 이름은 가려져 있어요.</p>
+              <p className="mb-2 text-[11px] text-gray-400">내 순위와 점수만 보이고, 다른 친구는 가려져 있어요.</p>
               <ClassStatsTable
                 rows={stats.map((stat) => ({
                   stat,
-                  label: stat.student_id === ME ? `나${data.name ? ` (${data.name})` : ''}` : '·',
+                  label: stat.student_id === ME ? `나${data.name ? ` (${data.name})` : ''}` : '비공개',
                 }))}
                 highlightId={ME}
+                blindOthers
               />
             </section>
           </>
