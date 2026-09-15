@@ -39,12 +39,13 @@ export function StudentNavBar({ title }: { title?: string }) {
   }, [open])
 
   return (
-    <nav className="sticky top-0 z-30 -mx-4 flex items-center justify-between gap-2 bg-white/80 px-4 py-2 backdrop-blur">
+    // 바 자체는 투명하고 클릭도 통과시킨다. 버튼만 배경 위에 떠 있다.
+    <nav className="pointer-events-none sticky top-2 z-30 flex items-center justify-between gap-2 [&>*]:pointer-events-auto">
       <Link
         to="/student/dashboard"
         title="홈"
         aria-label="학생 대시보드 홈"
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-lg text-sky-800 ring-1 ring-sky-200 hover:bg-sky-100"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-lg text-sky-800 shadow-sm ring-1 ring-sky-200 hover:bg-sky-100"
       >
         🏠
       </Link>
@@ -55,7 +56,7 @@ export function StudentNavBar({ title }: { title?: string }) {
           onClick={() => setOpen((v) => !v)}
           aria-label="메뉴 열기"
           aria-expanded={open}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50"
+          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-gray-700 shadow-sm ring-1 ring-gray-200 hover:bg-gray-50"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             {open ? (
