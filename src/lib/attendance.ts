@@ -3,11 +3,13 @@
  *
  * - 지각 1점, 조퇴 2점. 같은 날 둘 다 체크 가능.
  * - 서류(진료확인서·처방전·약봉투 등)를 냈어도 점수는 그대로 누적한다.
- * - 청소 점수는 서류 없는 지각·조퇴만 센다. 한 주(월~일) 청소 점수가 3점 이상이면 다음 주 청소 대상.
+ * - 청소 점수는 서류 없는 지각·조퇴만 센다. 주와 상관없이 계속 누적해 3점 이상이면 청소 대상.
+ *   교사가 청소 완료를 체크하면 그 날짜(포함)까지의 청소 점수는 버리고 다음 날부터 0점에서 새로 센다.
+ *   넘친 점수는 이월하지 않는다. 집계 기간(리셋)과는 무관하다.
  * - 점수·순위는 집계 기간별로 따로 센다. 교사가 리셋하면 그 날짜부터 새 기간(기록은 그대로).
  *   기간마다 점수 낮은 순 10명 문화상품권.
  */
-import type { AttendanceRecord } from '@/types'
+import type { AttendanceRecord, CleaningReset } from '@/types'
 import { addDays, parseDateKey, toDateKey } from '@/lib/calendar'
 
 export const CLEANING_THRESHOLD = 3
@@ -25,7 +27,6 @@ export interface AttendanceStat {
   late_doc: number
   early_doc: number
   score: number
-  cleaning_score: number
 }
 
 export type RankKey = 'late' | 'early' | 'score'
@@ -57,7 +58,7 @@ export function aggregateStats(
 ): AttendanceStat[] {
   const map = new Map<string, AttendanceStat>()
   for (const id of studentIds) {
-    map.set(id, { student_id: id, late: 0, early: 0, late_doc: 0, early_doc: 0, score: 0, cleaning_score: 0 })
+    map.set(id, { student_id: id, late: 0, early: 0, late_doc: 0, early_doc: 0, score: 0 })
   }
   for (const r of records) {
     if (from && r.date < from) continue
@@ -69,7 +70,6 @@ export function aggregateStats(
     if (r.late && r.late_doc) s.late_doc += 1
     if (r.early && r.early_doc) s.early_doc += 1
     s.score += scoreOf(r)
-    s.cleaning_score += cleaningScoreOf(r)
   }
   return studentIds.map((id) => map.get(id)!)
 }
@@ -83,16 +83,32 @@ export function rankBy(stats: AttendanceStat[], key: RankKey): Map<string, numbe
   return ranks
 }
 
-/** 그 주 월요일(로컬 자정) */
-export function mondayOf(d: Date): Date {
-  const r = new Date(d)
-  r.setHours(0, 0, 0, 0)
-  r.setDate(r.getDate() - ((r.getDay() + 6) % 7))
-  return r
+/** 학생별 마지막 청소 완료 날짜 */
+export function lastCleaningResets(resets: CleaningReset[]): Map<string, string> {
+  const last = new Map<string, string>()
+  for (const r of resets) {
+    const prev = last.get(r.student_id)
+    if (!prev || r.date > prev) last.set(r.student_id, r.date)
+  }
+  return last
 }
 
-export function weekRange(monday: Date): { from: string; to: string } {
-  return { from: toDateKey(monday), to: toDateKey(addDays(monday, 6)) }
+/** 현재 청소 점수: 마지막 청소 완료 날짜 다음 날부터 쌓인 점수. 기록이 없는 학생도 0으로 포함. */
+export function currentCleaningScores(
+  studentIds: string[],
+  records: AttendanceRecord[],
+  resets: CleaningReset[]
+): Map<string, number> {
+  const last = lastCleaningResets(resets)
+  const scores = new Map<string, number>(studentIds.map((id) => [id, 0]))
+  for (const r of records) {
+    const cur = scores.get(r.student_id)
+    if (cur === undefined) continue
+    const resetAt = last.get(r.student_id)
+    if (resetAt && r.date <= resetAt) continue
+    scores.set(r.student_id, cur + cleaningScoreOf(r))
+  }
+  return scores
 }
 
 /**

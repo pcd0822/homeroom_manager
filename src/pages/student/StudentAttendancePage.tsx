@@ -8,18 +8,18 @@ import {
   REWARD_RANK_LIMIT,
   aggregateStats,
   buildPeriods,
+  currentCleaningScores,
   friendlyPossessive,
-  mondayOf,
+  lastCleaningResets,
   periodIndexOf,
   periodLabel,
   rankBy,
-  weekRange,
 } from '@/lib/attendance'
 import { toDateKey } from '@/lib/calendar'
 import {
+  CleaningNotice,
   ClassStatsTable,
   PersonalStatsTable,
-  WeeklyCleaningNotice,
 } from '@/components/attendance/AttendanceStatsTables'
 
 const LOGIN_KEY = 'homeroom_login'
@@ -103,11 +103,12 @@ export function StudentAttendancePage() {
     }),
     [stats]
   )
-  const thisWeek = weekRange(mondayOf(new Date()))
-  const myWeekCleaning = useMemo(() => {
-    if (!data) return 0
-    return aggregateStats([ME], data.records, thisWeek.from, thisWeek.to)[0].cleaning_score
-  }, [data, thisWeek.from, thisWeek.to])
+  // 청소 점수는 집계 기간과 무관하게 마지막 청소 완료 이후 누적
+  const myLastReset = lastCleaningResets(data?.cleaning_resets ?? []).get(ME)
+  const myCleaning = useMemo(
+    () => (data ? currentCleaningScores([ME], data.records, data.cleaning_resets ?? []).get(ME) ?? 0 : 0),
+    [data]
+  )
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -228,11 +229,12 @@ export function StudentAttendancePage() {
 
         {data && myStat && (
           <>
-            {myWeekCleaning >= CLEANING_THRESHOLD && (
+            {myCleaning >= CLEANING_THRESHOLD && (
               <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-center shadow-sm">
-                <p className="text-lg font-bold text-amber-900">🧹 다음주 청소 확정이에요!</p>
+                <p className="text-lg font-bold text-amber-900">🧹 청소 대상이에요!</p>
                 <p className="mt-1 text-xs text-amber-800">
-                  이번 주 청소 누적 점수가 {myWeekCleaning}점이에요. ({CLEANING_THRESHOLD}점 이상)
+                  청소 누적 점수가 {myCleaning}점이에요. ({CLEANING_THRESHOLD}점 이상) 청소를 마치면 선생님이 완료
+                  체크해 0점부터 다시 시작해요.
                 </p>
               </div>
             )}
@@ -264,7 +266,7 @@ export function StudentAttendancePage() {
               </h2>
               <PersonalStatsTable stat={myStat} ranks={myRanks} total={stats.length} />
               <div className="mt-3">
-                <WeeklyCleaningNotice score={myWeekCleaning} from={thisWeek.from} to={thisWeek.to} />
+                <CleaningNotice score={myCleaning} lastReset={myLastReset} />
               </div>
             </section>
 

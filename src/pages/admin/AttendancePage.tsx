@@ -1,33 +1,35 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   addAttendancePeriod,
+  addCleaningReset,
   deleteAttendancePeriod,
+  deleteCleaningReset,
   getAttendancePeriods,
   getAttendanceRecords,
+  getCleaningResets,
   getStudents,
   saveAttendanceDay,
 } from '@/api/api'
-import type { AttendanceRecord, Student } from '@/types'
+import type { AttendanceRecord, CleaningReset, Student } from '@/types'
 import {
   CLEANING_THRESHOLD,
   EMPTY_FLAGS,
   REWARD_RANK_LIMIT,
   aggregateStats,
   buildPeriods,
+  currentCleaningScores,
   invalidDocFields,
-  mondayOf,
+  lastCleaningResets,
   periodIndexOf,
   periodLabel,
   rankBy,
   shortDate,
-  weekRange,
   type AttendanceField,
   type AttendanceFlags,
   type AttendancePeriod,
 } from '@/lib/attendance'
 import {
   WEEKDAY_LABELS,
-  addDays,
   addMonths,
   formatDateLabel,
   formatMonthLabel,
@@ -35,9 +37,9 @@ import {
   toDateKey,
 } from '@/lib/calendar'
 import {
+  CleaningNotice,
   ClassStatsTable,
   PersonalStatsTable,
-  WeeklyCleaningNotice,
 } from '@/components/attendance/AttendanceStatsTables'
 import { cn } from '@/lib/utils'
 
@@ -80,7 +82,7 @@ export function AttendancePage() {
 
   const [tab, setTab] = useState<StatsTab>('class')
   const [selectedStudentId, setSelectedStudentId] = useState('')
-  const [weekMonday, setWeekMonday] = useState(() => mondayOf(new Date()))
+  const [cleaningResets, setCleaningResets] = useState<CleaningReset[]>([])
 
   const [periodStarts, setPeriodStarts] = useState<string[]>([])
   // null이면 오늘이 속한 기간
@@ -88,10 +90,12 @@ export function AttendancePage() {
   const [showReset, setShowReset] = useState(false)
 
   useEffect(() => {
-    Promise.all([getStudents(), getAttendanceRecords(), getAttendancePeriods()])
-      .then(([stuRes, attRes, perRes]) => {
+    Promise.all([getStudents(), getAttendanceRecords(), getAttendancePeriods(), getCleaningResets()])
+      .then(([stuRes, attRes, perRes, cleanRes]) => {
         if (perRes.success && perRes.data) setPeriodStarts(perRes.data.starts)
         else setLoadError(perRes.error || '집계 기간을 불러오지 못했습니다.')
+        if (cleanRes.success && cleanRes.data) setCleaningResets(cleanRes.data)
+        else setLoadError(cleanRes.error || '청소 완료 기록을 불러오지 못했습니다.')
         if (stuRes.success && stuRes.data) {
           setStudents(stuRes.data)
           if (stuRes.data[0]) setSelectedStudentId(stuRes.data[0].student_id)
@@ -132,6 +136,13 @@ export function AttendancePage() {
     () => aggregateStats(studentIds, records, period.from, period.to),
     [studentIds, records, period.from, period.to]
   )
+
+  // 청소 점수는 집계 기간과 무관하게 마지막 청소 완료 이후 누적
+  const cleaningScores = useMemo(
+    () => currentCleaningScores(studentIds, records, cleaningResets),
+    [studentIds, records, cleaningResets]
+  )
+  const lastResets = useMemo(() => lastCleaningResets(cleaningResets), [cleaningResets])
 
   const applyStarts = (starts: string[]) => {
     setPeriodStarts(starts)
@@ -198,8 +209,8 @@ export function AttendancePage() {
         <div>
           <h1 className="text-xl font-semibold text-gray-900">출석 관리</h1>
           <p className="mt-1 text-xs text-gray-500">
-            지각 1점 · 조퇴 2점 누적. 서류 제출분은 점수는 누적하되 청소 점수에서는 빠집니다. 한 주 청소 점수{' '}
-            {CLEANING_THRESHOLD}점 이상이면 다음 주 청소.
+            지각 1점 · 조퇴 2점 누적. 서류 제출분은 점수는 누적하되 청소 점수에서는 빠집니다. 청소 점수는 주와
+            상관없이 누적해 {CLEANING_THRESHOLD}점 이상이면 청소 대상, 청소 완료 체크 시 0점부터 다시 셉니다.
           </p>
         </div>
       </div>
@@ -359,7 +370,7 @@ export function AttendancePage() {
             </select>
           </div>
           <p className="mb-3 mt-1 text-[11px] text-gray-500">
-            기간마다 점수 낮은 순 {REWARD_RANK_LIMIT}명 문화상품권 · 주간 청소는 기간과 상관없이 계산
+            기간마다 점수 낮은 순 {REWARD_RANK_LIMIT}명 문화상품권 · 청소 점수는 기간과 상관없이 계산
           </p>
           {showReset && (
             <ResetPanel
@@ -374,7 +385,7 @@ export function AttendancePage() {
               [
                 ['personal', '개인별'],
                 ['class', '학급별'],
-                ['cleaning', '주간 청소'],
+                ['cleaning', '청소 대상자'],
               ] as const
             ).map(([key, label]) => (
               <button
@@ -400,6 +411,8 @@ export function AttendancePage() {
               ranks={statRanks}
               records={records}
               period={period}
+              cleaningScore={cleaningScores.get(selectedStudentId) ?? 0}
+              lastReset={lastResets.get(selectedStudentId)}
             />
           )}
 
@@ -421,10 +434,12 @@ export function AttendancePage() {
 
           {tab === 'cleaning' && (
             <CleaningTab
-              weekMonday={weekMonday}
-              onWeekChange={setWeekMonday}
+              todayKey={todayKey}
               studentIds={studentIds}
-              records={records}
+              scores={cleaningScores}
+              lastResets={lastResets}
+              resets={cleaningResets}
+              onResetsChange={setCleaningResets}
               nameOf={nameOf}
             />
           )}
@@ -628,6 +643,8 @@ function PersonalTab({
   ranks,
   records,
   period,
+  cleaningScore,
+  lastReset,
 }: {
   students: Student[]
   selectedId: string
@@ -636,12 +653,10 @@ function PersonalTab({
   ranks: Record<'late' | 'early' | 'score', Map<string, number>>
   records: AttendanceRecord[]
   period: AttendancePeriod
+  cleaningScore: number
+  lastReset?: string
 }) {
   const stat = stats.find((s) => s.student_id === selectedId)
-  const thisWeek = weekRange(mondayOf(new Date()))
-  const weekCleaning = selectedId
-    ? aggregateStats([selectedId], records, thisWeek.from, thisWeek.to)[0].cleaning_score
-    : 0
   const history = records
     .filter(
       (r) =>
@@ -675,7 +690,7 @@ function PersonalTab({
               score: ranks.score.get(stat.student_id) ?? 0,
             }}
           />
-          <WeeklyCleaningNotice score={weekCleaning} from={thisWeek.from} to={thisWeek.to} />
+          <CleaningNotice score={cleaningScore} lastReset={lastReset} />
           <div>
             <p className="mb-1 text-xs font-semibold text-gray-700">기록 내역</p>
             {history.length === 0 ? (
@@ -703,68 +718,99 @@ function PersonalTab({
   )
 }
 
+/**
+ * 청소 대상자: 주와 상관없이 누적한 청소 점수가 기준 이상인 학생. 청소 완료를 체크하기 전까지 계속 남는다.
+ * 완료 체크 = 그 날짜(포함)까지의 청소 점수 초기화. 출결 기록은 지우지 않으므로 ×로 취소하면 원래대로 돌아간다.
+ */
 function CleaningTab({
-  weekMonday,
-  onWeekChange,
+  todayKey,
   studentIds,
-  records,
+  scores,
+  lastResets,
+  resets,
+  onResetsChange,
   nameOf,
 }: {
-  weekMonday: Date
-  onWeekChange: (d: Date) => void
+  todayKey: string
   studentIds: string[]
-  records: AttendanceRecord[]
+  scores: Map<string, number>
+  lastResets: Map<string, string>
+  resets: CleaningReset[]
+  onResetsChange: (resets: CleaningReset[]) => void
   nameOf: Map<string, string>
 }) {
-  const { from, to } = weekRange(weekMonday)
-  const next = weekRange(addDays(weekMonday, 7))
-  const weekStats = aggregateStats(studentIds, records, from, to)
-    .filter((s) => s.cleaning_score > 0)
-    .sort((a, b) => b.cleaning_score - a.cleaning_score)
-  const targets = weekStats.filter((s) => s.cleaning_score >= CLEANING_THRESHOLD)
-  const watch = weekStats.filter((s) => s.cleaning_score < CLEANING_THRESHOLD)
+  const [doneDate, setDoneDate] = useState(todayKey)
+  const [busy, setBusy] = useState(false)
+
+  const withScore = studentIds
+    .map((id) => ({ id, score: scores.get(id) ?? 0 }))
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+  const targets = withScore.filter((s) => s.score >= CLEANING_THRESHOLD)
+  const watch = withScore.filter((s) => s.score < CLEANING_THRESHOLD)
+  const history = [...resets].reverse().slice(0, 20)
+  const label = (id: string) => `${nameOf.get(id) ?? ''} (${id})`
+
+  const handleDone = async (id: string) => {
+    if (!doneDate) return
+    const prev = lastResets.get(id)
+    if (prev && doneDate <= prev) {
+      alert(`${label(id)} 학생은 이미 ${shortDate(prev)}에 청소 완료로 체크되어 있습니다. 그 이후 날짜를 골라 주세요.`)
+      return
+    }
+    if (!confirm(`${label(id)} 학생 청소 완료로 체크할까요?\n${shortDate(doneDate)}까지의 청소 점수가 0점으로 초기화됩니다.`))
+      return
+    setBusy(true)
+    const res = await addCleaningReset(id, doneDate)
+    setBusy(false)
+    if (res.success && res.data) onResetsChange(res.data)
+    else alert(res.error || '청소 완료 체크에 실패했습니다.')
+  }
+
+  const handleUndo = async (r: CleaningReset) => {
+    if (!confirm(`${label(r.student_id)} 학생의 ${shortDate(r.date)} 청소 완료를 취소할까요? 청소 점수가 다시 계산됩니다.`))
+      return
+    setBusy(true)
+    const res = await deleteCleaningReset(r.student_id, r.date)
+    setBusy(false)
+    if (res.success && res.data) onResetsChange(res.data)
+    else alert(res.error || '취소에 실패했습니다.')
+  }
 
   return (
     <div className="space-y-3 text-sm">
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => onWeekChange(addDays(weekMonday, -7))}
-          className="rounded px-2 py-1 text-gray-500 hover:bg-gray-100"
-          aria-label="이전 주"
-        >
-          ‹
-        </button>
-        <span className="font-semibold text-gray-800">
-          {shortDate(from)}(월) ~ {shortDate(to)}(일)
-        </span>
-        <button
-          type="button"
-          onClick={() => onWeekChange(addDays(weekMonday, 7))}
-          className="rounded px-2 py-1 text-gray-500 hover:bg-gray-100"
-          aria-label="다음 주"
-        >
-          ›
-        </button>
-      </div>
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-        <p className="text-xs font-semibold text-amber-800">
-          다음 주({shortDate(next.from)} ~ {shortDate(next.to)}) 청소 대상 {targets.length}명
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-semibold text-amber-800">청소 대상 {targets.length}명</p>
+          <label className="flex items-center gap-1.5 text-[11px] text-amber-800">
+            완료 날짜
+            <input
+              type="date"
+              value={doneDate}
+              onChange={(e) => setDoneDate(e.target.value)}
+              className="rounded border border-amber-300 bg-white px-1.5 py-0.5 text-[11px]"
+            />
+          </label>
+        </div>
         {targets.length === 0 ? (
-          <p className="mt-1 text-xs text-amber-700">이 주에 청소 점수 {CLEANING_THRESHOLD}점 이상인 학생이 없습니다.</p>
+          <p className="mt-1 text-xs text-amber-700">청소 점수 {CLEANING_THRESHOLD}점 이상인 학생이 없습니다.</p>
         ) : (
-          <ul className="mt-2 space-y-1">
+          <ul className="mt-2 space-y-1.5">
             {targets.map((s) => (
-              <li key={s.student_id} className="flex justify-between text-sm">
-                <span className="font-medium text-gray-900">
-                  {nameOf.get(s.student_id)} <span className="text-[11px] text-gray-500">{s.student_id}</span>
+              <li key={s.id} className="flex items-center justify-between gap-2 text-sm">
+                <span className="min-w-0 truncate font-medium text-gray-900">
+                  {nameOf.get(s.id)} <span className="text-[11px] text-gray-500">{s.id}</span>
                 </span>
-                <span className="tabular-nums text-amber-800">
-                  {s.cleaning_score}점
-                  <span className="ml-1.5 rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold">
-                    다음주 청소 확정
-                  </span>
+                <span className="flex shrink-0 items-center gap-2">
+                  <span className="tabular-nums text-amber-800">{s.score}점</span>
+                  <button
+                    type="button"
+                    onClick={() => handleDone(s.id)}
+                    disabled={busy || !doneDate}
+                    className="rounded bg-amber-600 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+                  >
+                    청소 완료
+                  </button>
                 </span>
               </li>
             ))}
@@ -776,18 +822,46 @@ function CleaningTab({
           <p className="mb-1 text-xs font-semibold text-gray-600">청소 점수가 있는 학생 ({CLEANING_THRESHOLD}점 미만)</p>
           <ul className="space-y-1 text-xs">
             {watch.map((s) => (
-              <li key={s.student_id} className="flex justify-between rounded bg-gray-50 px-2 py-1">
+              <li key={s.id} className="flex justify-between rounded bg-gray-50 px-2 py-1">
                 <span className="text-gray-700">
-                  {nameOf.get(s.student_id)} {s.student_id}
+                  {nameOf.get(s.id)} {s.id}
                 </span>
-                <span className="tabular-nums text-gray-600">{s.cleaning_score}점</span>
+                <span className="tabular-nums text-gray-600">{s.score}점</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {history.length > 0 && (
+        <div>
+          <p className="mb-1 text-xs font-semibold text-gray-600">청소 완료 기록 (최근 {history.length}건)</p>
+          <ul className="max-h-40 space-y-1 overflow-auto text-xs">
+            {history.map((r) => (
+              <li
+                key={`${r.student_id}|${r.date}`}
+                className="flex items-center justify-between rounded bg-gray-50 px-2 py-1"
+              >
+                <span className="text-gray-700">
+                  {shortDate(r.date)} · {nameOf.get(r.student_id) ?? ''} {r.student_id}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleUndo(r)}
+                  disabled={busy}
+                  className="text-gray-400 hover:text-red-600"
+                  title="청소 완료 취소"
+                  aria-label={`${r.student_id} ${shortDate(r.date)} 청소 완료 취소`}
+                >
+                  ×
+                </button>
               </li>
             ))}
           </ul>
         </div>
       )}
       <p className="text-[11px] text-gray-400">
-        청소 점수 = 서류 없는 지각 1점 + 서류 없는 조퇴 2점. 월~일 한 주 단위로 집계합니다.
+        청소 점수 = 서류 없는 지각 1점 + 서류 없는 조퇴 2점. 주·집계 기간과 상관없이 누적하고, 청소 완료를 체크하면 그
+        날짜까지의 점수는 초기화되어 다음 날부터 0점에서 다시 셉니다(남은 점수 이월 없음).
       </p>
     </div>
   )

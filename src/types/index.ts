@@ -77,6 +77,14 @@ export interface StudentAttendanceData {
   records: AttendanceRecord[]
   /** 집계 기간(리셋) 시작일 목록, 오름차순 */
   period_starts: string[]
+  /** 본인('me')의 청소 완료 기록만 */
+  cleaning_resets: CleaningReset[]
+}
+
+/** 청소 완료 기록: 이 날짜(포함)까지의 청소 점수를 초기화한다 */
+export interface CleaningReset {
+  student_id: string
+  date: string // 'YYYY-MM-DD'
 }
 
 export interface AssignmentRow {

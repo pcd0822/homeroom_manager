@@ -482,6 +482,15 @@ function handleRequest(e, method) {
       case 'DELETE_ATTENDANCE_PERIOD':
         result = deleteAttendancePeriod(params);
         break;
+      case 'GET_CLEANING_RESETS':
+        result = getCleaningResets();
+        break;
+      case 'ADD_CLEANING_RESET':
+        result = addCleaningReset(params);
+        break;
+      case 'DELETE_CLEANING_RESET':
+        result = deleteCleaningReset(params);
+        break;
       default:
         result.error = 'Unknown action: ' + action;
     }
@@ -4357,7 +4366,10 @@ function getAttendanceForStudent(params) {
       name: auth.data && auth.data.name ? auth.data.name : '',
       keys: keys,
       records: records,
-      period_starts: _getAttendancePeriodStarts()
+      period_starts: _getAttendancePeriodStarts(),
+      cleaning_resets: _getCleaningResets()
+        .filter(function (c) { return c.student_id === me; })
+        .map(function (c) { return { student_id: 'me', date: c.date }; })
     }
   };
 }
@@ -4417,4 +4429,91 @@ function deleteAttendancePeriod(params) {
   var starts = _getAttendancePeriodStarts().filter(function (d) { return d !== date; });
   _setAttendancePeriodStarts(starts);
   return { success: true, data: { starts: starts } };
+}
+
+// ----- 청소 완료(청소 점수 초기화) -----
+// 청소 점수는 집계 기간과 별개로 계속 누적되고, 청소 완료 날짜(포함)까지의 점수만 버린다. 계산은 프론트에서 한다.
+// 시트 읽기 없이 Script Properties에 '학번|YYYY-MM-DD' 문자열 배열로 보관한다(값 한도 9KB → 약 500건).
+var CLEANING_RESETS_PROP = 'CLEANING_RESETS';
+
+function _getCleaningResets() {
+  var raw = PropertiesService.getScriptProperties().getProperty(CLEANING_RESETS_PROP);
+  var list = [];
+  try {
+    list = raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    list = [];
+  }
+  if (!Array.isArray(list)) list = [];
+  var out = [];
+  for (var i = 0; i < list.length; i++) {
+    var parts = String(list[i]).split('|');
+    var sid = String(parts[0] || '').trim();
+    var date = _fmtDateKey(parts[1]);
+    if (sid && /^\d{4}-\d{2}-\d{2}$/.test(date)) out.push({ student_id: sid, date: date });
+  }
+  out.sort(function (a, b) {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    return a.student_id.localeCompare(b.student_id, 'ko', { numeric: true });
+  });
+  return out;
+}
+
+function _setCleaningResets(list) {
+  var raw = JSON.stringify(list.map(function (c) { return c.student_id + '|' + c.date; }));
+  PropertiesService.getScriptProperties().setProperty(CLEANING_RESETS_PROP, raw);
+}
+
+function getCleaningResets() {
+  return { success: true, data: _getCleaningResets() };
+}
+
+/** 청소 완료 체크. params: { student_id, date: 'YYYY-MM-DD' } */
+function addCleaningReset(params) {
+  params = params || {};
+  var sid = String(params.student_id == null ? '' : params.student_id).trim();
+  var date = _fmtDateKey(params.date);
+  if (!sid) return { success: false, error: '학번이 없습니다.' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { success: false, error: '날짜 형식이 올바르지 않습니다.' };
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+  } catch (e) {
+    return { success: false, error: '다른 저장이 처리 중입니다. 잠시 후 다시 시도해 주세요.' };
+  }
+  try {
+    var list = _getCleaningResets();
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].student_id === sid && list[i].date === date) {
+        return { success: false, error: sid + ' 학생은 ' + date + '에 이미 청소 완료로 체크되어 있습니다.' };
+      }
+    }
+    list.push({ student_id: sid, date: date });
+    _setCleaningResets(list);
+    return { success: true, data: _getCleaningResets() };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 청소 완료 취소. params: { student_id, date } */
+function deleteCleaningReset(params) {
+  params = params || {};
+  var sid = String(params.student_id == null ? '' : params.student_id).trim();
+  var date = _fmtDateKey(params.date);
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+  } catch (e) {
+    return { success: false, error: '다른 저장이 처리 중입니다. 잠시 후 다시 시도해 주세요.' };
+  }
+  try {
+    var list = _getCleaningResets().filter(function (c) {
+      return !(c.student_id === sid && c.date === date);
+    });
+    _setCleaningResets(list);
+    return { success: true, data: list };
+  } finally {
+    lock.releaseLock();
+  }
 }

@@ -36,19 +36,12 @@ export function PersonalStatsTable({
               <td className="py-2 text-right tabular-nums text-gray-900">{value}</td>
             </tr>
           ))}
-          <tr className="border-b border-gray-100">
+          <tr>
             <th className="py-2 text-left font-semibold text-gray-800">
               누적 점수
               <span className="ml-1 text-[11px] font-normal text-gray-400">(지각 1 · 조퇴 2)</span>
             </th>
             <td className="py-2 text-right text-base font-bold tabular-nums text-blue-700">{stat.score}점</td>
-          </tr>
-          <tr>
-            <th className="py-2 text-left font-medium text-gray-600">
-              청소 점수
-              <span className="ml-1 text-[11px] font-normal text-gray-400">(서류 제출분 제외)</span>
-            </th>
-            <td className="py-2 text-right tabular-nums text-gray-900">{stat.cleaning_score}점</td>
           </tr>
         </tbody>
       </table>
@@ -67,8 +60,11 @@ export function PersonalStatsTable({
   )
 }
 
-/** 한 주 청소 점수 안내. 기준 이상이면 다음 주 청소 확정 문구를 띄운다. (교사·학생 화면 공용) */
-export function WeeklyCleaningNotice({ score, from, to }: { score: number; from: string; to: string }) {
+/**
+ * 현재 청소 점수 안내. 집계 기간과 무관하게 마지막 청소 완료 이후로 누적한다.
+ * 기준 이상이면 청소 대상 문구를 띄운다. (교사·학생 화면 공용)
+ */
+export function CleaningNotice({ score, lastReset }: { score: number; lastReset?: string }) {
   const confirmed = score >= CLEANING_THRESHOLD
   return (
     <div
@@ -78,11 +74,13 @@ export function WeeklyCleaningNotice({ score, from, to }: { score: number; from:
       )}
     >
       <p>
-        이번 주({shortDate(from)}~{shortDate(to)}) 청소 누적 점수{' '}
-        <span className="font-semibold tabular-nums">{score}점</span>
-        {!confirmed && ` / ${CLEANING_THRESHOLD}점이 되면 다음 주 청소를 해요.`}
+        청소 누적 점수 <span className="font-semibold tabular-nums">{score}점</span>
+        {!confirmed && ` / ${CLEANING_THRESHOLD}점이 되면 청소를 해요.`}
       </p>
-      {confirmed && <p className="mt-1 text-sm font-bold">🧹 다음주 청소 확정이에요!</p>}
+      <p className="mt-0.5 text-[11px] opacity-75">
+        서류 없는 지각 1 · 조퇴 2 · {lastReset ? `${shortDate(lastReset)} 청소 완료 다음 날부터` : '처음부터'} 누적
+      </p>
+      {confirmed && <p className="mt-1 text-sm font-bold">🧹 청소 대상이에요!</p>}
     </div>
   )
 }

@@ -36,6 +36,7 @@ import type {
   CalendarEvent,
   CounselingRosterStudent,
   AttendanceRecord,
+  CleaningReset,
   StudentAttendanceData,
 } from '@/types'
 
@@ -374,6 +375,20 @@ export function addAttendancePeriod(startDate: string) {
 /** 리셋 취소: 시작일 경계를 없애 앞 기간과 합침 */
 export function deleteAttendancePeriod(startDate: string) {
   return request<{ starts: string[] }>('DELETE_ATTENDANCE_PERIOD', 'POST', { start_date: startDate })
+}
+
+export function getCleaningResets() {
+  return request<CleaningReset[]>('GET_CLEANING_RESETS', 'POST')
+}
+
+/** 청소 완료: 이 날짜까지의 청소 점수 초기화 (출결 기록은 지우지 않음) */
+export function addCleaningReset(studentId: string, date: string) {
+  return request<CleaningReset[]>('ADD_CLEANING_RESET', 'POST', { student_id: studentId, date })
+}
+
+/** 청소 완료 취소 */
+export function deleteCleaningReset(studentId: string, date: string) {
+  return request<CleaningReset[]>('DELETE_CLEANING_RESET', 'POST', { student_id: studentId, date })
 }
 
 export function getAttendanceForStudent(studentId: string, authCode: string) {
