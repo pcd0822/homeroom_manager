@@ -234,7 +234,7 @@ export function StudentAttendancePage() {
                 <p className="text-lg font-bold text-amber-900">🧹 청소 대상이에요!</p>
                 <p className="mt-1 text-xs text-amber-800">
                   청소 누적 점수가 {myCleaning}점이에요. ({CLEANING_THRESHOLD}점 이상) 청소를 마치면 선생님이 완료
-                  체크해 0점부터 다시 시작해요.
+                  체크해 지난주까지의 점수는 지워져요. 청소하는 주에 생긴 점수는 그대로 남아요.
                 </p>
               </div>
             )}

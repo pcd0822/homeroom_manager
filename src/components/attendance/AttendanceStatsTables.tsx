@@ -3,6 +3,7 @@ import {
   CLEANING_THRESHOLD,
   RANK_KEY_LABELS,
   REWARD_RANK_LIMIT,
+  cleaningCountFrom,
   rankBy,
   shortDate,
   type AttendanceStat,
@@ -78,7 +79,11 @@ export function CleaningNotice({ score, lastReset }: { score: number; lastReset?
         {!confirmed && ` / ${CLEANING_THRESHOLD}점이 되면 청소를 해요.`}
       </p>
       <p className="mt-0.5 text-[11px] opacity-75">
-        서류 없는 지각 1 · 조퇴 2 · {lastReset ? `${shortDate(lastReset)} 청소 완료 다음 날부터` : '처음부터'} 누적
+        서류 없는 지각 1 · 조퇴 2 ·{' '}
+        {lastReset
+          ? `${shortDate(lastReset)} 청소 완료 → 그 주 월요일(${shortDate(cleaningCountFrom(lastReset))})부터`
+          : '처음부터'}{' '}
+        누적
       </p>
       {confirmed && <p className="mt-1 text-sm font-bold">🧹 청소 대상이에요!</p>}
     </div>

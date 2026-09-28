@@ -81,7 +81,7 @@ export interface StudentAttendanceData {
   cleaning_resets: CleaningReset[]
 }
 
-/** 청소 완료 기록: 이 날짜(포함)까지의 청소 점수를 초기화한다 */
+/** 청소 완료 기록: 이 날짜가 속한 주(월~일)의 이전 주까지 청소 점수를 초기화한다. 청소 주 점수는 유지 */
 export interface CleaningReset {
   student_id: string
   date: string // 'YYYY-MM-DD'

@@ -17,6 +17,8 @@ import {
   REWARD_RANK_LIMIT,
   aggregateStats,
   buildPeriods,
+  cleaningCountFrom,
+  cleaningWeekStart,
   currentCleaningScores,
   invalidDocFields,
   lastCleaningResets,
@@ -210,7 +212,8 @@ export function AttendancePage() {
           <h1 className="text-xl font-semibold text-gray-900">출석 관리</h1>
           <p className="mt-1 text-xs text-gray-500">
             지각 1점 · 조퇴 2점 누적. 서류 제출분은 점수는 누적하되 청소 점수에서는 빠집니다. 청소 점수는 주와
-            상관없이 누적해 {CLEANING_THRESHOLD}점 이상이면 청소 대상, 청소 완료 체크 시 0점부터 다시 셉니다.
+            상관없이 누적해 {CLEANING_THRESHOLD}점 이상이면 청소 대상, 청소 완료 체크 시 청소한 주 이전 점수만
+            초기화되고 청소 주(월요일부터)의 점수는 그대로 이어집니다.
           </p>
         </div>
       </div>
@@ -758,7 +761,18 @@ function CleaningTab({
       alert(`${label(id)} 학생은 이미 ${shortDate(prev)}에 청소 완료로 체크되어 있습니다. 그 이후 날짜를 골라 주세요.`)
       return
     }
-    if (!confirm(`${label(id)} 학생 청소 완료로 체크할까요?\n${shortDate(doneDate)}까지의 청소 점수가 0점으로 초기화됩니다.`))
+    if (prev && cleaningWeekStart(prev) === cleaningWeekStart(doneDate)) {
+      alert(
+        `${label(id)} 학생은 이미 같은 주(${shortDate(cleaningWeekStart(prev))}~)에 청소 완료로 체크되어 있습니다. 청소 주 점수는 초기화되지 않으므로 다시 체크할 필요가 없습니다.`
+      )
+      return
+    }
+    const countFrom = cleaningCountFrom(doneDate)
+    if (
+      !confirm(
+        `${label(id)} 학생 청소 완료로 체크할까요?\n${shortDate(countFrom)}(청소 주 월요일) 이전의 청소 점수가 초기화됩니다.\n청소 주에 생긴 점수는 그대로 이어집니다.`
+      )
+    )
       return
     setBusy(true)
     const res = await addCleaningReset(id, doneDate)
@@ -860,8 +874,8 @@ function CleaningTab({
         </div>
       )}
       <p className="text-[11px] text-gray-400">
-        청소 점수 = 서류 없는 지각 1점 + 서류 없는 조퇴 2점. 주·집계 기간과 상관없이 누적하고, 청소 완료를 체크하면 그
-        날짜까지의 점수는 초기화되어 다음 날부터 0점에서 다시 셉니다(남은 점수 이월 없음).
+        청소 점수 = 서류 없는 지각 1점 + 서류 없는 조퇴 2점. 주·집계 기간과 상관없이 누적하고, 청소 완료를 체크하면
+        청소한 주(월~일) 이전 주까지의 점수만 초기화됩니다. 청소 주에 생긴 점수는 그대로 남아 다음 청소 점수로 이어집니다.
       </p>
     </div>
   )

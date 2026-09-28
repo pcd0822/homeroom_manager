@@ -4,8 +4,9 @@
  * - 지각 1점, 조퇴 2점. 같은 날 둘 다 체크 가능.
  * - 서류(진료확인서·처방전·약봉투 등)를 냈어도 점수는 그대로 누적한다.
  * - 청소 점수는 서류 없는 지각·조퇴만 센다. 주와 상관없이 계속 누적해 3점 이상이면 청소 대상.
- *   교사가 청소 완료를 체크하면 그 날짜(포함)까지의 청소 점수는 버리고 다음 날부터 0점에서 새로 센다.
- *   넘친 점수는 이월하지 않는다. 집계 기간(리셋)과는 무관하다.
+ *   교사가 청소 완료를 체크하면 **청소한 주(월~일) 이전 주까지**의 청소 점수만 버린다.
+ *   청소하는 주에 생긴 점수(그 주 월요일부터)는 초기화되지 않고 다음 청소 점수로 그대로 이어진다.
+ *   집계 기간(리셋)과는 무관하다.
  * - 점수·순위는 집계 기간별로 따로 센다. 교사가 리셋하면 그 날짜부터 새 기간(기록은 그대로).
  *   기간마다 점수 낮은 순 10명 문화상품권.
  */
@@ -93,19 +94,43 @@ export function lastCleaningResets(resets: CleaningReset[]): Map<string, string>
   return last
 }
 
-/** 현재 청소 점수: 마지막 청소 완료 날짜 다음 날부터 쌓인 점수. 기록이 없는 학생도 0으로 포함. */
+/** 청소 주는 월~일. 해당 날짜가 속한 주의 월요일('YYYY-MM-DD'). */
+export function cleaningWeekStart(key: string): string {
+  const d = parseDateKey(key)
+  const offset = (d.getDay() + 6) % 7 // 월=0 … 일=6
+  return toDateKey(addDays(d, -offset))
+}
+
+/**
+ * 청소 완료 날짜 → 청소 점수를 새로 세기 시작하는 날짜(= 청소한 주의 월요일).
+ * 이 날짜 이전(이전 주까지)의 청소 점수만 초기화되고, 이 날짜부터의 점수는 유지된다.
+ */
+export function cleaningCountFrom(resetDate: string): string {
+  return cleaningWeekStart(resetDate)
+}
+
+/** 학생별 청소 점수 계산 시작일(마지막 청소 완료 주의 월요일). 완료 기록이 없으면 없음. */
+export function cleaningCountStarts(resets: CleaningReset[]): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const [id, date] of lastCleaningResets(resets)) out.set(id, cleaningCountFrom(date))
+  return out
+}
+
+/**
+ * 현재 청소 점수: 마지막 청소 완료 주의 월요일부터 쌓인 점수(이전 주까지는 초기화). 기록이 없는 학생도 0으로 포함.
+ */
 export function currentCleaningScores(
   studentIds: string[],
   records: AttendanceRecord[],
   resets: CleaningReset[]
 ): Map<string, number> {
-  const last = lastCleaningResets(resets)
+  const from = cleaningCountStarts(resets)
   const scores = new Map<string, number>(studentIds.map((id) => [id, 0]))
   for (const r of records) {
     const cur = scores.get(r.student_id)
     if (cur === undefined) continue
-    const resetAt = last.get(r.student_id)
-    if (resetAt && r.date <= resetAt) continue
+    const start = from.get(r.student_id)
+    if (start && r.date < start) continue
     scores.set(r.student_id, cur + cleaningScoreOf(r))
   }
   return scores

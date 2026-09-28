@@ -4432,7 +4432,8 @@ function deleteAttendancePeriod(params) {
 }
 
 // ----- 청소 완료(청소 점수 초기화) -----
-// 청소 점수는 집계 기간과 별개로 계속 누적되고, 청소 완료 날짜(포함)까지의 점수만 버린다. 계산은 프론트에서 한다.
+// 청소 점수는 집계 기간과 별개로 계속 누적된다. 청소 완료 날짜가 속한 주(월~일)의 이전 주까지 점수만 버리고,
+// 청소 주(월요일부터)의 점수는 유지한다. 계산은 프론트(src/lib/attendance.ts)에서 한다.
 // 시트 읽기 없이 Script Properties에 '학번|YYYY-MM-DD' 문자열 배열로 보관한다(값 한도 9KB → 약 500건).
 var CLEANING_RESETS_PROP = 'CLEANING_RESETS';
 
