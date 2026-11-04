@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Hand, MessagesSquare, School, Users } from 'lucide-react'
 import type { CalendarEvent, CalendarEventType, CounselingTimetable, Student } from '@/types'
 import {
   saveCalendarEvent,
@@ -249,7 +250,10 @@ export function CalendarEventModal({
                   : 'border-gray-200 text-gray-500 hover:bg-gray-50'
               }`}
             >
-              {t === 'class' ? '🏫 수업시간' : '🗣️ 상담'}
+              <span className="inline-flex items-center justify-center gap-1.5">
+                {t === 'class' ? <School className="h-4 w-4" /> : <MessagesSquare className="h-4 w-4" />}
+                {t === 'class' ? '수업시간' : '상담'}
+              </span>
             </button>
           ))}
         </div>
@@ -270,13 +274,15 @@ export function CalendarEventModal({
                   size="md"
                 />
                 <span>
-                  👪 <b>{requester?.name || requester?.student_id}</b>({requester?.student_id}) 학생의{' '}
+                  <Users className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
+                  <b>{requester?.name || requester?.student_id}</b>({requester?.student_id}) 학생의{' '}
                   <b>학부모</b> 상담 신청이에요. 선생님께는 <b>학부모 신청</b>으로 표시됩니다.
                 </span>
               </>
             ) : (
               <span>
-                🙋 <b>{requester?.name || requester?.student_id}</b> 님의 상담 신청이에요. 상담 대상은
+                <Hand className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
+                <b>{requester?.name || requester?.student_id}</b> 님의 상담 신청이에요. 상담 대상은
                 본인으로 자동 지정됩니다.
               </span>
             )}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ChevronDown, ChevronUp, MapPin, Users } from 'lucide-react'
 import type { CalendarEvent, CounselingTimetable, TimetablePeriod } from '@/types'
 import {
   WEEKDAY_LABELS,
@@ -333,7 +334,7 @@ function MonthView({
                     title={`${ev.start_time} ${ev.title}`}
                   >
                     {ev.start_time && <span className="font-semibold">{ev.start_time.slice(0, 5)} </span>}
-                    {ev.requester_role === 'parent' && <span title="학부모 신청">👪 </span>}
+                    {ev.requester_role === 'parent' && <span title="학부모 신청"><Users className="mr-0.5 inline h-2.5 w-2.5 align-[-1px]" /></span>}
                     {ev.title || TYPE_STYLES[ev.type].label}
                   </button>
                 ))}
@@ -343,7 +344,10 @@ function MonthView({
                     onClick={() => toggleDay(key)}
                     className="block w-full rounded px-1 text-left text-[10px] font-medium text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                   >
-                    {expandedDays[key] ? '접기 ▲' : `+${dayEvents.length - 3}건 ▼`}
+                    <span className="inline-flex items-center gap-0.5">
+                      {expandedDays[key] ? '접기' : `+${dayEvents.length - 3}건`}
+                      {expandedDays[key] ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    </span>
                   </button>
                 )}
               </div>
@@ -687,7 +691,7 @@ function EventRow({
           </span>
           <span className="truncate text-xs text-gray-700">{ev.title || TYPE_STYLES[ev.type].label}</span>
         </div>
-        {ev.location && <p className="text-[11px] text-gray-400">📍 {ev.location}</p>}
+        {ev.location && <p className="flex items-center gap-0.5 text-[11px] text-gray-400"><MapPin className="h-3 w-3 shrink-0" />{ev.location}</p>}
         {ev.content && <p className="text-[11px] text-gray-500">{ev.content}</p>}
         {ev.type === 'class' && (
           <div className="mt-1">

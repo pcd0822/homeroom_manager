@@ -25,6 +25,7 @@ import { PoliciesAdminPage } from '@/pages/admin/PoliciesAdminPage'
 import { SeatingPage } from '@/pages/admin/SeatingPage'
 import { CounselingCalendarPage } from '@/pages/admin/CounselingCalendarPage'
 import { CalendarSharedPage } from '@/pages/CalendarSharedPage'
+import { AttendanceBoardPage } from '@/pages/AttendanceBoardPage'
 import { StudentCounselingPage } from '@/pages/student/StudentCounselingPage'
 import { SeatingDrawPage } from '@/pages/SeatingDrawPage'
 import { TeacherQuizEditPage } from '@/pages/admin/TeacherQuizEditPage'
@@ -68,6 +69,7 @@ function App() {
         <Route path="counseling" element={<CounselingCalendarPage />} />
       </Route>
       <Route path="/calendar" element={<CalendarSharedPage />} />
+      <Route path="/attendance-board" element={<AttendanceBoardPage />} />
       <Route path="/view/:formId" element={<FormView />} />
       <Route path="/seating-draw" element={<SeatingDrawPage />} />
       <Route path="/cleaning-result" element={<CleaningResultPage />} />

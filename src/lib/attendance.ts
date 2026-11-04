@@ -10,7 +10,7 @@
  * - 점수·순위는 집계 기간별로 따로 센다. 교사가 리셋하면 그 날짜부터 새 기간(기록은 그대로).
  *   기간마다 점수 낮은 순 10명 문화상품권.
  */
-import type { AttendanceRecord, CleaningReset } from '@/types'
+import type { AttendanceRecord, CleaningReset, PeriodKind, PeriodMark, PeriodOp, PeriodRow, PeriodSchedule } from '@/types'
 import { addDays, parseDateKey, toDateKey } from '@/lib/calendar'
 
 export const CLEANING_THRESHOLD = 3
@@ -186,4 +186,204 @@ export function periodIndexOf(periods: AttendancePeriod[], dateKey: string): num
 export function periodLabel(p: AttendancePeriod): string {
   if (!p.from && !p.to) return '전체 기간'
   return `${p.from ? shortDate(p.from) : '처음'} ~ ${p.to ? shortDate(p.to) : '진행 중'}`
+}
+
+// ===================== 교시별 출결 (조회 + 1~N교시) =====================
+/*
+ * 칸 하나 = 한 학생의 한 교시. 교시 0은 조회.
+ * 담임은 출결 구분을 고른 뒤 칸을 누르면 구분에 맞춰 자동으로 채운다.
+ *   지각: 조회 ~ 누른 교시     조퇴: 누른 교시 ~ 마지막 교시
+ *   결석: 조회 ~ 마지막 교시   결과: 누른 칸만
+ * 교과교사(QR 출석부)는 구분 없이 1~N교시 칸에 빗금(S)만 넣고 뺀다.
+ * 조퇴 점수는 교시 체크로 자동 판정한다: 앞 교시에 한 시간이라도 출석하고, 그 뒤 어느 교시부터 마지막 교시까지 체크.
+ */
+
+export const PERIOD_MAX = 7
+export const DEFAULT_PERIOD_SCHEDULE: PeriodSchedule = { weekday: [0, 7, 7, 7, 7, 7, 0], dates: {} }
+
+export const KIND_OPTIONS: Array<{ value: Exclude<PeriodKind, ''>; label: string }> = [
+  { value: 'L', label: '지각' },
+  { value: 'E', label: '조퇴' },
+  { value: 'A', label: '결석' },
+  { value: 'R', label: '결과' },
+]
+
+export const MARK_LABELS: Record<PeriodMark, string> = {
+  A: '결석',
+  L: '지각',
+  E: '조퇴',
+  R: '결과',
+  S: '교과 체크',
+}
+
+/** 칸 색(빗금 색). 유리 바탕 위에서 구분되도록 채도 있는 색 */
+export const MARK_COLORS: Record<PeriodMark, string> = {
+  A: '#e11d48',
+  L: '#f59e0b',
+  E: '#7c3aed',
+  R: '#0284c7',
+  S: '#475569',
+}
+
+export type MarkMap = Partial<Record<number, PeriodMark>>
+
+export function parseMarks(raw: string | undefined | null): MarkMap {
+  const out: MarkMap = {}
+  for (const part of String(raw ?? '').split(',')) {
+    const m = /^\s*(\d)\s*:\s*([ALERS])\s*$/.exec(part)
+    if (!m) continue
+    const p = Number(m[1])
+    if (p >= 0 && p <= PERIOD_MAX) out[p] = m[2] as PeriodMark
+  }
+  return out
+}
+
+export function stringifyMarks(map: MarkMap): string {
+  return Object.keys(map)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .filter((k) => map[k])
+    .map((k) => `${k}:${map[k]}`)
+    .join(',')
+}
+
+export function periodsForDate(schedule: PeriodSchedule, date: string): number {
+  if (Object.prototype.hasOwnProperty.call(schedule.dates, date)) return schedule.dates[date]
+  return schedule.weekday[parseDateKey(date).getDay()] ?? 0
+}
+
+/** 1~n교시 중 체크된 칸으로 조퇴인지 판정 (조회는 보지 않음) */
+export function deriveEarly(marks: MarkMap, n: number): boolean {
+  if (n < 2 || !marks[n]) return false
+  for (let p = 1; p < n; p++) if (!marks[p]) return true
+  return false
+}
+
+export function hasPeriodMarks(marks: MarkMap, n: number): boolean {
+  for (let p = 1; p <= n; p++) if (marks[p]) return true
+  return false
+}
+
+/**
+ * 담임이 구분을 고른 채 칸을 눌렀을 때의 새 칸 상태.
+ * 같은 범위를 다시 누르면(예: 지각 2교시를 또 누름) 그 구분 체크를 모두 지운다.
+ */
+export function applyKindClick(marks: MarkMap, kind: PeriodKind, period: number, n: number): MarkMap {
+  const next: MarkMap = { ...marks }
+  const clearKind = (k: PeriodMark) => {
+    for (let p = 0; p <= PERIOD_MAX; p++) if (next[p] === k) delete next[p]
+  }
+  if (kind === 'L') {
+    let end = -1
+    for (let p = 0; p <= n && marks[p] === 'L'; p++) end = p
+    clearKind('L')
+    if (end === period) return next
+    for (let p = 0; p <= period; p++) next[p] = 'L'
+    return next
+  }
+  if (kind === 'E') {
+    let start = -1
+    for (let p = n; p >= 1 && marks[p] === 'E'; p--) start = p
+    clearKind('E')
+    if (start === period) return next
+    for (let p = Math.max(1, period); p <= n; p++) next[p] = 'E'
+    return next
+  }
+  if (kind === 'A') {
+    let all = true
+    for (let p = 0; p <= n; p++) if (marks[p] !== 'A') all = false
+    if (all) {
+      clearKind('A')
+      return next
+    }
+    for (let p = 0; p <= n; p++) next[p] = 'A'
+    return next
+  }
+  // 결과 또는 구분 없음: 누른 칸만 넣고 뺀다
+  if (next[period]) delete next[period]
+  else next[period] = kind === 'R' ? 'R' : 'S'
+  return next
+}
+
+/** 두 칸 상태의 차이를 저장용 op로 */
+export function diffMarkOps(studentId: string, before: MarkMap, after: MarkMap): PeriodOp[] {
+  const ops: PeriodOp[] = []
+  for (let p = 0; p <= PERIOD_MAX; p++) {
+    if ((before[p] || '') !== (after[p] || '')) {
+      ops.push({ student_id: studentId, type: 'mark', period: p, value: after[p] || '' })
+    }
+  }
+  return ops
+}
+
+/** 서버 행에 아직 안 보낸 op를 덧씌운다(폴링 결과와 내 변경이 섞일 때) */
+export function applyOpsToRows(rows: PeriodRow[], date: string, ops: PeriodOp[]): PeriodRow[] {
+  if (!ops.length) return rows
+  const map = new Map(rows.map((r) => [r.student_id, { ...r }]))
+  for (const op of ops) {
+    const cur = map.get(op.student_id) || { date, student_id: op.student_id, kind: '' as PeriodKind, marks: '', note: '' }
+    if (op.type === 'mark') {
+      const m = parseMarks(cur.marks)
+      if (op.value) m[op.period] = op.value
+      else delete m[op.period]
+      cur.marks = stringifyMarks(m)
+    } else if (op.type === 'kind') cur.kind = op.kind
+    else cur.note = op.note
+    map.set(op.student_id, cur)
+  }
+  return [...map.values()]
+}
+
+/**
+ * 점수 계산에 쓸 출결 기록: 교시 체크가 있는 날은 조퇴를 교시로 자동 판정하고,
+ * 교시 체크가 없는 날(예전 기록 등)은 직접 체크한 조퇴를 그대로 쓴다. 지각은 직접 체크한 값.
+ */
+export function effectiveRecords(
+  records: AttendanceRecord[],
+  periodMarks: Array<{ date: string; student_id: string; marks: string }>,
+  schedule: PeriodSchedule
+): AttendanceRecord[] {
+  const key = (d: string, s: string) => `${d}|${s}`
+  const base = new Map(records.map((r) => [key(r.date, r.student_id), r]))
+  const derived = new Map<string, boolean>()
+  for (const pm of periodMarks) {
+    const n = periodsForDate(schedule, pm.date)
+    const marks = parseMarks(pm.marks)
+    if (!hasPeriodMarks(marks, n)) continue
+    derived.set(key(pm.date, pm.student_id), deriveEarly(marks, n))
+  }
+  const out: AttendanceRecord[] = []
+  const keys = new Set([...base.keys(), ...derived.keys()])
+  for (const k of keys) {
+    const r = base.get(k)
+    const [date, student_id] = k.split('|')
+    const late = r?.late ?? false
+    const early = derived.has(k) ? derived.get(k)! : r?.early ?? false
+    if (!late && !early) continue
+    out.push({
+      date,
+      student_id,
+      late,
+      early,
+      late_doc: late && !!r?.late_doc,
+      early_doc: early && !!r?.early_doc,
+    })
+  }
+  return out.sort((a, b) => (a.date !== b.date ? (a.date < b.date ? -1 : 1) : a.student_id.localeCompare(b.student_id)))
+}
+
+/** 칸 상태 요약(예: '지각 조회~2교시 · 교과 5교시') */
+export function describeMarks(marks: MarkMap, n: number): string {
+  const groups: Array<{ mark: PeriodMark; from: number; to: number }> = []
+  for (let p = 0; p <= n; p++) {
+    const m = marks[p]
+    if (!m) continue
+    const last = groups[groups.length - 1]
+    if (last && last.mark === m && last.to === p - 1) last.to = p
+    else groups.push({ mark: m, from: p, to: p })
+  }
+  const name = (p: number) => (p === 0 ? '조회' : `${p}교시`)
+  return groups
+    .map((g) => `${MARK_LABELS[g.mark]} ${g.from === g.to ? name(g.from) : `${name(g.from)}~${name(g.to)}`}`)
+    .join(' · ')
 }

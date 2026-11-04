@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Nut, PartyPopper, RefreshCw, Save, Sparkles } from 'lucide-react'
 import {
   getStudents,
   getSeatingConfig,
@@ -36,7 +37,7 @@ const FUN_LINES = [
   '운명을 믿어요',
   '심호흡 한 번!',
   '오늘 자리 운 시작!',
-  '셔플 중… 🎲',
+  '셔플 중…',
 ]
 
 export function SeatingDrawPage() {
@@ -184,7 +185,7 @@ export function SeatingDrawPage() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">🎉 자리 배치 결과</h1>
+            <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-800"><PartyPopper className="h-6 w-6 text-pink-500" />자리 배치 결과</h1>
             <p className="mt-1 text-sm text-gray-600">
               마음에 들면 <span className="font-semibold text-emerald-700">저장</span>, 다시 뽑으려면{' '}
               <span className="font-semibold text-indigo-700">다시 뽑기</span>를 눌러주세요.
@@ -195,17 +196,19 @@ export function SeatingDrawPage() {
               type="button"
               onClick={reroll}
               disabled={saving}
-              className="rounded-md border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-md border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
             >
-              🔄 다시 뽑기
+              <RefreshCw className="h-4 w-4" />
+              다시 뽑기
             </button>
             <button
               type="button"
               onClick={save}
               disabled={saving}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
             >
-              💾 저장
+              <Save className="h-4 w-4" />
+              저장
             </button>
             {saving && <span className="text-xs text-gray-500">저장 중…</span>}
             {savedAt && !saving && (
@@ -250,7 +253,7 @@ function DrumrollView({ funLine, student }: { funLine: string; student: Student 
                 className="h-full w-full rounded-full object-cover"
               />
             ) : (
-              <span className="text-2xl">🥜</span>
+              <Nut className="h-7 w-7 text-amber-600" />
             )}
           </div>
         </div>
@@ -258,7 +261,8 @@ function DrumrollView({ funLine, student }: { funLine: string; student: Student 
         <p className="text-2xl font-bold text-slate-800 drop-shadow-sm">{funLine}</p>
         {student && (
           <p className="text-sm text-slate-600">
-            지금 카드 안의 친구는… <span className="font-semibold">{student.name}</span> ✨
+            지금 카드 안의 친구는… <span className="font-semibold">{student.name}</span>
+            <Sparkles className="ml-1 inline h-4 w-4 align-[-2px] text-amber-400" />
           </p>
         )}
         <div className="flex gap-1.5">

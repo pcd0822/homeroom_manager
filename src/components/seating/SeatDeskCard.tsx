@@ -1,3 +1,4 @@
+import { ClipboardList } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface DeskStudent {
@@ -97,7 +98,7 @@ export function TeacherDeskBanner({
     <div className={cn('mx-auto w-full max-w-md', className)}>
       <div className="flex flex-col items-center">
         <div className={cn('w-full rounded-xl border px-4 py-3 text-center shadow-inner', bg)}>
-          <p className="text-sm font-semibold tracking-wide text-slate-700">📋 교탁</p>
+          <p className="flex items-center justify-center gap-1.5 text-sm font-semibold tracking-wide text-slate-700"><ClipboardList className="h-4 w-4" />교탁</p>
         </div>
         <div className="flex w-1/2 justify-between px-4">
           <div className="h-2.5 w-1.5 rounded-b bg-slate-400" />

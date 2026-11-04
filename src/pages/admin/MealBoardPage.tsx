@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { buildShareUrl } from '@/lib/gasUrl'
 
 const NEIS_BASE = 'https://open.neis.go.kr/hub'
@@ -181,8 +182,9 @@ export function MealBoardPage() {
                 }
               }}
               className="rounded border border-gray-300 px-2 py-1 hover:bg-gray-50"
+              aria-label="이전"
             >
-              ◀
+              <ChevronLeft className="h-4 w-4" />
             </button>
             <span className="font-medium">{displayDate}</span>
             <button
@@ -197,8 +199,9 @@ export function MealBoardPage() {
                 }
               }}
               className="rounded border border-gray-300 px-2 py-1 hover:bg-gray-50"
+              aria-label="다음"
             >
-              ▶
+              <ChevronRight className="h-4 w-4" />
             </button>
           </div>
           {tab === 'schedule' && (

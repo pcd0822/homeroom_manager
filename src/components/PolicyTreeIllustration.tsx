@@ -1,3 +1,5 @@
+import { TreeDeciduous } from 'lucide-react'
+
 const MAX_SEEDS = 500
 
 /** public/policy-tree/ 안의 파일명 (확장자만 바꿀 경우 여기 수정) */
@@ -64,7 +66,7 @@ export function PolicyTreeIllustration({ total }: Props) {
 
   return (
     <div className="rounded-3xl border-2 border-emerald-200 bg-gradient-to-b from-sky-50 to-emerald-50 p-6 text-center shadow-inner">
-      <h3 className="mb-1 text-sm font-bold text-emerald-900">🌳 정책 나무</h3>
+      <h3 className="mb-1 flex items-center justify-center gap-1.5 text-sm font-bold text-emerald-900"><TreeDeciduous className="h-4 w-4" />정책 나무</h3>
       <p className="mb-4 text-[11px] font-medium text-emerald-800/90">
         지금 단계: <span className="text-emerald-700">{label}</span>
         {show500Badge && (

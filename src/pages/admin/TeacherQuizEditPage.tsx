@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ClipboardList, Flower2 } from 'lucide-react'
+import { IconTile } from '@/components/ui/Glyph'
 import { getTeacherQuizQuestions, saveTeacherQuizQuestions } from '@/api/api'
 import type { TeacherQuizQuestion, TeacherQuizType } from '@/types'
 import {
@@ -207,7 +209,8 @@ export function TeacherQuizEditPage() {
       </div>
       <header>
         <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
-          🌷 들샘 모의고사 — 문제 출제
+          <IconTile icon={Flower2} tone="rose" size={36} />
+          들샘 모의고사 — 문제 출제
         </h1>
         <p className="mt-1 text-sm text-gray-600">
           담임샘에 대한 다양한 유형의 문제를 출제하세요. 학생은 공유 링크에서 학번·코드로 입장해
@@ -332,13 +335,14 @@ function QuestionEditor({
               type="button"
               onClick={() => onChangeType(t.value)}
               className={cn(
-                'rounded-full border px-3 py-1 text-xs transition-colors',
+                'inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition-colors',
                 question.type === t.value
                   ? 'border-rose-300 bg-rose-100 text-rose-700'
                   : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
               )}
             >
-              {t.emoji} {t.label}
+<t.icon className="h-3.5 w-3.5" />
+              {t.label}
             </button>
           ))}
         </div>
@@ -463,7 +467,8 @@ function QuestionEditor({
 
       {question.type === 'survey' && (
         <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
-          📝 <b>설문형</b> 문제는 정답이 없고 <b>제한 시간도 없어요.</b>
+          <ClipboardList className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
+          <b>설문형</b> 문제는 정답이 없고 <b>제한 시간도 없어요.</b>
           학생이 답을 적어 제출하기만 하면 <b>+100P</b>를 받습니다. 오답 페널티도 없어요.
         </div>
       )}

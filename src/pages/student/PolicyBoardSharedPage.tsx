@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Flame, House, Sprout } from 'lucide-react'
 import { Helmet } from 'react-helmet-async'
 import { Link } from 'react-router-dom'
 import { authStudent, getPolicies, getPolicyDetail, hypePolicy } from '@/api/api'
@@ -186,10 +187,10 @@ export function PolicyBoardSharedPage() {
               aria-label="학생 대시보드 홈"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-lg text-sky-800 ring-1 ring-sky-200 hover:bg-sky-100"
             >
-              🏠
+              <House className="h-5 w-5" />
             </Link>
             <div className="min-w-0">
-              <h1 className="text-lg font-bold text-gray-900">🔥 정책 게시판</h1>
+              <h1 className="text-lg font-bold text-gray-900"><Flame className="mr-1 inline h-5 w-5 align-[-3px] text-orange-500" />정책 게시판</h1>
               <p className="text-xs text-gray-500">카드를 눌러 제안서를 읽고, Hype!로 순위를 올리세요.</p>
             </div>
           </div>
@@ -206,7 +207,7 @@ export function PolicyBoardSharedPage() {
             {top4Policies.length > 0 && (
               <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-amber-900">
-                  <span className="inline-block">🔥</span> 실시간 Top4
+                  <Flame className="h-4 w-4 text-orange-500" /> 실시간 Top4
                 </h3>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {top4Policies.map((p, idx) => (
@@ -221,12 +222,12 @@ export function PolicyBoardSharedPage() {
                           {policyLogoSrc(p.logo_data) ? (
                             <img src={policyLogoSrc(p.logo_data)} alt="" className="h-full w-full object-cover" />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-base">🌱</div>
+                            <div className="flex h-full w-full items-center justify-center text-emerald-500"><Sprout className="h-4 w-4" /></div>
                           )}
                         </div>
                         <div className="shrink-0 text-right">
                           <div className="text-[10px] font-bold text-amber-700">{idx + 1}등</div>
-                          <div className="text-[11px] font-semibold text-amber-600">🔥 {p.hype_count ?? 0}</div>
+                          <div className="text-[11px] font-semibold text-amber-600"><Flame className="mr-0.5 inline h-3 w-3 align-[-2px]" />{p.hype_count ?? 0}</div>
                         </div>
                       </div>
                       <p className="mt-2 line-clamp-2 text-[11px] font-semibold text-gray-900">{p.title}</p>
@@ -248,13 +249,13 @@ export function PolicyBoardSharedPage() {
                       {policyLogoSrc(p.logo_data) ? (
                         <img src={policyLogoSrc(p.logo_data)} alt="" className="h-full w-full object-cover" />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-2xl">🌱</div>
+                        <div className="flex h-full w-full items-center justify-center text-emerald-500"><Sprout className="h-7 w-7" /></div>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-gray-900">{p.title}</p>
                       <p className="truncate text-[11px] text-gray-500">{p.goal}</p>
-                      <p className="mt-0.5 text-[11px] font-semibold text-amber-600">🔥 {p.hype_count ?? 0}</p>
+                      <p className="mt-0.5 text-[11px] font-semibold text-amber-600"><Flame className="mr-0.5 inline h-3 w-3 align-[-2px]" />{p.hype_count ?? 0}</p>
                     </div>
                     <span className="text-gray-300">›</span>
                   </button>
@@ -276,7 +277,7 @@ export function PolicyBoardSharedPage() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-6xl">🌱</div>
+                  <div className="flex h-full w-full items-center justify-center text-emerald-500"><Sprout className="h-14 w-14" /></div>
                 )}
                 <button
                   type="button"
@@ -291,7 +292,7 @@ export function PolicyBoardSharedPage() {
               <div className="px-5 pt-4 sm:px-6">
                 <h2 className="break-words text-base font-bold text-gray-900">{detail.title}</h2>
                 <p className="mt-0.5 break-words text-[11px] text-gray-500">목표: {detail.goal}</p>
-                <p className="mt-1 text-[11px] font-semibold text-amber-600">🔥 하입 횟수: {detail.hype_count ?? 0}</p>
+                <p className="mt-1 text-[11px] font-semibold text-amber-600"><Flame className="mr-0.5 inline h-3 w-3 align-[-2px]" />하입 횟수: {detail.hype_count ?? 0}</p>
               </div>
 
               <div className="mt-4 space-y-3 px-5 pb-5 sm:px-6 sm:pb-6">
@@ -349,7 +350,7 @@ export function PolicyBoardSharedPage() {
                     ) : cooldownRemainingMs > 0 ? (
                       `${formatCooldownMinutes(cooldownRemainingMs)}분 뒤에 다시 Hype!`
                     ) : (
-                      '🔥 Hype!'
+                      <><Flame className="mr-1 inline h-4 w-4 align-[-3px]" />Hype!</>
                     )}
                   </button>
                   <p className="mt-2 text-[10px] text-amber-900/80">

@@ -9,6 +9,7 @@ import {
   type AttendanceStat,
   type RankKey,
 } from '@/lib/attendance'
+import { Gift, Lock, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /** 개인별 통계: 횟수·점수와 세 가지 순위 */
@@ -85,7 +86,9 @@ export function CleaningNotice({ score, lastReset }: { score: number; lastReset?
           : '처음부터'}{' '}
         누적
       </p>
-      {confirmed && <p className="mt-1 text-sm font-bold">🧹 청소 대상이에요!</p>}
+      {confirmed && <p className="mt-1 flex items-center gap-1 text-sm font-bold">
+          <Sparkles className="h-4 w-4" /> 청소 대상이에요!
+        </p>}
     </div>
   )
 }
@@ -154,7 +157,9 @@ export function ClassStatsTable({
             if (blindOthers && !mine) {
               return (
                 <tr key={stat.student_id} className="border-b border-gray-100 text-gray-300">
-                  <td className="py-1.5 text-center">🔒</td>
+                  <td className="py-1.5 text-center">
+                    <Lock className="mx-auto h-3.5 w-3.5 text-gray-400" aria-label="비공개" />
+                  </td>
                   <td className="py-1.5">{label}</td>
                   {(['late', 'early', 'score'] as const).map((k) => (
                     <td key={k} className="select-none py-1.5 pr-2 text-right">
@@ -176,7 +181,11 @@ export function ClassStatsTable({
               >
                 <td className="py-1.5 text-center tabular-nums text-gray-700">
                   {rank}
-                  {rewarded && <span title="문화상품권 대상 순위권"> 🎁</span>}
+                  {rewarded && (
+                    <span title="문화상품권 대상 순위권" className="ml-1 inline-flex align-[-2px] text-emerald-600">
+                      <Gift className="h-3.5 w-3.5" />
+                    </span>
+                  )}
                 </td>
                 <td className="py-1.5 text-gray-800">{label}</td>
                 {(['late', 'early', 'score'] as const).map((k) => (
@@ -196,7 +205,7 @@ export function ClassStatsTable({
         </tbody>
       </table>
       <p className="mt-2 text-[11px] text-gray-400">
-        머리글을 누르면 그 항목이 적은 순으로 정렬됩니다. 동점은 같은 순위입니다. 🎁는 총점 {REWARD_RANK_LIMIT}위
+        머리글을 누르면 그 항목이 적은 순으로 정렬됩니다. 동점은 같은 순위입니다. 선물 상자 표시는 총점 {REWARD_RANK_LIMIT}위
         이내(동점 포함)입니다.
         {blindOthers && ' 다른 친구의 순위와 점수는 가려져 있어요.'}
       </p>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { Link } from 'react-router-dom'
+import { CalendarDays, HeartHandshake, Leaf, MapPin, Users } from 'lucide-react'
+import { EmptyArt, IconTile } from '@/components/ui/Glyph'
 import { authStudent, getCalendarEventsForStudent } from '@/api/api'
 import type { CalendarEvent } from '@/types'
 import { StudentNavBar } from '@/components/student/StudentNavBar'
@@ -114,7 +116,7 @@ export function StudentCounselingPage() {
           <title>{TITLE}</title>
         </Helmet>
         <div className="mx-auto max-w-sm rounded-3xl border border-rose-100 bg-white p-6 shadow-lg">
-          <div className="mb-4 text-center text-4xl">💗</div>
+          <div className="mb-4 flex justify-center"><IconTile icon={HeartHandshake} tone="rose" size={52} /></div>
           <h1 className="mb-1 text-center text-lg font-bold text-gray-900">내 상담 일정</h1>
           <p className="mb-5 text-center text-xs text-gray-500">
             학번과 개인코드로 로그인하면 나에게 등록된 상담 일정을 볼 수 있어요.
@@ -165,7 +167,7 @@ export function StudentCounselingPage() {
       <div className="mx-auto max-w-md space-y-5">
         <StudentNavBar />
         <header className="text-center">
-          <p className="text-3xl">💗</p>
+          <div className="flex justify-center"><IconTile icon={HeartHandshake} tone="rose" size={44} /></div>
           <h1 className="mt-2 text-xl font-bold text-gray-900">내 상담 일정</h1>
           <p className="mt-1 text-xs text-gray-500">
             선생님이 등록했거나 학부모님이 신청한 내 상담 일정이에요.
@@ -176,9 +178,7 @@ export function StudentCounselingPage() {
           to="/calendar"
           className="flex items-center gap-3 rounded-2xl border-2 border-sky-100 bg-white p-3.5 shadow-sm transition-colors hover:border-sky-300 hover:bg-sky-50"
         >
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-100 text-2xl shadow-inner">
-            🗓️
-          </span>
+          <IconTile icon={CalendarDays} tone="sky" size={44} />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold text-gray-900">학급 전체 일정 보기</p>
             <p className="text-[11px] text-gray-500">수업시간·상담 일정을 주/월/일로 확인해요</p>
@@ -190,7 +190,7 @@ export function StudentCounselingPage() {
           <p className="py-10 text-center text-sm text-gray-500">불러오는 중...</p>
         ) : events.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-200 bg-white/60 py-12 text-center">
-            <p className="text-3xl">🌿</p>
+            <EmptyArt icon={Leaf} tone="mint" />
             <p className="mt-2 text-sm text-gray-500">아직 등록된 상담 일정이 없어요.</p>
           </div>
         ) : (
@@ -229,8 +229,9 @@ function CounselingCard({ event: ev, highlight }: { event: CalendarEvent; highli
         <span className="flex items-center gap-1.5 text-sm font-bold text-gray-900">
           {formatDateLabel(ev.date)}
           {ev.requester_role === 'parent' && (
-            <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">
-              👪 학부모 신청
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">
+              <Users className="h-3 w-3" />
+              학부모 신청
             </span>
           )}
         </span>
@@ -241,7 +242,7 @@ function CounselingCard({ event: ev, highlight }: { event: CalendarEvent; highli
       {ev.title && ev.title !== '상담' && (
         <p className="mt-1.5 text-sm font-medium text-gray-800">{ev.title}</p>
       )}
-      {ev.location && <p className="mt-1 text-xs text-gray-500">📍 {ev.location}</p>}
+      {ev.location && <p className="mt-1 flex items-center gap-0.5 text-xs text-gray-500"><MapPin className="h-3.5 w-3.5 shrink-0" />{ev.location}</p>}
       {ev.content && (
         <p className="mt-1.5 whitespace-pre-wrap rounded-lg bg-gray-50 p-2 text-xs text-gray-600">
           {ev.content}

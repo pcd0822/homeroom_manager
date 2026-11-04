@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Flame, House, Leaf, Sprout } from 'lucide-react'
 import { Helmet } from 'react-helmet-async'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
@@ -318,10 +319,10 @@ export function StudentPoliciesPage() {
               aria-label="학생 대시보드 홈"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-lg text-sky-800 ring-1 ring-sky-200 hover:bg-sky-100"
             >
-              🏠
+              <House className="h-5 w-5" />
             </Link>
             <div className="min-w-0">
-              <h1 className="text-lg font-bold text-gray-900">🌿 정책 관리하기</h1>
+              <h1 className="text-lg font-bold text-gray-900"><Leaf className="mr-1 inline h-5 w-5 align-[-3px] text-emerald-600" />정책 관리하기</h1>
               <p className="text-xs text-gray-500">
                 {name} ({studentId})
               </p>
@@ -356,13 +357,13 @@ export function StudentPoliciesPage() {
                           {policyLogoSrc(p.logo_data) ? (
                             <img src={policyLogoSrc(p.logo_data)} alt="" className="h-full w-full object-cover" />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-2xl">🌱</div>
+                            <div className="flex h-full w-full items-center justify-center text-emerald-500"><Sprout className="h-7 w-7" /></div>
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-semibold text-gray-900">{p.title}</p>
                           <p className="truncate text-[11px] text-gray-500">{p.goal}</p>
-                          <p className="mt-1 text-[10px] font-semibold text-amber-600">🔥 {p.hype_count ?? 0}</p>
+                          <p className="mt-1 text-[10px] font-semibold text-amber-600"><Flame className="mr-0.5 inline h-3 w-3 align-[-2px]" />{p.hype_count ?? 0}</p>
                         </div>
                         {opening ? (
                           <span className="inline-block h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
@@ -408,14 +409,14 @@ export function StudentPoliciesPage() {
                     {policyLogoSrc(detail.logo_data) ? (
                       <img src={policyLogoSrc(detail.logo_data)} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-3xl">🌱</div>
+                      <div className="flex h-full w-full items-center justify-center text-emerald-500"><Sprout className="h-8 w-8" /></div>
                     )}
                   </div>
                 </div>
                 <div className="min-w-0 flex-1">
                   <h2 className="break-words text-base font-bold text-gray-900">{detail.title}</h2>
                   <p className="mt-0.5 break-words text-[11px] text-gray-500">목표: {detail.goal}</p>
-                  <p className="mt-1 text-[11px] font-semibold text-amber-600">🔥 하입 횟수: {detail.hype_count ?? 0}</p>
+                  <p className="mt-1 text-[11px] font-semibold text-amber-600"><Flame className="mr-0.5 inline h-3 w-3 align-[-2px]" />하입 횟수: {detail.hype_count ?? 0}</p>
                 </div>
               </div>
               {canManage(detail) && (

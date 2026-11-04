@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { ChevronRight, ClipboardCheck, HeartHandshake, Leaf, NotebookPen, Sparkles, Sprout, UtensilsCrossed } from 'lucide-react'
+import { IconTile } from '@/components/ui/Glyph'
 import { Helmet } from 'react-helmet-async'
 import { NavLink } from 'react-router-dom'
 import { authStudent, getStudentSeedLedger } from '@/api/api'
@@ -99,7 +101,7 @@ export function StudentDashboardHubPage() {
 
   if (authState === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-sky-50 to-white px-4">
+      <div className="flex min-h-screen items-center justify-center px-4">
         <Helmet>
           <title>{HUB_TITLE}</title>
         </Helmet>
@@ -110,13 +112,15 @@ export function StudentDashboardHubPage() {
 
   if (authState !== 'success') {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white px-4 py-8">
+      <div className="min-h-screen px-4 py-8">
         <Helmet>
           <title>{HUB_TITLE}</title>
           <meta name="description" content={HUB_DESC} />
         </Helmet>
         <div className="mx-auto max-w-sm rounded-3xl border border-sky-100 bg-white p-6 shadow-lg">
-          <div className="mb-4 text-center text-4xl">🌱</div>
+          <div className="mb-4 flex justify-center">
+            <IconTile icon={Sprout} tone="mint" size={56} />
+          </div>
           <h1 className="mb-1 text-center text-lg font-bold text-gray-900">학급 학생 대시보드</h1>
           <p className="mb-5 text-center text-xs text-gray-500">{HUB_DESC}</p>
           <form onSubmit={handleAuth} className="space-y-3 text-sm">
@@ -153,14 +157,16 @@ export function StudentDashboardHubPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-white to-sky-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <Helmet>
         <title>{HUB_TITLE}</title>
         <meta name="description" content={HUB_DESC} />
       </Helmet>
       <div className="mx-auto max-w-md space-y-6">
         <header className="text-center">
-          <p className="text-3xl">✨</p>
+          <div className="flex justify-center">
+            <IconTile icon={Sparkles} tone="sky" size={48} />
+          </div>
           <h1 className="mt-2 text-xl font-bold text-gray-900">무엇을 할까요?</h1>
           <p className="mt-1 text-xs text-gray-500">아래에서 한 가지를 선택한 뒤 이동해 주세요.</p>
         </header>
@@ -176,14 +182,12 @@ export function StudentDashboardHubPage() {
               }`
             }
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-3xl shadow-inner">
-              🍱
-            </span>
+            <IconTile icon={UtensilsCrossed} tone="amber" size={56} />
             <div className="min-w-0 flex-1 text-left">
               <p className="font-bold text-gray-900">급식 및 개인별 과제 보기</p>
               <p className="text-[11px] text-gray-500">급식 알림판, 학사일정, 과제, 야자 시간표</p>
             </div>
-            <span className="text-gray-300 group-hover:text-blue-400">→</span>
+            <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-blue-400" />
           </NavLink>
 
           <NavLink
@@ -196,14 +200,12 @@ export function StudentDashboardHubPage() {
               }`
             }
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-3xl shadow-inner">
-              🌿
-            </span>
+            <IconTile icon={Leaf} tone="mint" size={56} />
             <div className="min-w-0 flex-1 text-left">
               <p className="font-bold text-gray-900">정책 관리하기</p>
               <p className="text-[11px] text-gray-500">등록한 정책 보기, 씨앗 뿌리기, 수정</p>
             </div>
-            <span className="text-gray-300 group-hover:text-emerald-400">→</span>
+            <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-emerald-400" />
           </NavLink>
 
           <NavLink
@@ -216,14 +218,12 @@ export function StudentDashboardHubPage() {
               }`
             }
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-100 text-3xl shadow-inner">
-              💗
-            </span>
+            <IconTile icon={HeartHandshake} tone="rose" size={56} />
             <div className="min-w-0 flex-1 text-left">
               <p className="font-bold text-gray-900">내 상담 일정</p>
               <p className="text-[11px] text-gray-500">나에게 등록된 상담 일정 확인</p>
             </div>
-            <span className="text-gray-300 group-hover:text-rose-400">→</span>
+            <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-rose-400" />
           </NavLink>
 
           <NavLink
@@ -236,14 +236,12 @@ export function StudentDashboardHubPage() {
               }`
             }
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100 text-3xl shadow-inner">
-              📋
-            </span>
+            <IconTile icon={ClipboardCheck} tone="sky" size={56} />
             <div className="min-w-0 flex-1 text-left">
               <p className="font-bold text-gray-900">개인별 출결 현황</p>
               <p className="text-[11px] text-gray-500">내 지각·조퇴 기록, 점수와 순위 확인</p>
             </div>
-            <span className="text-gray-300 group-hover:text-indigo-400">→</span>
+            <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-indigo-400" />
           </NavLink>
 
           <NavLink
@@ -256,16 +254,14 @@ export function StudentDashboardHubPage() {
               }`
             }
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-3xl shadow-inner">
-              📓
-            </span>
+            <IconTile icon={Sprout} tone="lime" size={56} />
             <div className="min-w-0 flex-1 text-left">
               <p className="font-bold text-gray-900">씨앗 가계부</p>
               <p className="text-[11px] text-gray-500">
-                🌱 현재 {seedBalance ?? '불러오는 중'}개
+                <Sprout className="mr-0.5 inline h-3 w-3 align-[-1px] text-emerald-600" />현재 {seedBalance ?? '불러오는 중'}개
               </p>
             </div>
-            <span className="text-gray-300 group-hover:text-emerald-400">→</span>
+            <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-emerald-400" />
           </NavLink>
         </div>
 
@@ -273,7 +269,7 @@ export function StudentDashboardHubPage() {
           to="/student/policy/register"
           className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50/50 px-4 py-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
         >
-          📝 정책 새로 등록하기
+          <NotebookPen className="h-4 w-4" /> 정책 새로 등록하기
         </NavLink>
         <p className="text-center text-[11px] text-gray-400">
           급식·과제·정책 등록·관리 모두 이 대시보드에서 한 번 로그인하면 이용할 수 있어요.

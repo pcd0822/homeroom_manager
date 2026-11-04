@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ClipboardList, Flower2, Lightbulb, Play, RotateCcw, Timer } from 'lucide-react'
+import { IconTile } from '@/components/ui/Glyph'
 import {
   authStudent,
   getTeacherQuizQuestions,
@@ -25,11 +27,11 @@ const WRONG_PENALTY = 10
 const START_POINTS = 100
 
 const FAILED_MESSAGES = [
-  '이렇게 포기하지 말아줘 😭',
+  '이렇게 포기하지 말아줘',
   '담임샘이 슬퍼하고 있어요…',
   '한 번만 더 도전해 줄래?',
 ]
-const SUCCESS_TAIL = '! 담임샘에 대해 알아가는 만큼 너희들의 이야기도 많이 들려주길 바라❤️'
+const SUCCESS_TAIL = '! 담임샘에 대해 알아가는 만큼 너희들의 이야기도 많이 들려주길 바라'
 
 /** 한국 복성 — 두 글자 성을 분리할 때 사용. 흔히 쓰이는 것만 포함 */
 const COMPOUND_SURNAMES = ['남궁', '황보', '제갈', '사공', '선우', '서문', '독고', '동방']
@@ -202,7 +204,7 @@ export function TeacherQuizPlayPage() {
     // 설문형: 정답·시간 제한 없음. 빈 답은 거절. 제출하면 +100P. 페널티 없음.
     if (q.type === 'survey') {
       if (!answer.trim()) {
-        setFeedback('한 글자 이상 적어 주세요 ✍️')
+        setFeedback('한 글자 이상 적어 주세요')
         return
       }
       setSurveyAnswers((prev) => ({ ...prev, [q.id]: answer.trim() }))
@@ -307,7 +309,7 @@ export function TeacherQuizPlayPage() {
         {/* 상단 상태바 */}
         <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🌷</span>
+            <IconTile icon={Flower2} tone="rose" size={32} />
             <h1 className="text-lg font-bold text-slate-800">
               들샘 모의고사 <span className="text-xs text-slate-500">({currentIdx + 1}/{questions.length})</span>
             </h1>
@@ -321,12 +323,13 @@ export function TeacherQuizPlayPage() {
         {/* 카운트다운 바 (설문형은 시간 제한 없음) */}
         {currentQuestion?.type === 'survey' ? (
           <div className="mb-4 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-center text-xs text-sky-700">
-            📝 자유롭게 답해 주세요 — 제한 시간 없음
+            <ClipboardList className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
+            자유롭게 답해 주세요 — 제한 시간 없음
           </div>
         ) : (
           <div className="mb-4">
             <div className="mb-1 flex items-center justify-between text-xs">
-              <span className="text-gray-600">⏱ 남은 시간</span>
+              <span className="flex items-center gap-1 text-gray-600"><Timer className="h-3.5 w-3.5" />남은 시간</span>
               <span className={cn('font-mono font-bold', remaining < 6 ? 'text-rose-600' : 'text-slate-700')}>
                 {remaining.toFixed(1)}초
               </span>
@@ -375,15 +378,17 @@ export function TeacherQuizPlayPage() {
               <div className="mt-3">
                 {hintRevealed ? (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                    💡 힌트: {currentQuestion.hint}
+                    <Lightbulb className="mr-1 inline h-4 w-4 align-[-3px]" />
+                    힌트: {currentQuestion.hint}
                   </div>
                 ) : (
                   <button
                     type="button"
                     onClick={useHint}
-                    className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50"
+                    className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50"
                   >
-                    💡 힌트 보기 (-{HINT_COST}P)
+                    <Lightbulb className="h-3.5 w-3.5" />
+                    힌트 보기 (-{HINT_COST}P)
                   </button>
                 )}
               </div>
@@ -539,7 +544,7 @@ function LoginView({
         className="w-full max-w-sm rounded-3xl border border-pink-200 bg-white p-6 shadow-lg"
       >
         <div className="mb-4 flex items-center justify-center gap-2">
-          <span className="text-3xl">🌷</span>
+          <IconTile icon={Flower2} tone="rose" size={40} />
           <h1 className="text-xl font-bold text-slate-800">들샘 모의고사</h1>
         </div>
         <p className="mb-5 text-center text-xs text-gray-600">
@@ -593,7 +598,7 @@ function IntroView({
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-pink-100 via-amber-50 to-rose-100 p-6">
       <div className="w-full max-w-md rounded-3xl border border-pink-200 bg-white p-6 text-center shadow-lg">
-        <p className="text-3xl">🌷</p>
+        <div className="flex justify-center"><IconTile icon={Flower2} tone="rose" size={48} /></div>
         <h1 className="mt-2 text-2xl font-bold text-slate-800">
           환영해요, {given}!
         </h1>
@@ -617,9 +622,10 @@ function IntroView({
           type="button"
           onClick={onStart}
           disabled={loading || !!error || questionsCount === 0}
-          className="mt-5 w-full rounded-xl bg-rose-500 px-4 py-3 text-base font-semibold text-white shadow hover:bg-rose-600 disabled:opacity-60"
+          className="mt-5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-rose-500 px-4 py-3 text-base font-semibold text-white shadow hover:bg-rose-600 disabled:opacity-60"
         >
-          ▶ 시작하기 ({questionsCount}문항)
+          <Play className="h-4 w-4" />
+          시작하기 ({questionsCount}문항)
         </button>
       </div>
     </div>
@@ -649,9 +655,10 @@ function FailedView({ onRetry }: { onRetry: () => void }) {
         <button
           type="button"
           onClick={onRetry}
-          className="mt-5 w-full rounded-xl bg-rose-500 px-4 py-3 text-base font-semibold text-white shadow hover:bg-rose-600"
+          className="mt-5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-rose-500 px-4 py-3 text-base font-semibold text-white shadow hover:bg-rose-600"
         >
-          🔁 다시 도전하기
+          <RotateCcw className="h-4 w-4" />
+          다시 도전하기
         </button>
       </div>
     </div>
@@ -701,15 +708,16 @@ function ClearedView({
         </div>
         <p className="mt-4 text-xs text-gray-500">
           {retries === 0
-            ? '대단해요! 한 번에 모두 맞췄어요 🎉'
+            ? '대단해요! 한 번에 모두 맞췄어요!'
             : '재도전해서 클리어할 때마다 10P씩 감점됩니다.'}
         </p>
         <button
           type="button"
           onClick={onRetry}
-          className="mt-5 w-full rounded-xl bg-rose-500 px-4 py-3 text-base font-semibold text-white shadow hover:bg-rose-600"
+          className="mt-5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-rose-500 px-4 py-3 text-base font-semibold text-white shadow hover:bg-rose-600"
         >
-          🔁 다시 도전하기 (총점 -10P)
+          <RotateCcw className="h-4 w-4" />
+          다시 도전하기 (총점 -10P)
         </button>
       </div>
     </div>

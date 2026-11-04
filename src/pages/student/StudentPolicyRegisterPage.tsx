@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { House, Sprout } from 'lucide-react'
 import { Helmet } from 'react-helmet-async'
 import { Link, useNavigate } from 'react-router-dom'
 import { authStudent, getStudents, savePolicy } from '@/api/api'
@@ -206,9 +207,9 @@ export function StudentPolicyRegisterPage() {
               aria-label="학생 대시보드 홈"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-lg text-sky-800 ring-1 ring-sky-200 hover:bg-sky-100"
             >
-              🏠
+              <House className="h-5 w-5" />
             </Link>
-            <h1 className="text-lg font-bold text-gray-900">🌱 정책 등록하기</h1>
+            <h1 className="text-lg font-bold text-gray-900"><Sprout className="mr-1 inline h-5 w-5 align-[-3px] text-emerald-600" />정책 등록하기</h1>
           </div>
           <Link to="/student/policies" className="shrink-0 text-xs text-blue-600">
             내 정책 목록

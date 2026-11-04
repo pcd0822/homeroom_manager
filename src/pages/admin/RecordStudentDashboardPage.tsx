@@ -3,23 +3,25 @@ import { useParams, Link } from 'react-router-dom'
 import { getStudents, getRecordByStudent, updateRecordSummaryEvaluation } from '@/api/api'
 import type { Student, RecordRow, RecordByStudent } from '@/types'
 import { cn } from '@/lib/utils'
+import type { LucideIcon } from 'lucide-react'
+import { ClipboardList, Dumbbell, Lightbulb, Pin, TrendingUp } from 'lucide-react'
 
 const CREATIVE_AREAS = ['자율활동', '동아리활동', '진로활동']
 
-const FEEDBACK_SECTIONS: Array<{ key: string; icon: string; style: string }> = [
-  { key: '종합적 평가', icon: '📋', style: 'border-blue-200 bg-blue-50/80' },
-  { key: '보완 방향', icon: '📈', style: 'border-amber-200 bg-amber-50/80' },
-  { key: '구체적 활동 예시', icon: '💡', style: 'border-emerald-200 bg-emerald-50/80' },
-  { key: '응원의 말', icon: '💪', style: 'border-rose-200 bg-rose-50/80' },
+const FEEDBACK_SECTIONS: Array<{ key: string; icon: LucideIcon; style: string }> = [
+  { key: '종합적 평가', icon: ClipboardList, style: 'border-blue-200 bg-blue-50/80' },
+  { key: '보완 방향', icon: TrendingUp, style: 'border-amber-200 bg-amber-50/80' },
+  { key: '구체적 활동 예시', icon: Lightbulb, style: 'border-emerald-200 bg-emerald-50/80' },
+  { key: '응원의 말', icon: Dumbbell, style: 'border-rose-200 bg-rose-50/80' },
 ]
 
-function parseFeedbackSections(text: string): Array<{ title: string; icon: string; content: string; style: string }> {
-  const sections: Array<{ title: string; icon: string; content: string; style: string }> = []
+function parseFeedbackSections(text: string): Array<{ title: string; icon: LucideIcon; content: string; style: string }> {
+  const sections: Array<{ title: string; icon: LucideIcon; content: string; style: string }> = []
   const regex = /【([^】]+)】\s*\n?/g
   let match: RegExpExecArray | null
   let lastIndex = 0
   let lastTitle = ''
-  let lastIcon = '📌'
+  let lastIcon: LucideIcon = Pin
   let lastStyle = 'border-gray-200 bg-gray-50'
 
   while ((match = regex.exec(text)) !== null) {
@@ -31,7 +33,7 @@ function parseFeedbackSections(text: string): Array<{ title: string; icon: strin
     }
     const config = FEEDBACK_SECTIONS.find((s) => titleInBlock.startsWith(s.key)) ?? {
       key: titleInBlock,
-      icon: '📌',
+      icon: Pin,
       style: 'border-gray-200 bg-gray-50',
     }
     lastTitle = titleInBlock
@@ -42,7 +44,7 @@ function parseFeedbackSections(text: string): Array<{ title: string; icon: strin
   const tail = text.slice(lastIndex).trim()
   if (tail) sections.push({ title: lastTitle || '보완점', icon: lastIcon, content: tail, style: lastStyle })
   if (sections.length === 0 && text.trim()) {
-    sections.push({ title: '보완점', icon: '📌', content: text.trim(), style: 'border-gray-200 bg-gray-50' })
+    sections.push({ title: '보완점', icon: Pin, content: text.trim(), style: 'border-gray-200 bg-gray-50' })
   }
   return sections
 }
@@ -499,7 +501,7 @@ export function RecordStudentDashboardPage() {
                       )}
                     >
                       <p className="mb-1 flex items-center gap-1.5 font-semibold text-gray-800">
-                        <span className="text-base" aria-hidden>{section.icon}</span>
+                        <section.icon className="h-3.5 w-3.5 shrink-0 text-gray-600" aria-hidden />
                         {section.title}
                       </p>
                       <div className="whitespace-pre-wrap text-gray-700">{section.content}</div>

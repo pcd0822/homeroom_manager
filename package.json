@@ -17,6 +17,8 @@
     "clsx": "^2.1.1",
     "jspdf": "^4.1.0",
     "jspdf-autotable": "^5.0.7",
+    "lucide-react": "^1.68.0",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-helmet-async": "^3.0.0",
@@ -29,6 +31,7 @@
   "devDependencies": {
     "@netlify/edge-functions": "^3.0.6",
     "@netlify/functions": "^5.1.2",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",

@@ -42,7 +42,8 @@ var SHEETS = {
   TEACHER_QUIZ_SURVEYS: 'HomeroomTeacherQuizSurveys',
   COUNSELING_TIMETABLE: 'HomeroomCounselingTimetable',
   CALENDAR_EVENTS: 'HomeroomCalendarEvents',
-  ATTENDANCE: 'HomeroomAttendance'
+  ATTENDANCE: 'HomeroomAttendance',
+  PERIOD_ATTENDANCE: 'HomeroomPeriodAttendance'
 };
 
 // 생기부 record 시트 헤더 (순서 유지)
@@ -64,7 +65,9 @@ var CACHE_KEYS = {
   POLICY_HYPE_TOTALS: 'policy_hype_totals',
   COUNSELING_TIMETABLE: 'counseling_timetable',
   CALENDAR_EVENTS: 'calendar_events',
-  ATTENDANCE: 'attendance'
+  ATTENDANCE: 'attendance',
+  PERIOD_ATTENDANCE: 'period_attendance',
+  ROSTER: 'roster'
 };
 
 // CacheService 1개 값 최대 100KB. 직렬화 후 초과 시 캐시 건너뜀.
@@ -491,6 +494,30 @@ function handleRequest(e, method) {
       case 'DELETE_CLEANING_RESET':
         result = deleteCleaningReset(params);
         break;
+      case 'GET_PERIOD_ATTENDANCE':
+        result = getPeriodAttendance(params);
+        break;
+      case 'SAVE_PERIOD_OPS':
+        result = savePeriodOps(params);
+        break;
+      case 'GET_PERIOD_SCHEDULE':
+        result = { success: true, data: _getPeriodSchedule() };
+        break;
+      case 'SAVE_PERIOD_SCHEDULE':
+        result = savePeriodSchedule(params);
+        break;
+      case 'GET_ATTENDANCE_SHARE_KEY':
+        result = { success: true, data: { key: _getAttendanceShareKey() } };
+        break;
+      case 'ROTATE_ATTENDANCE_SHARE_KEY':
+        result = rotateAttendanceShareKey();
+        break;
+      case 'GET_ATTENDANCE_BOARD':
+        result = getAttendanceBoard(params);
+        break;
+      case 'SAVE_ATTENDANCE_BOARD_MARK':
+        result = saveAttendanceBoardMark(params);
+        break;
       default:
         result.error = 'Unknown action: ' + action;
     }
@@ -806,7 +833,7 @@ function addStudent(params) {
   }
   var authCode = generateAuthCode();
   sheet.appendRow([String(student_id).trim(), String(name).trim(), authCode]);
-  cacheDelMany([CACHE_KEYS.STUDENTS, CACHE_KEYS.CLASS_SEED_SUMMARY, CACHE_KEYS.POLICY_TREE_DASHBOARD]);
+  cacheDelMany([CACHE_KEYS.STUDENTS, CACHE_KEYS.ROSTER, CACHE_KEYS.CLASS_SEED_SUMMARY, CACHE_KEYS.POLICY_TREE_DASHBOARD]);
   return { success: true, data: { student_id: String(student_id).trim(), name: String(name).trim(), auth_code: authCode } };
 }
 
@@ -829,7 +856,7 @@ function updateStudent(params) {
       if (photo_data) {
         sheet.getRange(i + 1, 7).setValue(photo_data);
       }
-      cacheDelMany([CACHE_KEYS.STUDENTS, CACHE_KEYS.CLASS_SEED_SUMMARY, CACHE_KEYS.POLICY_TREE_DASHBOARD]);
+      cacheDelMany([CACHE_KEYS.STUDENTS, CACHE_KEYS.ROSTER, CACHE_KEYS.CLASS_SEED_SUMMARY, CACHE_KEYS.POLICY_TREE_DASHBOARD]);
       return { success: true };
     }
   }
@@ -845,7 +872,7 @@ function deleteStudent(studentId) {
   for (var i = data.length - 1; i >= 1; i--) {
     if (String(data[i][0]) === String(studentId)) {
       sheet.deleteRow(i + 1);
-      cacheDelMany([CACHE_KEYS.STUDENTS, CACHE_KEYS.CLASS_SEED_SUMMARY, CACHE_KEYS.POLICY_TREE_DASHBOARD]);
+      cacheDelMany([CACHE_KEYS.STUDENTS, CACHE_KEYS.ROSTER, CACHE_KEYS.CLASS_SEED_SUMMARY, CACHE_KEYS.POLICY_TREE_DASHBOARD]);
       return { success: true };
     }
   }
@@ -4367,6 +4394,9 @@ function getAttendanceForStudent(params) {
       keys: keys,
       records: records,
       period_starts: _getAttendancePeriodStarts(),
+      // 교시 체크로 조퇴를 자동 판정하기 위한 값(비고는 보내지 않음)
+      period_marks: _periodMarksForStudentView(keyOf),
+      period_schedule: _getPeriodSchedule(),
       cleaning_resets: _getCleaningResets()
         .filter(function (c) { return c.student_id === me; })
         .map(function (c) { return { student_id: 'me', date: c.date }; })
@@ -4517,4 +4547,385 @@ function deleteCleaningReset(params) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ===== 교시별 출결(조회 + 1~N교시) · 비고 · QR 출석부 =====
+// 한 행 = 한 학생의 하루. marks는 '교시:종류'를 쉼표로 이은 문자열(예: '0:L,1:L,5:S').
+//   교시 0 = 조회, 1~7 = 교시.  종류 A=결석, L=지각, E=조퇴, R=결과, S=교과교사 빗금(구분 없음).
+// kind는 담임이 고른 출결 구분(A/L/E/R 또는 빈칸), note는 비고(출결 사유).
+// 저장은 "이 칸을 이 값으로" 단위 연산(op)으로 받아 잠금 안에서 합친다 → 담임·교과교사가 동시에 체크해도 서로 덮어쓰지 않는다.
+// 조퇴 자동 판정·점수 계산은 프론트(src/lib/attendance.ts)에서만 한다.
+var PERIOD_HEADERS = ['date', 'student_id', 'kind', 'marks', 'note', 'updated_at'];
+var PERIOD_MARK_VALUES = { A: true, L: true, E: true, R: true, S: true };
+var PERIOD_MAX = 7;
+var PERIOD_TZ = 'Asia/Seoul';
+
+function getOrCreatePeriodSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.PERIOD_ATTENDANCE);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.PERIOD_ATTENDANCE);
+    sheet.getRange(1, 1, 1, PERIOD_HEADERS.length).setValues([PERIOD_HEADERS]);
+    // 날짜·학번·marks('1,2'가 숫자로 바뀌지 않게)는 텍스트 서식
+    sheet.getRange('A:D').setNumberFormat('@');
+  }
+  return sheet;
+}
+
+function _periodTodayKey() {
+  return Utilities.formatDate(new Date(), PERIOD_TZ, 'yyyy-MM-dd');
+}
+
+/** marks 문자열 → { '0': 'L', ... } (잘못된 조각은 버림) */
+function _parsePeriodMarks(raw) {
+  var out = {};
+  String(raw == null ? '' : raw).split(',').forEach(function (part) {
+    var m = /^\s*(\d)\s*:\s*([A-Z])\s*$/.exec(part);
+    if (!m) return;
+    var p = Number(m[1]);
+    if (p >= 0 && p <= PERIOD_MAX && PERIOD_MARK_VALUES[m[2]]) out[String(p)] = m[2];
+  });
+  return out;
+}
+
+function _stringifyPeriodMarks(map) {
+  var keys = Object.keys(map).map(Number).sort(function (a, b) { return a - b; });
+  return keys.map(function (k) { return k + ':' + map[String(k)]; }).join(',');
+}
+
+/** 전체 교시 출결 행(값이 하나라도 있는 행만). 시트 한 번 읽기, 6열만. */
+function _readPeriodRowsAll() {
+  var cached = cacheGet(CACHE_KEYS.PERIOD_ATTENDANCE);
+  if (cached) return cached;
+  var sheet = getOrCreatePeriodSheet();
+  var out = [];
+  var last = sheet.getLastRow();
+  if (last >= 2) {
+    var rows = sheet.getRange(2, 1, last - 1, PERIOD_HEADERS.length).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var date = _fmtDateKey(r[0]);
+      var sid = String(r[1] == null ? '' : r[1]).trim();
+      if (!date || !sid) continue;
+      var kind = String(r[2] == null ? '' : r[2]).trim();
+      if (kind && (!PERIOD_MARK_VALUES[kind] || kind === 'S')) kind = '';
+      var marks = _stringifyPeriodMarks(_parsePeriodMarks(r[3]));
+      var note = String(r[4] == null ? '' : r[4]);
+      if (!kind && !marks && !note) continue;
+      out.push({ date: date, student_id: sid, kind: kind, marks: marks, note: note, updated_at: _fmtText(r[5]) });
+    }
+  }
+  cachePut(CACHE_KEYS.PERIOD_ATTENDANCE, out, 300);
+  return out;
+}
+
+/** 한 날짜의 행. 날짜별 캐시(폴링용)를 먼저 본다. */
+function _readPeriodRowsForDate(date) {
+  var key = CACHE_KEYS.PERIOD_ATTENDANCE + ':' + date;
+  var cached = cacheGet(key);
+  if (cached) return cached;
+  var rows = _readPeriodRowsAll().filter(function (r) { return r.date === date; });
+  cachePut(key, rows, 120);
+  return rows;
+}
+
+function _invalidatePeriodCache(date) {
+  cacheDelMany([CACHE_KEYS.PERIOD_ATTENDANCE, CACHE_KEYS.PERIOD_ATTENDANCE + ':' + date]);
+}
+
+/** 관리자: params.date가 있으면 그 날짜만, 없으면 전체 */
+function getPeriodAttendance(params) {
+  params = params || {};
+  var date = _fmtDateKey(params.date);
+  if (date) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { success: false, error: '날짜 형식이 올바르지 않습니다.' };
+    return { success: true, data: _readPeriodRowsForDate(date) };
+  }
+  return { success: true, data: _readPeriodRowsAll() };
+}
+
+/**
+ * op 목록을 한 날짜에 적용한다(잠금 안). 공통 저장 함수.
+ * op: { student_id, type: 'mark', period, value: 'A'|'L'|'E'|'R'|'S'|'' }
+ *     { student_id, type: 'kind', kind: 'A'|'L'|'E'|'R'|'' }
+ *     { student_id, type: 'note', note }
+ * guard(op, marks) 가 문자열을 돌려주면 저장하지 않고 그 오류를 돌려준다.
+ */
+function _applyPeriodOps(date, ops, guard) {
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+  } catch (e) {
+    return { success: false, error: '다른 저장이 처리 중입니다. 잠시 후 다시 시도해 주세요.' };
+  }
+  try {
+    _invalidatePeriodCache(date);
+    var sheet = getOrCreatePeriodSheet();
+    var cols = PERIOD_HEADERS.length;
+    var last = sheet.getLastRow();
+    var rows = last >= 2 ? sheet.getRange(2, 1, last - 1, cols).getValues() : [];
+    var rowIndex = {}; // student_id → rows 인덱스 (그 날짜)
+    for (var i = 0; i < rows.length; i++) {
+      if (_fmtDateKey(rows[i][0]) === date) rowIndex[String(rows[i][1]).trim()] = i;
+    }
+    var now = new Date().toISOString();
+    var touched = {};
+    var appended = [];
+    var appendedIndex = {};
+
+    for (var k = 0; k < ops.length; k++) {
+      var op = ops[k] || {};
+      var sid = String(op.student_id == null ? '' : op.student_id).trim();
+      if (!sid) continue;
+      var row;
+      if (rowIndex.hasOwnProperty(sid)) row = rows[rowIndex[sid]];
+      else if (appendedIndex.hasOwnProperty(sid)) row = appended[appendedIndex[sid]];
+      else {
+        row = [date, sid, '', '', '', now];
+        appendedIndex[sid] = appended.length;
+        appended.push(row);
+      }
+      var marks = _parsePeriodMarks(row[3]);
+      if (guard) {
+        var err = guard(op, marks);
+        if (err) return { success: false, error: err };
+      }
+      if (op.type === 'mark') {
+        var p = Number(op.period);
+        if (!(p >= 0 && p <= PERIOD_MAX) || Math.floor(p) !== p) return { success: false, error: '교시 값이 올바르지 않습니다.' };
+        var v = String(op.value == null ? '' : op.value);
+        if (v && !PERIOD_MARK_VALUES[v]) return { success: false, error: '출결 종류가 올바르지 않습니다.' };
+        if (v) marks[String(p)] = v;
+        else delete marks[String(p)];
+        row[3] = _stringifyPeriodMarks(marks);
+      } else if (op.type === 'kind') {
+        var kd = String(op.kind == null ? '' : op.kind);
+        if (kd && (!PERIOD_MARK_VALUES[kd] || kd === 'S')) return { success: false, error: '출결 구분이 올바르지 않습니다.' };
+        row[2] = kd;
+      } else if (op.type === 'note') {
+        row[4] = String(op.note == null ? '' : op.note).slice(0, 300);
+      } else {
+        continue;
+      }
+      row[0] = date;
+      row[1] = sid;
+      row[5] = now;
+      if (rowIndex.hasOwnProperty(sid)) touched[rowIndex[sid]] = true;
+    }
+
+    // 바뀐 행만 제자리에 쓰고, 새 행은 끝에 붙인다.
+    Object.keys(touched).forEach(function (idx) {
+      var n = Number(idx);
+      sheet.getRange(n + 2, 1, 1, 4).setNumberFormat('@');
+      sheet.getRange(n + 2, 1, 1, cols).setValues([rows[n]]);
+    });
+    if (appended.length) {
+      var start = sheet.getLastRow() + 1;
+      sheet.getRange(start, 1, appended.length, 4).setNumberFormat('@');
+      sheet.getRange(start, 1, appended.length, cols).setValues(appended);
+    }
+    _invalidatePeriodCache(date);
+    return { success: true, data: { date: date, saved_at: now } };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 관리자(담임) 저장: 모든 op 허용 */
+function savePeriodOps(params) {
+  params = params || {};
+  var date = _fmtDateKey(params.date);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { success: false, error: '날짜 형식이 올바르지 않습니다.' };
+  var ops = Array.isArray(params.ops) ? params.ops : [];
+  if (ops.length > 400) return { success: false, error: '한 번에 저장할 수 있는 변경이 너무 많습니다.' };
+  var savedAt = '';
+  if (ops.length) {
+    var res = _applyPeriodOps(date, ops, null);
+    if (!res.success) return res;
+    savedAt = res.data.saved_at;
+  }
+  return { success: true, data: { date: date, saved_at: savedAt, rows: _readPeriodRowsForDate(date) } };
+}
+
+// ----- 날짜별 교시 수 -----
+// { weekday: [일,월,화,수,목,금,토 교시 수], dates: { 'YYYY-MM-DD': 교시 수 } } — Script Properties JSON
+var PERIOD_SCHEDULE_PROP = 'PERIOD_SCHEDULE';
+
+function _clampPeriods(n) {
+  var v = Math.floor(Number(n));
+  if (!(v >= 0)) return 0;
+  return v > PERIOD_MAX ? PERIOD_MAX : v;
+}
+
+function _getPeriodSchedule() {
+  var raw = PropertiesService.getScriptProperties().getProperty(PERIOD_SCHEDULE_PROP);
+  var data = null;
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    data = null;
+  }
+  var weekday = [0, 7, 7, 7, 7, 7, 0];
+  if (data && Array.isArray(data.weekday) && data.weekday.length === 7) {
+    weekday = data.weekday.map(_clampPeriods);
+  }
+  var dates = {};
+  if (data && data.dates && typeof data.dates === 'object') {
+    Object.keys(data.dates).forEach(function (d) {
+      var key = _fmtDateKey(d);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(key)) dates[key] = _clampPeriods(data.dates[d]);
+    });
+  }
+  return { weekday: weekday, dates: dates };
+}
+
+function _periodsForDate(schedule, date) {
+  if (schedule.dates.hasOwnProperty(date)) return schedule.dates[date];
+  var parts = date.split('-');
+  var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  return schedule.weekday[d.getDay()];
+}
+
+/** params.schedule: { weekday, dates } 통째 저장. 1년 지난 날짜 예외는 정리. */
+function savePeriodSchedule(params) {
+  params = params || {};
+  var src = params.schedule || {};
+  var weekday = Array.isArray(src.weekday) && src.weekday.length === 7 ? src.weekday.map(_clampPeriods) : null;
+  if (!weekday) return { success: false, error: '요일별 교시 수가 올바르지 않습니다.' };
+  var cutoff = Utilities.formatDate(new Date(Date.now() - 366 * 24 * 3600 * 1000), PERIOD_TZ, 'yyyy-MM-dd');
+  var dates = {};
+  Object.keys(src.dates || {}).forEach(function (d) {
+    var key = _fmtDateKey(d);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(key) && key >= cutoff) dates[key] = _clampPeriods(src.dates[d]);
+  });
+  var raw = JSON.stringify({ weekday: weekday, dates: dates });
+  if (raw.length > 8500) return { success: false, error: '날짜별 예외가 너무 많습니다. 지난 예외를 지워 주세요.' };
+  PropertiesService.getScriptProperties().setProperty(PERIOD_SCHEDULE_PROP, raw);
+  return { success: true, data: _getPeriodSchedule() };
+}
+
+// ----- QR 출석부 공유 키 -----
+// 공유 링크(?k=)에 들어가는 키. 담임이 재발급하면 예전 QR은 더 이상 열리지 않는다.
+var ATTENDANCE_SHARE_KEY_PROP = 'ATTENDANCE_SHARE_KEY';
+
+function _getAttendanceShareKey() {
+  var props = PropertiesService.getScriptProperties();
+  var key = props.getProperty(ATTENDANCE_SHARE_KEY_PROP);
+  if (!key) {
+    key = Utilities.getUuid().replace(/-/g, '').slice(0, 16);
+    props.setProperty(ATTENDANCE_SHARE_KEY_PROP, key);
+  }
+  return key;
+}
+
+function rotateAttendanceShareKey() {
+  var key = Utilities.getUuid().replace(/-/g, '').slice(0, 16);
+  PropertiesService.getScriptProperties().setProperty(ATTENDANCE_SHARE_KEY_PROP, key);
+  return { success: true, data: { key: key } };
+}
+
+function _checkAttendanceShareKey(k) {
+  var key = String(k == null ? '' : k).trim();
+  return !!key && key === _getAttendanceShareKey();
+}
+
+/** 학번·이름만(사진 열은 읽지 않음). 폴링 화면용. */
+function _readRoster() {
+  var cached = cacheGet(CACHE_KEYS.ROSTER);
+  if (cached) return cached;
+  var sheet = getSpreadsheet().getSheetByName(SHEETS.STUDENTS);
+  if (!sheet) return [];
+  var headers = getSheetHeaders(sheet);
+  var sidCol = headers.indexOf('student_id');
+  var nameCol = headers.indexOf('name');
+  var last = sheet.getLastRow();
+  var out = [];
+  if (sidCol >= 0 && nameCol >= 0 && last >= 2) {
+    var from = Math.min(sidCol, nameCol);
+    var width = Math.abs(sidCol - nameCol) + 1;
+    var rows = sheet.getRange(2, from + 1, last - 1, width).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      var sidVal = rows[i][sidCol - from];
+      var sid = String(sidVal == null ? '' : sidVal).trim();
+      if (!sid) continue;
+      var nameVal = rows[i][nameCol - from];
+      out.push({ student_id: sid, name: String(nameVal == null ? '' : nameVal) });
+    }
+  }
+  out.sort(function (a, b) { return a.student_id.localeCompare(b.student_id, 'ko', { numeric: true }); });
+  cachePut(CACHE_KEYS.ROSTER, out, 600);
+  return out;
+}
+
+function _boardRows(date) {
+  return _readPeriodRowsForDate(date).map(function (r) {
+    return { date: r.date, student_id: r.student_id, kind: r.kind, marks: r.marks, note: r.note };
+  });
+}
+
+/**
+ * QR 출석부 조회. params: { k, date?, roster?: true }
+ * 처음 열 때만 roster를 함께 받고, 폴링은 rows만 받는다.
+ */
+function getAttendanceBoard(params) {
+  params = params || {};
+  if (!_checkAttendanceShareKey(params.k)) {
+    return { success: false, error: '출석부 링크가 만료되었습니다. 담임 선생님께 새 QR을 받아 주세요.' };
+  }
+  var today = _periodTodayKey();
+  var date = _fmtDateKey(params.date) || today;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { success: false, error: '날짜 형식이 올바르지 않습니다.' };
+  var data = {
+    date: date,
+    today: today,
+    periods: _periodsForDate(_getPeriodSchedule(), date),
+    rows: _boardRows(date)
+  };
+  if (params.roster) data.roster = _readRoster();
+  return { success: true, data: data };
+}
+
+/**
+ * 교과교사 체크(QR 출석부). 오늘 날짜, 1~N교시, 빗금(S) 넣기/빼기만.
+ * 담임이 구분(결석·지각·조퇴·결과)으로 체크한 칸은 바꿀 수 없다.
+ * params: { k, date, student_id, period, on }
+ */
+function saveAttendanceBoardMark(params) {
+  params = params || {};
+  if (!_checkAttendanceShareKey(params.k)) {
+    return { success: false, error: '출석부 링크가 만료되었습니다. 담임 선생님께 새 QR을 받아 주세요.' };
+  }
+  var today = _periodTodayKey();
+  var date = _fmtDateKey(params.date);
+  if (date !== today) return { success: false, error: '오늘 출결만 체크할 수 있습니다.' };
+  var sid = String(params.student_id == null ? '' : params.student_id).trim();
+  var known = _readRoster().some(function (s) { return s.student_id === sid; });
+  if (!known) return { success: false, error: '명단에 없는 학생입니다.' };
+  var period = Math.floor(Number(params.period));
+  var n = _periodsForDate(_getPeriodSchedule(), date);
+  if (!(period >= 1 && period <= n)) return { success: false, error: '오늘은 ' + n + '교시까지입니다.' };
+  var on = params.on === true || params.on === 'true' || params.on === 1;
+  var op = { student_id: sid, type: 'mark', period: period, value: on ? 'S' : '' };
+  var res = _applyPeriodOps(date, [op], function (o, marks) {
+    var cur = marks[String(o.period)];
+    if (cur && cur !== 'S') return '담임 선생님이 체크한 칸이라 바꿀 수 없습니다.';
+    return '';
+  });
+  if (!res.success) return res;
+  return { success: true, data: { date: date, saved_at: res.data.saved_at, rows: _boardRows(date) } };
+}
+
+/** 학생 대시보드용: 교시 체크(비고 제외)와 교시 수 설정. 조퇴 자동 판정에 쓴다. */
+function _periodMarksForStudentView(keyOf) {
+  var out = [];
+  _readPeriodRowsAll().forEach(function (r) {
+    var key = keyOf[r.student_id];
+    if (!key || !r.marks) return;
+    out.push({ date: r.date, student_id: key, marks: r.marks });
+  });
+  out.sort(function (a, b) {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    return a.student_id < b.student_id ? -1 : a.student_id > b.student_id ? 1 : 0;
+  });
+  return out;
 }

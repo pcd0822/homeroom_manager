@@ -87,6 +87,7 @@ const CLASS_NAME = '3-5'
  * (/view/:id 문서는 GAS에서 실제 제목을 가져오므로 아래 표에 두지 않는다.)
  */
 const PAGE_META: Array<{ test: RegExp; title: string; desc: string }> = [
+  { test: /^\/attendance-board(\/|$|\?)/, title: `${CLASS_NAME} 출석부`, desc: '일자별 1~7교시 출결 현황을 실시간으로 확인하고 체크합니다.' },
   { test: /^\/calendar(\/|$|\?)/, title: `${CLASS_NAME} 상담 캘린더`, desc: '학급 상담 일정을 확인합니다.' },
   { test: /^\/student\/counseling(\/|$|\?)/, title: `${CLASS_NAME} 내 상담 일정`, desc: '학번·개인코드로 나의 상담 일정을 확인합니다.' },
   { test: /^\/student\/dashboard(\/|$|\?)/, title: `${CLASS_NAME} 학생 대시보드`, desc: '오늘 급식·과제·일정 등 학급 정보를 한곳에서 확인합니다.' },

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Helmet } from 'react-helmet-async'
+import { ChevronLeft, ChevronRight, Heart, House } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { authStudent, getStudents, getAssignmentsByStudent, getForm, getNightStudyForStudent } from '@/api/api'
 import type { AssignmentRow, Student, Form, NightStudyForStudent } from '@/types'
@@ -382,7 +383,7 @@ export function StudentMealBoardPage() {
             aria-label="학생 대시보드 홈"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-lg text-sky-800 ring-1 ring-sky-200 transition hover:bg-sky-100"
           >
-            🏠
+            <House className="h-5 w-5" />
           </Link>
           {stu && (
             <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gray-100">
@@ -438,8 +439,9 @@ export function StudentMealBoardPage() {
                   })
                 }
                 className="rounded border border-gray-300 px-1.5 py-0.5"
+                aria-label="이전"
               >
-                ◀
+                <ChevronLeft className="h-4 w-4" />
               </button>
               <span>
                 {date.getFullYear()}-{String(date.getMonth() + 1).padStart(2, '0')}-
@@ -455,8 +457,9 @@ export function StudentMealBoardPage() {
                   })
                 }
                 className="rounded border border-gray-300 px-1.5 py-0.5"
+                aria-label="다음"
               >
-                ▶
+                <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -578,8 +581,9 @@ export function StudentMealBoardPage() {
                   })
                 }
                 className="rounded border border-gray-300 px-1.5 py-0.5"
+                aria-label="이전"
               >
-                ◀
+                <ChevronLeft className="h-4 w-4" />
               </button>
               <button
                 type="button"
@@ -593,8 +597,9 @@ export function StudentMealBoardPage() {
                   })
                 }
                 className="rounded border border-gray-300 px-1.5 py-0.5"
+                aria-label="다음"
               >
-                ▶
+                <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -694,7 +699,8 @@ export function StudentMealBoardPage() {
                   : nightStudy.offReason || '야간 자율학습이 운영되지 않는 날입니다.'
                 return `${reason}(으)로`
               })()}{' '}
-              야자 없는 날!❤️
+              야자 없는 날!
+              <Heart className="ml-0.5 inline h-4 w-4 align-[-2px] fill-rose-400 text-rose-400" />
             </p>
           )}
           {nightStudy && !nightStudy.isOff && !nightStudy.assigned && (

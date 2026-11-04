@@ -38,6 +38,10 @@ import type {
   AttendanceRecord,
   CleaningReset,
   StudentAttendanceData,
+  PeriodRow,
+  PeriodOp,
+  PeriodSchedule,
+  AttendanceBoardData,
 } from '@/types'
 
 /**
@@ -389,6 +393,54 @@ export function addCleaningReset(studentId: string, date: string) {
 /** 청소 완료 취소 */
 export function deleteCleaningReset(studentId: string, date: string) {
   return request<CleaningReset[]>('DELETE_CLEANING_RESET', 'POST', { student_id: studentId, date })
+}
+
+// ----- 교시별 출결 · 비고 · QR 출석부 -----
+
+/** date가 있으면 그 날짜만, 없으면 전체 */
+export function getPeriodAttendance(date?: string) {
+  return request<PeriodRow[]>('GET_PERIOD_ATTENDANCE', 'POST', date ? { date } : {})
+}
+
+/** 칸 단위 변경을 합쳐 저장. 응답에 그 날짜의 최신 행이 온다. */
+export function savePeriodOps(date: string, ops: PeriodOp[]) {
+  return request<{ date: string; saved_at: string; rows: PeriodRow[] }>('SAVE_PERIOD_OPS', 'POST', { date, ops })
+}
+
+export function getPeriodSchedule() {
+  return request<PeriodSchedule>('GET_PERIOD_SCHEDULE', 'POST')
+}
+
+export function savePeriodSchedule(schedule: PeriodSchedule) {
+  return request<PeriodSchedule>('SAVE_PERIOD_SCHEDULE', 'POST', { schedule })
+}
+
+export function getAttendanceShareKey() {
+  return request<{ key: string }>('GET_ATTENDANCE_SHARE_KEY', 'POST')
+}
+
+/** QR 재발급: 예전 QR은 더 이상 열리지 않는다 */
+export function rotateAttendanceShareKey() {
+  return request<{ key: string }>('ROTATE_ATTENDANCE_SHARE_KEY', 'POST')
+}
+
+export function getAttendanceBoard(key: string, date: string | undefined, withRoster: boolean) {
+  return request<AttendanceBoardData>('GET_ATTENDANCE_BOARD', 'POST', {
+    k: key,
+    date,
+    roster: withRoster || undefined,
+  })
+}
+
+/** 교과교사 빗금 체크(오늘·1~N교시만) */
+export function saveAttendanceBoardMark(key: string, date: string, studentId: string, period: number, on: boolean) {
+  return request<{ date: string; saved_at: string; rows: PeriodRow[] }>('SAVE_ATTENDANCE_BOARD_MARK', 'POST', {
+    k: key,
+    date,
+    student_id: studentId,
+    period,
+    on,
+  })
 }
 
 export function getAttendanceForStudent(studentId: string, authCode: string) {

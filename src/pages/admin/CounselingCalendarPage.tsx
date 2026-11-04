@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Check, ChevronDown, ChevronUp, Link2, Timer } from 'lucide-react'
 import {
   getStudents,
   getCalendarEvents,
@@ -164,9 +165,10 @@ export function CounselingCalendarPage() {
         <button
           type="button"
           onClick={handleShare}
-          className="shrink-0 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
         >
-          {copied ? '✓ 링크 복사됨' : '🔗 캘린더 공유 링크'}
+          {copied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
+          {copied ? '링크 복사됨' : '캘린더 공유 링크'}
         </button>
       </div>
 
@@ -178,12 +180,13 @@ export function CounselingCalendarPage() {
           className="flex w-full items-center justify-between px-4 py-3 text-left"
         >
           <span className="text-sm font-semibold text-gray-800">
-            ⏱️ 교시 타임테이블 세팅
+            <Timer className="mr-1.5 inline h-4 w-4 align-[-3px] text-gray-500" />
+            교시 타임테이블 세팅
             <span className="ml-2 font-normal text-gray-400">
               {periods.length}교시 · 모든 날짜(주말 포함) 공통 적용
             </span>
           </span>
-          <span className="text-gray-400">{showTimetable ? '▲' : '▼'}</span>
+          <span className="text-gray-400">{showTimetable ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
         </button>
         {showTimetable && (
           <div className="border-t border-gray-100 p-4">

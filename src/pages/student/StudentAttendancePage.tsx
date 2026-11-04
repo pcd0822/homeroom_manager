@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ClipboardCheck, Gift, Sparkles } from 'lucide-react'
+import { IconTile } from '@/components/ui/Glyph'
 import { Helmet } from 'react-helmet-async'
 import { StudentNavBar } from '@/components/student/StudentNavBar'
 import { authStudent, getAttendanceForStudent } from '@/api/api'
 import type { StudentAttendanceData } from '@/types'
 import {
   CLEANING_THRESHOLD,
+  DEFAULT_PERIOD_SCHEDULE,
   REWARD_RANK_LIMIT,
   aggregateStats,
   buildPeriods,
   currentCleaningScores,
+  effectiveRecords,
   friendlyPossessive,
   lastCleaningResets,
   periodIndexOf,
@@ -90,9 +94,14 @@ export function StudentAttendancePage() {
   const activeIdx = Math.min(periodIdx ?? currentIdx, periods.length - 1)
   const period = periods[activeIdx]
 
+  // 교시 체크가 있는 날은 조퇴를 교시로 자동 판정한 기록으로 계산
+  const records = useMemo(
+    () => (data ? effectiveRecords(data.records, data.period_marks ?? [], data.period_schedule ?? DEFAULT_PERIOD_SCHEDULE) : []),
+    [data]
+  )
   const stats = useMemo(
-    () => (data ? aggregateStats(data.keys, data.records, period.from, period.to) : []),
-    [data, period.from, period.to]
+    () => (data ? aggregateStats(data.keys, records, period.from, period.to) : []),
+    [data, records, period.from, period.to]
   )
   const myStat = stats.find((s) => s.student_id === ME)
   const myRanks = useMemo(
@@ -106,8 +115,8 @@ export function StudentAttendancePage() {
   // 청소 점수는 집계 기간과 무관하게 마지막 청소 완료 이후 누적
   const myLastReset = lastCleaningResets(data?.cleaning_resets ?? []).get(ME)
   const myCleaning = useMemo(
-    () => (data ? currentCleaningScores([ME], data.records, data.cleaning_resets ?? []).get(ME) ?? 0 : 0),
-    [data]
+    () => (data ? currentCleaningScores([ME], records, data.cleaning_resets ?? []).get(ME) ?? 0 : 0),
+    [data, records]
   )
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -137,7 +146,7 @@ export function StudentAttendancePage() {
 
   if (authState === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-indigo-50 to-white px-4">
+      <div className="flex min-h-screen items-center justify-center px-4">
         <Helmet>
           <title>{TITLE}</title>
         </Helmet>
@@ -148,12 +157,14 @@ export function StudentAttendancePage() {
 
   if (authState !== 'success') {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white px-4 py-8">
+      <div className="min-h-screen px-4 py-8">
         <Helmet>
           <title>{TITLE}</title>
         </Helmet>
         <div className="mx-auto max-w-sm rounded-3xl border border-indigo-100 bg-white p-6 shadow-lg">
-          <div className="mb-4 text-center text-4xl">📋</div>
+          <div className="mb-4 flex justify-center">
+            <IconTile icon={ClipboardCheck} tone="mint" size={56} />
+          </div>
           <h1 className="mb-1 text-center text-lg font-bold text-gray-900">개인별 출결 현황</h1>
           <p className="mb-5 text-center text-xs text-gray-500">
             학번과 개인코드로 로그인하면 내 지각·조퇴 기록과 순위를 볼 수 있어요.
@@ -192,14 +203,16 @@ export function StudentAttendancePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-sky-50 px-4 py-8">
+    <div className="min-h-screen px-4 py-8">
       <Helmet>
         <title>{TITLE}</title>
       </Helmet>
       <div className="mx-auto max-w-md space-y-5">
         <StudentNavBar />
         <header className="text-center">
-          <p className="text-3xl">📋</p>
+          <div className="flex justify-center">
+            <IconTile icon={ClipboardCheck} tone="mint" size={48} />
+          </div>
           <h1 className="mt-2 text-xl font-bold text-gray-900">개인별 출결 현황</h1>
           <p className="mt-1 text-xs text-gray-500">
             집계 기간마다 점수가 낮은 순으로 {REWARD_RANK_LIMIT}명에게 문화상품권을 드려요.
@@ -231,7 +244,9 @@ export function StudentAttendancePage() {
           <>
             {myCleaning >= CLEANING_THRESHOLD && (
               <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-center shadow-sm">
-                <p className="text-lg font-bold text-amber-900">🧹 청소 대상이에요!</p>
+                <p className="flex items-center justify-center gap-1.5 text-lg font-bold text-amber-900">
+                  <Sparkles className="h-5 w-5" /> 청소 대상이에요!
+                </p>
                 <p className="mt-1 text-xs text-amber-800">
                   청소 누적 점수가 {myCleaning}점이에요. ({CLEANING_THRESHOLD}점 이상) 청소를 마치면 선생님이 완료
                   체크해 지난주까지의 점수는 지워져요. 청소하는 주에 생긴 점수는 그대로 남아요.
@@ -255,8 +270,9 @@ export function StudentAttendancePage() {
             </section>
 
             {myRanks.score <= REWARD_RANK_LIMIT && (
-              <p className="rounded-xl bg-emerald-50 px-3 py-2 text-center text-xs font-medium text-emerald-700">
-                🎁 {activeIdx === currentIdx ? '지금' : '이 기간'} 총점 순위로는 문화상품권 대상이에요! (동점자 포함)
+              <p className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-50/80 px-3 py-2 text-center text-xs font-medium text-emerald-700">
+                <Gift className="h-4 w-4 shrink-0" />
+                {activeIdx === currentIdx ? '지금' : '이 기간'} 총점 순위로는 문화상품권 대상이에요! (동점자 포함)
               </p>
             )}
 

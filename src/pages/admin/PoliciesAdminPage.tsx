@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { CircleCheck, Flame, Sprout } from 'lucide-react'
 import {
   deletePolicy,
   getPolicies,
@@ -444,7 +445,7 @@ export function PoliciesAdminPage() {
           aria-live="polite"
           className="fixed left-1/2 top-6 z-[80] -translate-x-1/2 rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg ring-1 ring-emerald-700"
         >
-          ✅ {deleteSuccess}
+          <CircleCheck className="mr-1 inline h-4 w-4 align-[-3px]" />{deleteSuccess}
         </div>
       )}
 
@@ -453,7 +454,7 @@ export function PoliciesAdminPage() {
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-sm font-bold text-gray-900">정책 게시판</h2>
-              <p className="text-xs text-gray-500">학생 공유 링크로 접속한 정책을 읽고, 🔥 Hype!로 순위를 올릴 수 있어요.</p>
+              <p className="text-xs text-gray-500">학생 공유 링크로 접속한 정책을 읽고, <Flame className="inline h-3 w-3 align-[-2px] text-orange-500" /> Hype!로 순위를 올릴 수 있어요.</p>
             </div>
             <button
               type="button"
@@ -477,7 +478,7 @@ export function PoliciesAdminPage() {
           {topHypePolicies.length > 0 && (
             <div className="mb-4 rounded-2xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-amber-900">
-                <span className="inline-block">🔥</span> Hype! 실시간 Top4
+                <Flame className="h-4 w-4 text-orange-500" /> Hype! 실시간 Top4
               </h3>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {topHypePolicies.map((p, idx) => (
@@ -492,12 +493,12 @@ export function PoliciesAdminPage() {
                         {policyLogoSrc(p.logo_data) ? (
                           <img src={policyLogoSrc(p.logo_data)} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-base">🌱</div>
+                          <div className="flex h-full w-full items-center justify-center text-emerald-500"><Sprout className="h-4 w-4" /></div>
                         )}
                       </div>
                       <div className="shrink-0 text-right">
                         <div className="text-[10px] font-bold text-amber-700">{idx + 1}등</div>
-                        <div className="text-[11px] font-semibold text-amber-600">🔥 {p.hype_count ?? 0}</div>
+                        <div className="text-[11px] font-semibold text-amber-600"><Flame className="mr-0.5 inline h-3 w-3 align-[-2px]" />{p.hype_count ?? 0}</div>
                       </div>
                     </div>
                     <p className="mt-2 line-clamp-2 text-[11px] font-semibold text-gray-900">{p.title}</p>
@@ -539,7 +540,7 @@ export function PoliciesAdminPage() {
       {tab === 'seed' && (
         <section className="space-y-6">
           <div className="rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50 to-white p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-amber-900">🌱 학급 씨앗 관리하기</h2>
+            <h2 className="text-sm font-bold text-amber-900"><Sprout className="mr-1 inline h-4 w-4 align-[-3px]" />학급 씨앗 관리하기</h2>
             <p className="mt-1 text-xs text-amber-900/70">상품(교환 대상)을 등록하고, 씨앗 지출 내역을 학생 가계부에 연결합니다.</p>
           </div>
 
@@ -698,7 +699,7 @@ export function PoliciesAdminPage() {
                           </td>
                           <td className="px-3 py-2 font-semibold text-emerald-700">{s.total_gained}</td>
                           <td className="px-3 py-2 font-semibold text-rose-700">{s.total_spent}</td>
-                          <td className="px-3 py-2 font-semibold text-amber-700">🌱 {s.balance}</td>
+                          <td className="px-3 py-2 font-semibold text-amber-700"><Sprout className="mr-0.5 inline h-3.5 w-3.5 align-[-2px]" />{s.balance}</td>
                           <td className="px-3 py-2 text-right">
                             <div className="flex items-center justify-end gap-1.5">
                               <button
@@ -921,7 +922,7 @@ export function PoliciesAdminPage() {
       {tab === 'tree' && tree && (
         <section className="space-y-6">
           <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-6 shadow-inner">
-            <h2 className="mb-2 text-sm font-bold text-emerald-900">🌱 학급 씨앗 총합</h2>
+            <h2 className="mb-2 text-sm font-bold text-emerald-900"><Sprout className="mr-1 inline h-4 w-4 align-[-3px]" />학급 씨앗 총합</h2>
             <p className="text-4xl font-black text-emerald-700">{tree.total_seeds_class}</p>
             <p className="mt-1 text-xs text-emerald-800/80">모든 정책에서 지급·기록된 씨앗의 합계입니다.</p>
           </div>
@@ -1047,7 +1048,7 @@ export function PoliciesAdminPage() {
                         {src ? (
                           <img src={src} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-lg">🌱</div>
+                          <div className="flex h-full w-full items-center justify-center text-emerald-500"><Sprout className="h-5 w-5" /></div>
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -1080,7 +1081,7 @@ export function PoliciesAdminPage() {
                 {policyLogoSrc(detail.logo_data) ? (
                   <img src={policyLogoSrc(detail.logo_data)} alt="" className="h-full w-full object-cover" />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xl">🌱</div>
+                  <div className="flex h-full w-full items-center justify-center text-emerald-500"><Sprout className="h-6 w-6" /></div>
                 )}
               </div>
               <h2 className="min-w-0 flex-1 truncate text-base font-bold text-gray-900">{detail.title}</h2>
@@ -1635,7 +1636,7 @@ function PolicyRankBox({
                 {src ? (
                   <img src={src} alt="" className="h-full w-full object-cover" />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-lg">🌱</div>
+                  <div className="flex h-full w-full items-center justify-center text-emerald-500"><Sprout className="h-5 w-5" /></div>
                 )}
               </div>
               <div className="min-w-0 flex-1">
@@ -1685,13 +1686,13 @@ function PolicyCompactCard({
             {logo ? (
               <img src={logo} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-2xl">🌱</div>
+              <div className="flex h-full w-full items-center justify-center text-emerald-500"><Sprout className="h-7 w-7" /></div>
             )}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-bold leading-tight text-gray-900" title={policy.title}>{policy.title}</p>
             <p className="truncate text-[10px] leading-tight text-gray-500" title={policy.goal || ''}>{policy.goal || '\u00A0'}</p>
-            <p className="mt-1 text-[11px] font-semibold text-amber-600">🔥 {policy.hype_count ?? 0}</p>
+            <p className="mt-1 text-[11px] font-semibold text-amber-600"><Flame className="mr-0.5 inline h-3 w-3 align-[-2px]" />{policy.hype_count ?? 0}</p>
             <div className="mt-1.5 flex flex-nowrap items-center gap-1 overflow-hidden">
               {/* 등록자 사진은 classStudents 로딩 여부와 무관하게 항상 동일한 슬롯을 차지하도록 렌더해 깜빡임을 막는다 */}
               <span

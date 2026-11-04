@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Sprout } from 'lucide-react'
 import { Helmet } from 'react-helmet-async'
 import { Link } from 'react-router-dom'
 import { authStudent, getStudentSeedLedger } from '@/api/api'
@@ -128,7 +129,7 @@ export function StudentSeedLedgerPage() {
           <title>씨앗 가계부</title>
         </Helmet>
         <div className="mx-auto max-w-sm rounded-3xl border border-sky-100 bg-white p-6 shadow-lg">
-          <h1 className="mb-3 text-center text-xl font-bold text-gray-900">🌱 씨앗 가계부</h1>
+          <h1 className="mb-3 text-center text-xl font-bold text-gray-900"><Sprout className="mr-1 inline h-5 w-5 align-[-3px] text-emerald-600" />씨앗 가계부</h1>
           <p className="mb-5 text-center text-[11px] text-gray-500">학번·개인코드로 로그인 후 내 씨앗 사용 내역을 확인합니다.</p>
           <form onSubmit={handleAuth} className="space-y-3 text-sm">
             <div>
@@ -174,7 +175,7 @@ export function StudentSeedLedgerPage() {
       <div className="mx-auto max-w-2xl space-y-4">
         <header className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-lg font-bold text-gray-900">🌱 씨앗 가계부</h1>
+            <h1 className="text-lg font-bold text-gray-900"><Sprout className="mr-1 inline h-5 w-5 align-[-3px] text-emerald-600" />씨앗 가계부</h1>
             <p className="mt-1 text-xs text-gray-500">획득(정책 참여)과 지출(교환/사용) 내역을 기록합니다.</p>
           </div>
           <Link

@@ -1,14 +1,16 @@
+import type { LucideIcon } from 'lucide-react'
+import { Circle, CircleDot, ClipboardList, Image as ImageIcon, Palette, PenLine, Puzzle, Tv } from 'lucide-react'
 import type { TeacherQuizQuestion, TeacherQuizType } from '@/types'
 
-export const QUIZ_TYPES: Array<{ value: TeacherQuizType; label: string; emoji: string }> = [
-  { value: 'choice', label: '선택형 (객관식)', emoji: '🔘' },
-  { value: 'short', label: '주관식', emoji: '✍️' },
-  { value: 'ox', label: 'OX 퀴즈', emoji: '⭕' },
-  { value: 'image', label: '사진 보고 맞추기 (주관식)', emoji: '🖼️' },
-  { value: 'imageMc', label: '사진 보고 맞추기 (객관식)', emoji: '🧩' },
-  { value: 'imageChoice', label: '이미지 선택지', emoji: '🎨' },
-  { value: 'youtube', label: '유튜브 영상', emoji: '📺' },
-  { value: 'survey', label: '설문형 (정답 없음)', emoji: '📝' },
+export const QUIZ_TYPES: Array<{ value: TeacherQuizType; label: string; icon: LucideIcon }> = [
+  { value: 'choice', label: '선택형 (객관식)', icon: CircleDot },
+  { value: 'short', label: '주관식', icon: PenLine },
+  { value: 'ox', label: 'OX 퀴즈', icon: Circle },
+  { value: 'image', label: '사진 보고 맞추기 (주관식)', icon: ImageIcon },
+  { value: 'imageMc', label: '사진 보고 맞추기 (객관식)', icon: Puzzle },
+  { value: 'imageChoice', label: '이미지 선택지', icon: Palette },
+  { value: 'youtube', label: '유튜브 영상', icon: Tv },
+  { value: 'survey', label: '설문형 (정답 없음)', icon: ClipboardList },
 ]
 
 export function quizTypeLabel(t: TeacherQuizType) {

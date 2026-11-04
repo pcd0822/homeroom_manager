@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { Link } from 'react-router-dom'
+import { CalendarDays, ChevronDown, ChevronUp, Hand, Users } from 'lucide-react'
+import { IconTile } from '@/components/ui/Glyph'
 import {
   authStudent,
   getCalendarEvents,
@@ -400,7 +402,7 @@ export function CalendarSharedPage() {
       </Helmet>
       <div className="mx-auto max-w-3xl">
         <header className="mb-4 text-center">
-          <p className="text-3xl">🗓️</p>
+          <div className="flex justify-center"><IconTile icon={CalendarDays} tone="violet" size={44} /></div>
           <h1 className="mt-1 text-xl font-bold text-gray-900">학급 일정</h1>
           <p className="mt-1 text-xs text-gray-500">
             수업시간과 상담 일정을 주/월, 캘린더/테이블로 볼 수 있어요.
@@ -420,7 +422,8 @@ export function CalendarSharedPage() {
                   onClick={() => chooseRole('student')}
                   className="rounded-xl border-2 border-rose-200 bg-rose-50/60 px-3 py-3 text-sm font-bold text-rose-700 transition-colors hover:bg-rose-100"
                 >
-                  🙋 학생
+                  <Hand className="mr-1 inline h-4 w-4 align-[-3px]" />
+                  학생
                   <span className="mt-0.5 block text-[11px] font-normal text-rose-500">
                     학번 + 개인코드로 로그인
                   </span>
@@ -430,7 +433,8 @@ export function CalendarSharedPage() {
                   onClick={() => chooseRole('parent')}
                   className="rounded-xl border-2 border-violet-200 bg-violet-50/60 px-3 py-3 text-sm font-bold text-violet-700 transition-colors hover:bg-violet-100"
                 >
-                  👪 학부모
+                  <Users className="mr-1 inline h-4 w-4 align-[-3px]" />
+                  학부모
                   <span className="mt-0.5 block text-[11px] font-normal text-violet-500">
                     로그인 없이 자녀만 선택
                   </span>
@@ -477,7 +481,8 @@ export function CalendarSharedPage() {
             ) : (
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-gray-700">
-                  👪 자녀(학생)를 선택하면 로그인 없이 상담을 신청할 수 있어요.
+                  <Users className="mr-1 inline h-3.5 w-3.5 align-[-2px] text-violet-500" />
+                  자녀(학생)를 선택하면 로그인 없이 상담을 신청할 수 있어요.
                 </p>
                 {rosterLoading ? (
                   <p className="py-3 text-center text-xs text-gray-400">
@@ -509,7 +514,8 @@ export function CalendarSharedPage() {
           ) : me ? (
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-semibold text-gray-800">
-                🙋 {me.name || me.student_id}
+                <Hand className="mr-1 inline h-4 w-4 align-[-3px] text-rose-500" />
+                {me.name || me.student_id}
                 <span className="ml-1 text-xs font-normal text-gray-400">({me.student_id})</span>
               </span>
               <span className="text-xs text-gray-500">
@@ -526,7 +532,8 @@ export function CalendarSharedPage() {
           ) : (
             <form onSubmit={handleLogin} className="space-y-2">
               <p className="text-xs font-semibold text-gray-700">
-                🙋 학생 본인은 학번과 개인코드로 로그인하세요.
+                <Hand className="mr-1 inline h-3.5 w-3.5 align-[-2px] text-rose-500" />
+                학생 본인은 학번과 개인코드로 로그인하세요.
               </p>
               <div className="flex flex-wrap gap-2">
                 <input
@@ -567,7 +574,8 @@ export function CalendarSharedPage() {
         {canRequest && (
           <div className="mb-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
             <p className="mb-2 px-1 text-xs font-bold text-gray-700">
-              {isParent ? '👪 이 기기에서 신청한 상담' : '🙋 내 상담 일정'}
+              {isParent ? <Users className="mr-1 inline h-3.5 w-3.5 align-[-2px]" /> : <Hand className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />}
+              {isParent ? '이 기기에서 신청한 상담' : '내 상담 일정'}
               {myCounselings.length > 0 && (
                 <span className="ml-1 font-normal text-gray-400">{myCounselings.length}건</span>
               )}
@@ -753,7 +761,7 @@ function ChildPicker({
         aria-expanded={open}
       >
         <span>자녀(학생)를 선택하세요</span>
-        <span className="text-violet-400">{open ? '▲' : '▼'}</span>
+        <span className="text-violet-400">{open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
       </button>
       {open && (
         <div className="mt-2 rounded-xl border border-gray-100 bg-white shadow-sm">

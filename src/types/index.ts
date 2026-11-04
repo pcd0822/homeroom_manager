@@ -77,8 +77,46 @@ export interface StudentAttendanceData {
   records: AttendanceRecord[]
   /** 집계 기간(리셋) 시작일 목록, 오름차순 */
   period_starts: string[]
+  /** 교시 체크(비고 제외). 조퇴 자동 판정용. GAS 재배포 전에는 없을 수 있다 */
+  period_marks?: Array<{ date: string; student_id: string; marks: string }>
+  period_schedule?: PeriodSchedule
   /** 본인('me')의 청소 완료 기록만 */
   cleaning_resets: CleaningReset[]
+}
+
+/** 교시 칸 하나의 체크 종류. A 결석 · L 지각 · E 조퇴 · R 결과 · S 교과교사 빗금(구분 없음) */
+export type PeriodMark = 'A' | 'L' | 'E' | 'R' | 'S'
+/** 담임이 고르는 출결 구분 (빈칸 = 선택 안 함) */
+export type PeriodKind = '' | 'A' | 'L' | 'E' | 'R'
+
+/** 교시별 출결 하루 한 행 (HomeroomPeriodAttendance 시트). marks는 '0:L,1:L,5:S' 형식(0 = 조회) */
+export interface PeriodRow {
+  date: string
+  student_id: string
+  kind: PeriodKind
+  marks: string
+  note: string
+  updated_at?: string
+}
+
+/** 날짜별 교시 수. weekday는 일~토(getDay 순서), dates는 날짜별 예외 */
+export interface PeriodSchedule {
+  weekday: number[]
+  dates: Record<string, number>
+}
+
+export type PeriodOp =
+  | { student_id: string; type: 'mark'; period: number; value: PeriodMark | '' }
+  | { student_id: string; type: 'kind'; kind: PeriodKind }
+  | { student_id: string; type: 'note'; note: string }
+
+/** QR 출석부 응답 */
+export interface AttendanceBoardData {
+  date: string
+  today: string
+  periods: number
+  rows: PeriodRow[]
+  roster?: Array<{ student_id: string; name: string }>
 }
 
 /** 청소 완료 기록: 이 날짜가 속한 주(월~일)의 이전 주까지 청소 점수를 초기화한다. 청소 주 점수는 유지 */

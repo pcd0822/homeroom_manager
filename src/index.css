@@ -4,11 +4,114 @@
 
 @layer base {
   :root {
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+    /* 리퀴드 글래스 토큰 */
+    --glass-bg: rgba(255, 255, 255, 0.58);
+    --glass-bg-strong: rgba(255, 255, 255, 0.78);
+    --glass-border: rgba(255, 255, 255, 0.75);
+    --glass-edge: rgba(15, 23, 42, 0.06);
+    --glass-shadow: 0 10px 30px -12px rgba(30, 41, 99, 0.22), 0 2px 6px -2px rgba(30, 41, 99, 0.08);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(255, 255, 255, 0.25);
+    --glass-blur: blur(22px) saturate(170%);
+  }
+  html {
+    background: #eef1f8;
   }
   body {
     font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply text-gray-900 antialiased;
+    min-height: 100vh;
+    background-color: #eef1f8;
+    /* 유리 뒤로 비치는 부드러운 빛 덩어리. 고정 배경이라 스크롤해도 유리 질감이 유지된다. */
+    background-image:
+      radial-gradient(42rem 32rem at 8% 6%, rgba(129, 140, 248, 0.38), transparent 62%),
+      radial-gradient(36rem 30rem at 92% 12%, rgba(56, 189, 248, 0.32), transparent 60%),
+      radial-gradient(40rem 34rem at 78% 92%, rgba(244, 114, 182, 0.26), transparent 62%),
+      radial-gradient(34rem 28rem at 14% 88%, rgba(52, 211, 153, 0.24), transparent 60%);
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  /* 기본 유리 패널 */
+  .glass {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
+  }
+  /* 글씨가 많은 표·입력 영역용 — 덜 비친다 */
+  .glass-strong {
+    background: var(--glass-bg-strong);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight), var(--glass-shadow);
+  }
+  /* 작은 알약 버튼·칩 */
+  .glass-pill {
+    background: rgba(255, 255, 255, 0.55);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    backdrop-filter: blur(14px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 4px 12px -6px rgba(30, 41, 99, 0.25);
+  }
+  /* 주요 실행 버튼: 유리 위 젤리 느낌의 파란 버튼 */
+  .btn-liquid {
+    background-image: linear-gradient(180deg, #5b8cff 0%, #3b6cf6 55%, #2f5ae0 100%);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 8px 18px -8px rgba(47, 90, 224, 0.7);
+  }
+  .btn-liquid:hover {
+    filter: brightness(1.06);
+  }
+}
+
+/*
+ * 앱 전체 리퀴드 글래스: 기존 화면의 흰 카드(흰 배경 + 그림자/둥근 모서리)를 유리 패널로 바꾼다.
+ * 화면마다 클래스를 고치지 않아도 같은 질감이 나도록 공통 패턴만 골라 덮어쓴다.
+ * 입력칸·작은 칸(rounded/rounded-md 만 있는 bg-white)은 건드리지 않는다.
+ */
+.bg-white.shadow-sm,
+.bg-white.shadow,
+.bg-white.shadow-md,
+.bg-white.shadow-lg,
+.bg-white.shadow-xl,
+.bg-white.shadow-2xl,
+.bg-white.rounded-xl,
+.bg-white.rounded-2xl,
+.bg-white.rounded-3xl {
+  background-color: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+}
+/* 화면 전체를 덮던 회색 바탕은 비워서 뒤의 빛 배경이 보이게 한다 */
+.min-h-screen.bg-gray-50,
+.min-h-screen.bg-slate-50,
+.min-h-screen.bg-gray-100 {
+  background-color: transparent;
+}
+/* 기본 파란 버튼에 은은한 광택 */
+.bg-blue-600 {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 60%);
+}
+@media print {
+  body {
+    background: #fff !important;
+  }
+  .glass,
+  .glass-strong,
+  .bg-white.shadow-sm,
+  .bg-white.shadow,
+  .bg-white.rounded-xl {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: #fff !important;
+    box-shadow: none !important;
   }
 }
 

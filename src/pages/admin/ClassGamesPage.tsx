@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Flower2, PencilLine, Trophy } from 'lucide-react'
+import { IconTile } from '@/components/ui/Glyph'
 import {
   GAME_ID_HOME_SEND_ME,
   GAME_ID_TEACHER_QUIZ,
@@ -54,16 +56,17 @@ export function ClassGamesPage() {
         {/* 들샘 모의고사 */}
         <article className="rounded-2xl border border-pink-200 bg-gradient-to-br from-pink-50 to-amber-50 p-5 shadow-sm">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🌷</span>
+            <IconTile icon={Flower2} tone="rose" size={32} />
             <h2 className="text-lg font-semibold text-gray-900">{quizMeta.title}</h2>
           </div>
           <p className="mt-2 text-sm text-gray-700">{quizMeta.description}</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
               to="/admin/class-games/teacher-quiz/edit"
-              className="rounded-lg bg-rose-500 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600"
             >
-              📝 문제 출제하기
+              <PencilLine className="h-4 w-4" />
+              문제 출제하기
             </Link>
             <button
               type="button"
@@ -74,9 +77,10 @@ export function ClassGamesPage() {
             </button>
             <Link
               to="/admin/class-games/teacher-quiz/ranking"
-              className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
             >
-              🏆 랭킹 보기
+              <Trophy className="h-4 w-4 text-amber-500" />
+              랭킹 보기
             </Link>
           </div>
           <p className="mt-3 break-all text-xs text-gray-600">{origin}{quizMeta.studentPath}</p>

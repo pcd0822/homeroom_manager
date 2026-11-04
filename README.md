@@ -57,6 +57,10 @@ VITE_GAS_API_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 | 자리 배치 | `HomeroomSeatingConfig`, `HomeroomSeatingAssignment` |
 | 상담 캘린더 | `HomeroomCounselingTimetable`, `HomeroomCalendarEvents` |
 | 출석 관리 | `HomeroomAttendance` (date, student_id, late, early, late_doc, early_doc, updated_at) |
+| 교시별 출결·비고 | `HomeroomPeriodAttendance` (date, student_id, kind, marks, note, updated_at) — 처음 저장할 때 자동 생성. marks는 `교시:종류`(0=조회, A 결석·L 지각·E 조퇴·R 결과·S 교과 빗금) |
+
+교시 수 설정(`PERIOD_SCHEDULE`)과 QR 출석부 공유 키(`ATTENDANCE_SHARE_KEY`)는 Script Properties에 자동 저장됩니다.
+로컬 점검: `node scripts/gas-stub-server.cjs --selftest`(GAS 로직), `npx tsx scripts/test-period-attendance.ts`(채우기·조퇴 판정 규칙).
 
 ### 3. GAS 배포
 

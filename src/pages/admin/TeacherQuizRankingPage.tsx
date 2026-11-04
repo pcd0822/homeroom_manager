@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ClipboardList, Medal, Trophy } from 'lucide-react'
+import { IconTile } from '@/components/ui/Glyph'
 import { getTeacherQuizRanking, getTeacherQuizSurveys } from '@/api/api'
 import type { TeacherQuizScoreRow, TeacherQuizSurveyRow } from '@/types'
 
@@ -61,7 +63,8 @@ export function TeacherQuizRankingPage() {
         </Link>
       </div>
       <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
-        🏆 들샘 모의고사 랭킹
+        <IconTile icon={Trophy} tone="amber" size={36} />
+        들샘 모의고사 랭킹
       </h1>
       <p className="mt-1 text-sm text-gray-600">
         학생별 최고 점수 기준입니다. 동점일 경우 재도전 횟수가 적은 쪽이 더 위.
@@ -100,7 +103,15 @@ export function TeacherQuizRankingPage() {
                     className="cursor-pointer border-t border-gray-100 transition-colors hover:bg-rose-50/60"
                   >
                     <td className="px-4 py-3 font-bold text-gray-900">
-                      {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
+                      {i === 0 ? (
+                        <Trophy className="h-5 w-5 text-amber-500" aria-label="1등" />
+                      ) : i === 1 ? (
+                        <Medal className="h-5 w-5 text-slate-400" aria-label="2등" />
+                      ) : i === 2 ? (
+                        <Medal className="h-5 w-5 text-orange-700" aria-label="3등" />
+                      ) : (
+                        `${i + 1}`
+                      )}
                     </td>
                     <td className="px-4 py-3 text-gray-700">{r.student_id}</td>
                     <td className="px-4 py-3 text-gray-700">{r.student_name || '—'}</td>
@@ -157,7 +168,8 @@ function SurveyModal({
         <div className="mb-4 flex items-start justify-between gap-2">
           <div>
             <h2 className="text-lg font-bold text-gray-900">
-              📝 {row.student_name || row.student_id}님의 설문 응답
+              <ClipboardList className="mr-1.5 inline h-5 w-5 align-[-3px] text-rose-500" />
+              {row.student_name || row.student_id}님의 설문 응답
             </h2>
             <p className="mt-0.5 text-xs text-gray-500">
               학번 {row.student_id} · {row.total_score}P · 기록 시각{' '}
