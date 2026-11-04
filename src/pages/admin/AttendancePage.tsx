@@ -10,6 +10,7 @@ import {
   ExternalLink,
   QrCode,
   RefreshCw,
+  RotateCcw,
   X,
 } from 'lucide-react'
 import {
@@ -388,6 +389,39 @@ export function AttendancePage() {
     queueOps([{ student_id: studentId, type: 'note', note }])
   }
 
+  /** 선택한 날짜의 출석부 전체 비우기: 교시 체크·구분·비고 + 지각·조퇴·서류. 다른 날짜와 교시 설정은 그대로 */
+  const resetDay = () => {
+    const rows = [...dayRows.values()]
+    const hasFlags = Object.values(draftRef.current).some((f) => f.late || f.early || f.late_doc || f.early_doc)
+    if (!rows.some((r) => r.marks || r.kind || r.note) && !hasFlags) {
+      alert('이 날짜에는 지울 출결 기록이 없습니다.')
+      return
+    }
+    if (
+      !confirm(
+        `${formatDateLabel(selectedDate)} 출석부를 초기화할까요?\n\n` +
+          '교시 체크(교과 선생님 체크 포함), 출결 구분, 비고, 지각·조퇴·서류 체크가 모두 지워집니다.\n' +
+          '다른 날짜 기록과 교시 설정은 그대로입니다. 지운 뒤에는 되돌릴 수 없습니다.'
+      )
+    )
+      return
+    const ops: PeriodOp[] = []
+    for (const r of rows) {
+      const marks = parseMarks(r.marks)
+      for (const p of Object.keys(marks)) ops.push({ student_id: r.student_id, type: 'mark', period: Number(p), value: '' })
+      if (r.kind) ops.push({ student_id: r.student_id, type: 'kind', kind: '' })
+      if (r.note) ops.push({ student_id: r.student_id, type: 'note', note: '' })
+    }
+    queueOps(ops)
+    void flushPeriodOps()
+    if (hasFlags) {
+      draftRef.current = {}
+      setDraft({})
+      markFlagsDirty()
+      void flushFlags()
+    }
+  }
+
   const setDayPeriods = async (n: number) => {
     const dates = { ...schedule.dates }
     const weekdayDefault = schedule.weekday[new Date(`${selectedDate}T00:00:00`).getDay()]
@@ -486,6 +520,15 @@ export function AttendancePage() {
                   {lastSync && <span>· 교과교사 체크 {new Date(lastSync).toLocaleTimeString('ko-KR')} 반영</span>}
                 </p>
               </div>
+              <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={resetDay}
+                disabled={loading}
+                className="flex items-center gap-1.5 rounded-full border border-red-200 bg-white/60 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> 이 날짜 초기화
+              </button>
               <label className="glass-pill flex items-center gap-2 rounded-full px-3 py-1.5 text-xs text-gray-600">
                 이날 수업
                 <select
@@ -500,6 +543,7 @@ export function AttendancePage() {
                   ))}
                 </select>
               </label>
+              </div>
             </div>
             <div className="mb-2">
               <MarkLegend />

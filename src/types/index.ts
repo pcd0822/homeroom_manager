@@ -116,7 +116,7 @@ export interface AttendanceBoardData {
   today: string
   periods: number
   rows: PeriodRow[]
-  roster?: Array<{ student_id: string; name: string }>
+  roster?: Array<{ student_id: string; name: string; photo_data?: string }>
 }
 
 /** 청소 완료 기록: 이 날짜가 속한 주(월~일)의 이전 주까지 청소 점수를 초기화한다. 청소 주 점수는 유지 */

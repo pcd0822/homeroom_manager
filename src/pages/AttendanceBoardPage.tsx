@@ -22,7 +22,7 @@ const kindLabel = (k: string) => KIND_OPTIONS.find((o) => o.value === k)?.label 
 export function AttendanceBoardPage() {
   const [params] = useSearchParams()
   const shareKey = params.get('k') || ''
-  const [roster, setRoster] = useState<Array<{ student_id: string; name: string }>>([])
+  const [roster, setRoster] = useState<Array<{ student_id: string; name: string; photo_data?: string }>>([])
   const [rows, setRows] = useState<PeriodRow[]>([])
   const [date, setDate] = useState('')
   const [today, setToday] = useState('')
@@ -297,8 +297,25 @@ export function AttendanceBoardPage() {
                       return (
                         <tr key={s.student_id} className={cn(row?.marks && 'bg-amber-50/40')}>
                           <td className="sticky left-0 z-10 border-t border-white/70 bg-white/80 px-3 py-1.5 backdrop-blur">
-                            <span className="block font-semibold text-gray-900">{s.name}</span>
-                            <span className="block text-[11px] text-gray-500">{s.student_id}</span>
+                            <span className="flex items-center gap-2.5">
+                              <span className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white/80 ring-2 ring-white">
+                                {s.photo_data ? (
+                                  <img
+                                    src={s.photo_data.startsWith('data:') ? s.photo_data : `data:image/jpeg;base64,${s.photo_data}`}
+                                    alt=""
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-gray-400">
+                                    {s.name.charAt(0) || '?'}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="min-w-0">
+                                <span className="block truncate font-semibold text-gray-900">{s.name}</span>
+                                <span className="block text-[11px] text-gray-500">{s.student_id}</span>
+                              </span>
+                            </span>
                           </td>
                           <td className="border-t border-white/70 py-1.5 text-center text-xs font-semibold text-gray-700">
                             {row?.kind ? kindLabel(row.kind) : autoEarly ? '조퇴' : ''}

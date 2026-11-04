@@ -4881,7 +4881,19 @@ function getAttendanceBoard(params) {
     periods: _periodsForDate(_getPeriodSchedule(), date),
     rows: _boardRows(date)
   };
-  if (params.roster) data.roster = _readRoster();
+  if (params.roster) {
+    // 사진은 처음 열 때(roster 요청)만 붙인다. 폴링 응답에는 들어가지 않는다.
+    var photoOf = {};
+    var stuRes = getStudents();
+    if (stuRes.success) {
+      (stuRes.data || []).forEach(function (s) {
+        if (s.photo_data) photoOf[String(s.student_id).trim()] = s.photo_data;
+      });
+    }
+    data.roster = _readRoster().map(function (s) {
+      return { student_id: s.student_id, name: s.name, photo_data: photoOf[s.student_id] || '' };
+    });
+  }
   return { success: true, data: data };
 }
 

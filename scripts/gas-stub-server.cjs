@@ -116,7 +116,7 @@ const SEED = {
   sheets: {
     Students: [
       ['student_id', 'name', 'auth_code', 'x', 'y', 'z', 'photo_data'],
-      ['30501', '김하늘', '1111', '', '', '', ''],
+      ['30501', '김하늘', '1111', '', '', '', 'data:image/jpeg;base64,AAAA'],
       ['30502', '이서준', '2222', '', '', '', ''],
       ['30503', '박지우', '3333', '', '', '', ''],
       ['30504', '최리헌', '4444', '', '', '', ''],
@@ -159,9 +159,12 @@ function selftest() {
   const board = call({ action: 'GET_ATTENDANCE_BOARD', k: key, roster: true })
   check(
     'QR 출석부 조회(명단·교시 수·비고)',
-    board.success && board.data.roster.length === 5 && board.data.periods === 6 && board.data.rows.some((r) => r.note) && !('photo_data' in board.data.roster[0]),
+    board.success && board.data.roster.length === 5 && board.data.periods === 6 && board.data.rows.some((r) => r.note) && board.data.roster[0].photo_data === 'data:image/jpeg;base64,AAAA' && board.data.roster[1].photo_data === '',
     board
   )
+
+  const poll = call({ action: 'GET_ATTENDANCE_BOARD', k: key })
+  check('폴링엔 명단·사진 없음', poll.success && !poll.data.roster, poll)
 
   const m1 = call({ action: 'SAVE_ATTENDANCE_BOARD_MARK', k: key, date: today, student_id: '30503', period: 3, on: true })
   check('교과교사 빗금 체크', m1.success && m1.data.rows.find((r) => r.student_id === '30503').marks === '3:S', m1)
