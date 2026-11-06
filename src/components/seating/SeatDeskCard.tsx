@@ -25,10 +25,10 @@ export function SeatDeskCard({
   const empty = !student
 
   const topClass = empty
-    ? 'border-dashed border-gray-300 bg-white'
+    ? 'border-dashed border-slate-300 bg-white/40'
     : variant === 'reveal'
-      ? 'border-amber-200 bg-gradient-to-b from-amber-50 to-amber-100'
-      : 'border-amber-200 bg-amber-50'
+      ? 'border-white/80 bg-gradient-to-b from-amber-50/90 to-amber-100/70'
+      : 'border-white/80 bg-amber-50/70'
 
   const accentClass = empty
     ? 'bg-gray-200'
@@ -92,12 +92,12 @@ export function TeacherDeskBanner({
 }) {
   const bg =
     variant === 'reveal'
-      ? 'bg-gradient-to-b from-slate-100 to-slate-200 border-slate-300'
-      : 'bg-slate-100 border-slate-300'
+      ? 'bg-white/60 border-white/80'
+      : 'bg-white/50 border-white/80'
   return (
     <div className={cn('mx-auto w-full max-w-md', className)}>
       <div className="flex flex-col items-center">
-        <div className={cn('w-full rounded-xl border px-4 py-3 text-center shadow-inner', bg)}>
+        <div className={cn('w-full rounded-2xl border px-4 py-3 text-center shadow-sm backdrop-blur-sm', bg)}>
           <p className="flex items-center justify-center gap-1.5 text-sm font-semibold tracking-wide text-slate-700"><ClipboardList className="h-4 w-4" />교탁</p>
         </div>
         <div className="flex w-1/2 justify-between px-4">

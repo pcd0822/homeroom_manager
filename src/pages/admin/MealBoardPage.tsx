@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, UtensilsCrossed } from 'lucide-react'
 import { buildShareUrl } from '@/lib/gasUrl'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { PageTitle } from '@/components/ui/Glyph'
 
 const NEIS_BASE = 'https://open.neis.go.kr/hub'
 const MEAL_KEY = '1ff34ee414734a8ab3bf67c55492df58'
@@ -134,8 +136,12 @@ export function MealBoardPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">급식알림판</h1>
-          <p className="text-xs text-gray-500">오늘의 급식 메뉴와 학사일정을 한눈에 확인하세요.</p>
+          <PageTitle
+            icon={UtensilsCrossed}
+            tone="amber"
+            title="급식알림판"
+            sub="오늘의 급식 메뉴와 학사일정을 한눈에 확인하세요."
+          />
           <button
             type="button"
             onClick={() => {
@@ -226,7 +232,7 @@ export function MealBoardPage() {
 
         {tab === 'meal' ? (
           <div>
-            {mealLoading && <p className="text-sm text-gray-500">급식 정보를 불러오는 중...</p>}
+            {mealLoading && <LoadingSpinner label="급식 정보를 불러오는 중" />}
             {mealError && <p className="text-sm text-red-600">{mealError}</p>}
             {!mealLoading && !mealError && mealItems && mealItems.length === 0 && (
               <p className="text-sm text-gray-500">등록된 급식 정보가 없습니다.</p>
@@ -258,7 +264,7 @@ export function MealBoardPage() {
           </div>
         ) : (
           <div>
-            {scheduleLoading && <p className="text-sm text-gray-500">학사일정을 불러오는 중...</p>}
+            {scheduleLoading && <LoadingSpinner label="학사일정을 불러오는 중" />}
             {scheduleError && <p className="text-sm text-red-600">{scheduleError}</p>}
             {!scheduleLoading && !scheduleError && scheduleItems && scheduleItems.length === 0 && (
               <p className="text-sm text-gray-500">등록된 학사일정이 없습니다.</p>

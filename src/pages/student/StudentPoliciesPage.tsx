@@ -14,6 +14,8 @@ import {
 import type { Policy, PolicyParticipant, Student } from '@/types'
 import { policyLogoSrc } from '@/lib/policyImage'
 import { existingSeedsFor } from '@/lib/policySeeds'
+import { DonutSpinner, LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { IconTile } from '@/components/ui/Glyph'
 
 const LOGIN_KEY = 'homeroom_login'
 
@@ -254,7 +256,7 @@ export function StudentPoliciesPage() {
         <Helmet>
           <title>정책 관리</title>
         </Helmet>
-        <p className="text-sm text-gray-500">로그인 확인 중...</p>
+        <LoadingSpinner label="로그인 확인 중" />
       </div>
     )
   }
@@ -322,7 +324,7 @@ export function StudentPoliciesPage() {
               <House className="h-5 w-5" />
             </Link>
             <div className="min-w-0">
-              <h1 className="text-lg font-bold text-gray-900"><Leaf className="mr-1 inline h-5 w-5 align-[-3px] text-emerald-600" />정책 관리하기</h1>
+              <h1 className="flex items-center gap-2 text-lg font-bold text-gray-900"><IconTile icon={Leaf} tone="mint" size={28} />정책 관리하기</h1>
               <p className="text-xs text-gray-500">
                 {name} ({studentId})
               </p>
@@ -338,7 +340,7 @@ export function StudentPoliciesPage() {
         {!detail && (
           <>
             {loading ? (
-              <p className="text-sm text-gray-500">불러오는 중...</p>
+              <LoadingSpinner label="불러오는 중" />
             ) : policies.length === 0 ? (
               <p className="text-sm text-gray-600">등록된 정책이 없습니다. 정책 등록 링크로 새로 등록해 보세요.</p>
             ) : (
@@ -366,7 +368,7 @@ export function StudentPoliciesPage() {
                           <p className="mt-1 text-[10px] font-semibold text-amber-600"><Flame className="mr-0.5 inline h-3 w-3 align-[-2px]" />{p.hype_count ?? 0}</p>
                         </div>
                         {opening ? (
-                          <span className="inline-block h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+                          <DonutSpinner size={20} />
                         ) : (
                           <span className="text-gray-300">›</span>
                         )}
@@ -394,10 +396,7 @@ export function StudentPoliciesPage() {
             </button>
             {detailOpening && (
               <p className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 ring-1 ring-emerald-100">
-                <span
-                  className="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent"
-                  aria-hidden
-                />
+                <DonutSpinner size={16} />
                 정책 정보를 불러오는 중…
               </p>
             )}

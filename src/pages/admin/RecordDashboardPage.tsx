@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom'
 import { getStudents, ensureRecordSheet, getRecordUpdatedStudentIds } from '@/api/api'
 import type { Student } from '@/types'
 import { cn } from '@/lib/utils'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { GraduationCap } from 'lucide-react'
+import { PageTitle } from '@/components/ui/Glyph'
 
 /** 두 학번이 같은 사람으로 간주되는지 (문자열·숫자·앞자리 0 무시) */
 function isSameStudentId(a: string, b: string): boolean {
@@ -14,14 +17,6 @@ function isSameStudentId(a: string, b: string): boolean {
   if (!Number.isNaN(na) && !Number.isNaN(nb) && na === nb) return true
   if (sa.length > 0 && sb.length > 0 && sa.replace(/^0+/, '') === sb.replace(/^0+/, '')) return true
   return false
-}
-
-function ChartBarIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-    </svg>
-  )
 }
 
 export function RecordDashboardPage() {
@@ -46,20 +41,19 @@ export function RecordDashboardPage() {
   if (loading) {
     return (
       <div className="flex min-h-[200px] items-center justify-center">
-        <p className="text-gray-500">로딩 중...</p>
+        <LoadingSpinner label="로딩 중" />
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <ChartBarIcon className="h-6 w-6 text-blue-600" />
-        <h1 className="text-xl font-semibold text-gray-900">생기부 분석 대시보드</h1>
-      </div>
-      <p className="text-sm text-gray-600">
-        학생을 선택하면 해당 학생의 생활기록부 기록을 시트 데이터와 매칭하여 대시보드로 볼 수 있습니다.
-      </p>
+      <PageTitle
+        icon={GraduationCap}
+        tone="violet"
+        title="생기부 분석 대시보드"
+        sub="학생을 선택하면 해당 학생의 생활기록부 기록을 시트 데이터와 매칭하여 대시보드로 볼 수 있습니다."
+      />
       {error && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
           {error}

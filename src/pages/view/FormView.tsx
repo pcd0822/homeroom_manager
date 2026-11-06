@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom'
 import { getForm, authStudent, submitResponse, parseFormSchema, getAssignmentsByForm } from '@/api/api'
 import type { FormSchema } from '@/types'
 import { FormRenderer } from '@/components/FormRenderer'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 type AuthState = 'idle' | 'loading' | 'success' | 'error'
 type SubmitState = 'idle' | 'submitting' | 'done' | 'error'
@@ -173,7 +174,7 @@ export function FormView() {
         {errorMessage ? (
           <p className="text-red-600">{errorMessage}</p>
         ) : (
-          <p className="text-gray-600">로딩 중...</p>
+          <LoadingSpinner label="로딩 중" />
         )}
       </div>
     )

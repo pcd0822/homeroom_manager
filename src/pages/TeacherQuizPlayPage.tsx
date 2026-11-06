@@ -14,6 +14,7 @@ import {
   isShortAnswerCorrect,
 } from '@/lib/teacherQuiz'
 import { cn } from '@/lib/utils'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 type Phase = 'login' | 'intro' | 'playing' | 'failed' | 'cleared'
 
@@ -613,7 +614,7 @@ function IntroView({
           <li>• 포인트가 모두 떨어지면 자동 탈락…!</li>
           <li>• 모든 문제를 맞추면 랭킹에 점수가 등록됩니다.</li>
         </ul>
-        {loading && <p className="mt-4 text-xs text-gray-500">문제를 불러오는 중…</p>}
+        {loading && <LoadingSpinner label="문제를 불러오는 중" size={28} className="py-4" />}
         {error && <p className="mt-4 text-xs text-rose-600">{error}</p>}
         {!loading && !error && questionsCount === 0 && (
           <p className="mt-4 text-xs text-gray-500">아직 출제된 문제가 없어요. 담임샘에게 물어봐 주세요!</p>

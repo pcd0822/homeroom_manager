@@ -4,6 +4,7 @@ import { ClipboardList, Medal, Trophy } from 'lucide-react'
 import { IconTile } from '@/components/ui/Glyph'
 import { getTeacherQuizRanking, getTeacherQuizSurveys } from '@/api/api'
 import type { TeacherQuizScoreRow, TeacherQuizSurveyRow } from '@/types'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 function friendlyQuizError(err?: string) {
   if (!err) return '랭킹을 불러오지 못했습니다.'
@@ -72,7 +73,7 @@ export function TeacherQuizRankingPage() {
         <span className="text-xs text-gray-500">행을 클릭하면 해당 학생의 설문형 응답을 볼 수 있어요.</span>
       </p>
 
-      {loading && <p className="mt-6 text-sm text-gray-500">불러오는 중…</p>}
+      {loading && <LoadingSpinner label="불러오는 중" />}
       {err && <p className="mt-6 text-sm text-rose-600">{err}</p>}
 
       {!loading && !err && (
@@ -185,7 +186,7 @@ function SurveyModal({
           </button>
         </div>
 
-        {loading && <p className="text-sm text-gray-500">응답을 불러오는 중…</p>}
+        {loading && <LoadingSpinner label="응답을 불러오는 중" />}
         {error && <p className="text-sm text-rose-600">{error}</p>}
 
         {!loading && !error && (

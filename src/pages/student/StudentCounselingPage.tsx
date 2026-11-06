@@ -7,6 +7,7 @@ import { authStudent, getCalendarEventsForStudent } from '@/api/api'
 import type { CalendarEvent } from '@/types'
 import { StudentNavBar } from '@/components/student/StudentNavBar'
 import { formatDateLabel, formatTimeRange, parseDateKey } from '@/lib/calendar'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 const LOGIN_KEY = 'homeroom_login'
 const TITLE = '내 상담 일정 | 학급 경영'
@@ -104,7 +105,7 @@ export function StudentCounselingPage() {
         <Helmet>
           <title>{TITLE}</title>
         </Helmet>
-        <p className="text-sm text-gray-500">로그인 확인 중...</p>
+        <LoadingSpinner label="로그인 확인 중" />
       </div>
     )
   }
@@ -187,7 +188,7 @@ export function StudentCounselingPage() {
         </Link>
 
         {loading ? (
-          <p className="py-10 text-center text-sm text-gray-500">불러오는 중...</p>
+          <LoadingSpinner label="불러오는 중" />
         ) : events.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-200 bg-white/60 py-12 text-center">
             <EmptyArt icon={Leaf} tone="mint" />

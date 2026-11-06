@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Nut, PartyPopper, RefreshCw, Save, Sparkles } from 'lucide-react'
+import { PageTitle } from '@/components/ui/Glyph'
 import {
   getStudents,
   getSeatingConfig,
@@ -181,22 +182,26 @@ export function SeatingDrawPage() {
 
   // reveal
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-pink-50 p-6">
+    <div className="min-h-screen p-4 sm:p-6">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-800"><PartyPopper className="h-6 w-6 text-pink-500" />자리 배치 결과</h1>
-            <p className="mt-1 text-sm text-gray-600">
-              마음에 들면 <span className="font-semibold text-emerald-700">저장</span>, 다시 뽑으려면{' '}
-              <span className="font-semibold text-indigo-700">다시 뽑기</span>를 눌러주세요.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+        <div className="mb-6">
+          <PageTitle
+            icon={PartyPopper}
+            tone="coral"
+            title="자리 배치 결과"
+            sub={
+              <>
+                마음에 들면 <span className="font-semibold text-emerald-700">저장</span>, 다시 뽑으려면{' '}
+                <span className="font-semibold text-indigo-700">다시 뽑기</span>를 눌러주세요.
+              </>
+            }
+            right={
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={reroll}
               disabled={saving}
-              className="inline-flex items-center gap-1.5 rounded-md border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+              className="glass-pill inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-indigo-700 disabled:opacity-60"
             >
               <RefreshCw className="h-4 w-4" />
               다시 뽑기
@@ -215,6 +220,8 @@ export function SeatingDrawPage() {
               <span className="text-xs text-gray-500">{new Date(savedAt).toLocaleString('ko-KR')} 저장됨</span>
             )}
           </div>
+            }
+          />
         </div>
         {layout && (
           <>
@@ -295,7 +302,7 @@ function RevealedGroup({
   })
   const rowKeys = Array.from(rows.keys()).sort((a, b) => a - b)
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="glass rounded-3xl p-4">
       <p className="mb-3 text-sm font-semibold text-slate-800">{group.name}</p>
       <div className="space-y-3">
         {rowKeys.map((r) => (

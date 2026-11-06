@@ -25,6 +25,7 @@ import {
   ClassStatsTable,
   PersonalStatsTable,
 } from '@/components/attendance/AttendanceStatsTables'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 const LOGIN_KEY = 'homeroom_login'
 const TITLE = '개인별 출결 현황 | 학급 경영'
@@ -150,7 +151,7 @@ export function StudentAttendancePage() {
         <Helmet>
           <title>{TITLE}</title>
         </Helmet>
-        <p className="text-sm text-gray-500">로그인 확인 중...</p>
+        <LoadingSpinner label="로그인 확인 중" />
       </div>
     )
   }
@@ -238,7 +239,7 @@ export function StudentAttendancePage() {
         )}
 
         {loadError && <p className="text-center text-sm text-red-600">{loadError}</p>}
-        {!data && !loadError && <p className="py-10 text-center text-sm text-gray-500">불러오는 중...</p>}
+        {!data && !loadError && <LoadingSpinner label="불러오는 중" />}
 
         {data && myStat && (
           <>

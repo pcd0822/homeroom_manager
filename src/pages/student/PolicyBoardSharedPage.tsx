@@ -5,6 +5,8 @@ import { Link } from 'react-router-dom'
 import { authStudent, getPolicies, getPolicyDetail, hypePolicy } from '@/api/api'
 import type { Policy } from '@/types'
 import { policyLogoSrc } from '@/lib/policyImage'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { IconTile } from '@/components/ui/Glyph'
 
 const LOGIN_KEY = 'homeroom_login'
 
@@ -151,7 +153,7 @@ export function PolicyBoardSharedPage() {
         <Helmet>
           <title>정책 게시판</title>
         </Helmet>
-        <p className="text-sm text-gray-500">로그인 확인 중...</p>
+        <LoadingSpinner label="로그인 확인 중" />
       </div>
     )
   }
@@ -190,7 +192,7 @@ export function PolicyBoardSharedPage() {
               <House className="h-5 w-5" />
             </Link>
             <div className="min-w-0">
-              <h1 className="text-lg font-bold text-gray-900"><Flame className="mr-1 inline h-5 w-5 align-[-3px] text-orange-500" />정책 게시판</h1>
+              <h1 className="flex items-center gap-2 text-lg font-bold text-gray-900"><IconTile icon={Flame} tone="coral" size={28} />정책 게시판</h1>
               <p className="text-xs text-gray-500">카드를 눌러 제안서를 읽고, Hype!로 순위를 올리세요.</p>
             </div>
           </div>
@@ -199,7 +201,7 @@ export function PolicyBoardSharedPage() {
         {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{err}</p>}
 
         {loading ? (
-          <p className="text-sm text-gray-500">불러오는 중...</p>
+          <LoadingSpinner label="불러오는 중" />
         ) : policies.length === 0 ? (
           <p className="text-sm text-gray-600">등록된 정책이 없습니다.</p>
         ) : (

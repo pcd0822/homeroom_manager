@@ -14,6 +14,7 @@ import { KIND_OPTIONS, MARK_LABELS, deriveEarly, parseMarks, type MarkMap } from
 import { addDays, formatDateLabel, parseDateKey, toDateKey } from '@/lib/calendar'
 import { MarkLegend, PeriodCell, periodHeader } from '@/components/attendance/PeriodCell'
 import { EmptyArt, IconTile } from '@/components/ui/Glyph'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { cn } from '@/lib/utils'
 
 const POLL_MS = 10000
@@ -213,7 +214,11 @@ export function AttendanceBoardPage() {
           )}
         </header>
 
-        {loading && <div className="glass h-64 animate-pulse rounded-3xl" />}
+        {loading && (
+          <div className="glass rounded-3xl">
+            <LoadingSpinner label="출석부를 불러오는 중" className="py-20" />
+          </div>
+        )}
 
         {!loading && error && (
           <div className="glass flex flex-col items-center gap-3 rounded-3xl px-4 py-12 text-center">

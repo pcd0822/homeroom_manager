@@ -12,6 +12,9 @@ import { buildShareUrl } from '@/lib/gasUrl'
 import type { Student } from '@/types'
 import { cn } from '@/lib/utils'
 import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { Brush } from 'lucide-react'
+import { PageTitle } from '@/components/ui/Glyph'
 
 type AssignStatus = 'in' | 'out'
 
@@ -28,19 +31,6 @@ function shuffle<T>(arr: T[]): T[] {
     [a[i], a[j]] = [a[j], a[i]]
   }
   return a
-}
-
-function BroomIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2v11" />
-      <path d="M12 13l-7 9" />
-      <path d="M12 13l-3 9" />
-      <path d="M12 13v9" />
-      <path d="M12 13l3 9" />
-      <path d="M12 13l7 9" />
-    </svg>
-  )
 }
 
 function PlusIcon({ className }: { className?: string }) {
@@ -283,20 +273,19 @@ export function CleaningZonesPage() {
   if (loading) {
     return (
       <div className="flex min-h-[200px] items-center justify-center">
-        <p className="text-gray-500">로딩 중...</p>
+        <LoadingSpinner label="로딩 중" />
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <BroomIcon className="h-6 w-6 text-slate-600" />
-        <h1 className="text-xl font-semibold text-gray-900">청소구역 관리</h1>
-      </div>
-      <p className="text-sm text-gray-600">
-        청소구역과 구역별 인원을 입력한 뒤, 배정 대상·제외 학생을 선택하고 랜덤 배정하면 학생들이 구역별로 배정됩니다.
-      </p>
+      <PageTitle
+        icon={Brush}
+        tone="coral"
+        title="청소구역 관리"
+        sub="청소구역과 구역별 인원을 입력한 뒤, 배정 대상·제외 학생을 선택하고 랜덤 배정하면 학생들이 구역별로 배정됩니다."
+      />
 
       {/* 1. 청소구역 입력 */}
       <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getForm, updateForm, parseFormSchema, getStudents, getAssignmentsByForm, saveAssignments } from '@/api/api'
 import type { Form, Folder, FormSchema, FormFieldSchema, FieldType, Student } from '@/types'
 import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'text', label: '한 줄 텍스트' },
@@ -222,7 +223,7 @@ export function FormEditSlidePanel({
       </div>
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {loading ? (
-          <p className="text-gray-500">불러오는 중...</p>
+          <LoadingSpinner label="불러오는 중" />
         ) : (
           <form onSubmit={handleSave} className="space-y-6">
             <div>

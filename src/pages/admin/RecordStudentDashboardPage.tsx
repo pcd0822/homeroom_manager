@@ -4,7 +4,23 @@ import { getStudents, getRecordByStudent, updateRecordSummaryEvaluation } from '
 import type { Student, RecordRow, RecordByStudent } from '@/types'
 import { cn } from '@/lib/utils'
 import type { LucideIcon } from 'lucide-react'
-import { ClipboardList, Dumbbell, Lightbulb, Pin, TrendingUp } from 'lucide-react'
+import {
+  BookMarked,
+  BookOpen,
+  ClipboardCheck,
+  ClipboardList,
+  Dumbbell,
+  HeartHandshake,
+  Lightbulb,
+  Link2,
+  NotebookPen,
+  PieChart,
+  Pin,
+  Sparkles,
+  TrendingUp,
+} from 'lucide-react'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { IconTile, type GlyphTone } from '@/components/ui/Glyph'
 
 const CREATIVE_AREAS = ['자율활동', '동아리활동', '진로활동']
 
@@ -95,10 +111,26 @@ function RecordTableRow({ row }: { row: RecordRow }) {
   )
 }
 
-function SectionCard({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
+/** 카드 머리글 타일은 화면 전용. 인쇄물에는 나오지 않는다. */
+function SectionCard({
+  title,
+  icon,
+  tone,
+  children,
+  className,
+}: {
+  title: string
+  icon: LucideIcon
+  tone: GlyphTone
+  children: React.ReactNode
+  className?: string
+}) {
   return (
     <section className={cn('rounded-lg border border-gray-200 bg-white p-3 shadow-sm', className)}>
-      <h3 className="mb-2 border-b border-gray-100 pb-1.5 text-sm font-semibold text-gray-800">{title}</h3>
+      <h3 className="mb-2 flex items-center gap-2 border-b border-gray-100 pb-1.5 text-sm font-semibold text-gray-800">
+        <IconTile icon={icon} tone={tone} size={24} className="print:hidden" />
+        {title}
+      </h3>
       {children}
     </section>
   )
@@ -192,7 +224,7 @@ export function RecordStudentDashboardPage() {
   if (!studentId || loading) {
     return (
       <div className="flex min-h-[200px] items-center justify-center">
-        <p className="text-gray-500">로딩 중...</p>
+        <LoadingSpinner label="로딩 중" />
       </div>
     )
   }
@@ -238,7 +270,7 @@ export function RecordStudentDashboardPage() {
       <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
         <Link
           to="/admin/record-dashboard"
-          className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="glass-pill inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold text-gray-700"
         >
           <ArrowLeftIcon className="h-4 w-4" />
           목록으로
@@ -246,7 +278,7 @@ export function RecordStudentDashboardPage() {
         <button
           type="button"
           onClick={printArea}
-          className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="btn-liquid inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
         >
           <PrinterIcon className="h-4 w-4" />
           출력 (A3, 50%)
@@ -256,8 +288,8 @@ export function RecordStudentDashboardPage() {
       {/* 인쇄용 A3 영역 (배율 50%) */}
       <div className="record-dashboard-print rounded-xl border border-gray-200 bg-gray-50 p-4 print:border-0 print:bg-white print:p-2">
         {/* 프로필: 화면용 (인쇄 시 숨김) */}
-        <div className="mb-4 flex items-center gap-4 border-b border-gray-200 pb-4 print:hidden">
-          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-gray-200 bg-gray-100">
+        <div className="glass mb-4 flex items-center gap-4 rounded-3xl p-4 print:hidden">
+          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-white bg-white/70">
             {student?.photo_data ? (
               <img src={student.photo_data} alt={profile.name} className="h-full w-full object-cover" />
             ) : (
@@ -307,7 +339,7 @@ export function RecordStudentDashboardPage() {
               </div>
             </div>
             {gyosuRows.length > 0 && (
-              <SectionCard title="교과이수현황">
+              <SectionCard title="교과이수현황" icon={BookMarked} tone="sky">
                 <table className="w-full table-auto border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-gray-300 bg-gray-100 text-left">
@@ -325,7 +357,7 @@ export function RecordStudentDashboardPage() {
                 </table>
               </SectionCard>
             )}
-            <SectionCard title="창의적 체험활동">
+            <SectionCard title="창의적 체험활동" icon={Sparkles} tone="violet">
               {gradeOrder.length === 0 ? (
                 <p className="text-xs text-gray-500">기록 없음</p>
               ) : (
@@ -353,7 +385,7 @@ export function RecordStudentDashboardPage() {
                 </div>
               )}
             </SectionCard>
-            <SectionCard title="행발">
+            <SectionCard title="행발" icon={HeartHandshake} tone="rose">
               {rowBulRows.length === 0 ? (
                 <p className="text-xs text-gray-500">기록 없음</p>
               ) : (
@@ -378,7 +410,7 @@ export function RecordStudentDashboardPage() {
 
           {/* 2단: 교과세특 */}
           <div className="flex flex-col gap-3">
-            <SectionCard title="교과세특">
+            <SectionCard title="교과세특" icon={NotebookPen} tone="blue">
               {gyosuSpecialRows.length === 0 ? (
                 <p className="text-xs text-gray-500">기록 없음</p>
               ) : (
@@ -403,7 +435,7 @@ export function RecordStudentDashboardPage() {
 
           {/* 3단: 읽은 책, 종합적 평가, 연결망, 보완점, 역량 원그래프 */}
           <div className="flex flex-col gap-3">
-            <SectionCard title="읽은 책 목록">
+            <SectionCard title="읽은 책 목록" icon={BookOpen} tone="teal">
               {bookList.length === 0 ? (
                 <p className="text-xs text-gray-500">기록 없음</p>
               ) : (
@@ -415,7 +447,7 @@ export function RecordStudentDashboardPage() {
               )}
             </SectionCard>
 
-            <SectionCard title="종합적 평가">
+            <SectionCard title="종합적 평가" icon={ClipboardCheck} tone="mint">
               <textarea
                 value={summaryEvaluation}
                 onChange={(e) => setSummaryEvaluation(e.target.value)}
@@ -433,7 +465,7 @@ export function RecordStudentDashboardPage() {
               </button>
             </SectionCard>
 
-            <SectionCard title="연결망 (연속적 활동)">
+            <SectionCard title="연결망 (연속적 활동)" icon={Link2} tone="slate">
               {linkRows.length === 0 ? (
                 <p className="text-xs text-gray-500">연결된 기록 없음</p>
               ) : (
@@ -481,7 +513,7 @@ export function RecordStudentDashboardPage() {
               )}
             </SectionCard>
 
-            <SectionCard title="보완점 (AI 분석)">
+            <SectionCard title="보완점 (AI 분석)" icon={Lightbulb} tone="amber">
               <button
                 type="button"
                 onClick={handleFetchFeedback}
@@ -511,7 +543,7 @@ export function RecordStudentDashboardPage() {
               )}
             </SectionCard>
 
-            <SectionCard title="역량 분포">
+            <SectionCard title="역량 분포" icon={PieChart} tone="coral">
               {total === 0 ? (
                 <p className="text-xs text-gray-500">기록 없음</p>
               ) : (

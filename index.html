@@ -17,9 +17,33 @@
     <meta name="twitter:image" content="https://homeroom-manage.netlify.app/og/og-image.png" />
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <title>3-5 학급 활동 관리앱</title>
+    <style>
+      /* 앱 코드를 받는 동안 보이는 첫 로딩 화면. React가 뜨면 #root 내용과 함께 사라진다. */
+      html { background: #eef1f8; }
+      .boot-loading {
+        min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+        color: #6b7280; font: 500 14px 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      }
+      .boot-loading svg { animation: boot-spin 0.9s linear infinite; }
+      @keyframes boot-spin { to { transform: rotate(360deg); } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot-loading" role="status">
+        <svg width="44" height="44" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="boot-donut" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#7dd3fc" />
+              <stop offset="1" stop-color="#6366f1" />
+            </linearGradient>
+          </defs>
+          <circle cx="24" cy="24" r="18" stroke="rgba(99, 102, 241, 0.16)" stroke-width="9" />
+          <circle cx="24" cy="24" r="18" stroke="url(#boot-donut)" stroke-width="9" stroke-linecap="round" stroke-dasharray="75 113" />
+        </svg>
+        불러오는 중
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { getFolders, createForm, getStudents, saveAssignments } from '@/api/api'
 import type { Folder, FormSchema, FormFieldSchema, FieldType, Student } from '@/types'
 import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
+import { FilePlus2 } from 'lucide-react'
+import { PageTitle } from '@/components/ui/Glyph'
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'text', label: '한 줄 텍스트' },
@@ -192,16 +194,20 @@ export function FormBuilderPage() {
       <div className="mx-auto flex max-w-6xl gap-8">
         {/* 왼쪽: 폼 빌더 */}
         <form onSubmit={handleSubmit} className="min-w-0 flex-1 space-y-6">
-          <header className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">새 문서 만들기</h1>
-            <button
-              type="button"
-              onClick={() => navigate('/admin')}
-              className="text-sm font-medium text-gray-600 hover:text-gray-900"
-            >
-              ← 목록
-            </button>
-          </header>
+          <PageTitle
+            icon={FilePlus2}
+            tone="blue"
+            title="새 문서 만들기"
+            right={
+              <button
+                type="button"
+                onClick={() => navigate('/admin')}
+                className="glass-pill rounded-full px-3.5 py-2 text-sm font-semibold text-gray-700"
+              >
+                ← 목록
+              </button>
+            }
+          />
 
           <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <h2 className="mb-4 text-sm font-medium text-gray-700">기본 정보</h2>

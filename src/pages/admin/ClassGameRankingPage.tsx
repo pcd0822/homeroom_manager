@@ -3,6 +3,9 @@ import { Link, useParams } from 'react-router-dom'
 import { getClassGameRanking } from '@/api/api'
 import type { ClassGameRankingRow } from '@/types'
 import { GAMES_META } from '@/constants/games'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { Trophy } from 'lucide-react'
+import { PageTitle } from '@/components/ui/Glyph'
 
 function formatDuration(ms: number) {
   const s = Math.floor(ms / 1000)
@@ -44,10 +47,9 @@ export function ClassGameRankingPage() {
           ← 학급 게임
         </Link>
       </div>
-      <h1 className="text-2xl font-bold text-gray-900">플레이어 랭킹</h1>
-      {title && <p className="mt-1 text-sm text-gray-600">{title}</p>}
+      <PageTitle icon={Trophy} tone="amber" title="플레이어 랭킹" sub={title || undefined} />
 
-      {loading && <p className="mt-6 text-sm text-gray-500">불러오는 중…</p>}
+      {loading && <LoadingSpinner label="불러오는 중" />}
       {err && <p className="mt-6 text-sm text-red-600">{err}</p>}
 
       {!loading && !err && (

@@ -11,6 +11,7 @@ import {
 } from '@/lib/teacherQuiz'
 import { compressImageToDataUrl } from '@/lib/imageCompress'
 import { cn } from '@/lib/utils'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 function friendlyQuizError(err?: string) {
   if (!err) return '저장에 실패했습니다.'
@@ -197,7 +198,7 @@ export function TeacherQuizEditPage() {
   }
 
   if (loading) {
-    return <p className="p-6 text-sm text-gray-500">로딩 중...</p>
+    return <LoadingSpinner label="로딩 중" />
   }
 
   return (

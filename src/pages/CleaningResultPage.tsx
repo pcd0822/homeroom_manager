@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { getStudents, getCleaningAssignment, getCleaningHelper } from '@/api/api'
 import type { Student } from '@/types'
 import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 const CLEANING_SHARE_TITLE = '청소구역 배정 결과 | 학급 경영'
 const CLEANING_SHARE_DESC = '학급 청소구역 배정 결과를 확인합니다.'
@@ -55,7 +56,7 @@ export function CleaningResultPage() {
           <meta name="description" content={CLEANING_SHARE_DESC} />
           <meta property="og:description" content={CLEANING_SHARE_DESC} />
         </Helmet>
-        <p className="text-gray-500">불러오는 중…</p>
+        <LoadingSpinner label="불러오는 중" />
       </div>
     )
   }

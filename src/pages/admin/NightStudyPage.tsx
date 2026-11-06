@@ -10,6 +10,9 @@ import type {
   NightExcludedType,
 } from '@/types'
 import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { MoonStar } from 'lucide-react'
+import { PageTitle } from '@/components/ui/Glyph'
 
 function createEmptyConfig(): NightStudyConfig {
   return {
@@ -279,9 +282,9 @@ export function NightStudyPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-xl font-semibold text-gray-900">야간 자율학습 관리</h1>
+      <PageTitle icon={MoonStar} tone="violet" title="야간 자율학습 관리" />
 
-      {loading && <p className="text-sm text-gray-500">불러오는 중...</p>}
+      {loading && <LoadingSpinner label="불러오는 중" />}
 
       {/* 1) 운영 기간 설정 */}
       <section className="rounded-xl bg-white p-4 shadow-sm">

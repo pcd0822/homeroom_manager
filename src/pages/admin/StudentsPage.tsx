@@ -8,6 +8,9 @@ import {
   ROSTER_PRINT_COLUMNS,
   type RosterPrintColumnId,
 } from '@/lib/rosterPdf'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { Users } from 'lucide-react'
+import { PageTitle } from '@/components/ui/Glyph'
 
 const PROFILE_PHOTO_KEY = 'homeroom_student_photo_'
 const ROSTER_META_KEY = 'homeroom_roster_meta'
@@ -317,10 +320,12 @@ export function StudentsPage() {
     <div className="min-h-full">
       <div className="mx-auto max-w-6xl">
         <header className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">학생관리</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            학번과 이름을 등록하면 인증코드(auth_code)가 자동 발급됩니다. 학생에게 전달해 폼 제출 시 사용하세요.
-          </p>
+          <PageTitle
+            icon={Users}
+            tone="teal"
+            title="학생관리"
+            sub="학번과 이름을 등록하면 인증코드(auth_code)가 자동 발급됩니다. 학생에게 전달해 폼 제출 시 사용하세요."
+          />
           {/* 학년·학급·담임 (명렬표 PDF용) */}
           <section className="mt-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <h2 className="mb-3 text-sm font-medium text-gray-700">명렬표 정보 (PDF 저장 시 문서 제목·담임 표기용)</h2>
@@ -376,7 +381,7 @@ export function StudentsPage() {
             )}
           </section>
           {/* 학생 자가등록 링크 */}
-          <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <section className="mt-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <h2 className="mb-2 text-sm font-medium text-gray-700">학생 자가등록 링크</h2>
             <p className="mb-3 text-xs text-gray-500">
               아래 링크를 학생에게 공유하면 학생이 직접 학번·이름을 등록하고 인증코드를 받을 수 있습니다.
@@ -627,7 +632,7 @@ export function StudentsPage() {
               </div>
             </div>
             {loading ? (
-              <p className="text-gray-500">로딩 중...</p>
+              <LoadingSpinner label="로딩 중" />
             ) : sortedStudents.length === 0 ? (
               <div className="rounded-xl border border-gray-200 bg-white py-12 text-center text-gray-500 shadow-sm">
                 등록된 학생이 없습니다. 위 폼에서 등록해 주세요.

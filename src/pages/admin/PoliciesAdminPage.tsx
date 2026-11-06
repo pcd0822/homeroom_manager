@@ -22,6 +22,8 @@ import { compressImageFileToPolicyLogoDataUrl } from '@/lib/compressPolicyLogo'
 import { cn } from '@/lib/utils'
 import { existingSeedsFor } from '@/lib/policySeeds'
 import { PolicyTreeIllustration } from '@/components/PolicyTreeIllustration'
+import { DonutSpinner, LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { PageTitle } from '@/components/ui/Glyph'
 
 const TEACHER_ACTOR = '__teacher__'
 
@@ -402,8 +404,12 @@ export function PoliciesAdminPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-xl font-semibold text-gray-900">학급 정책 · 씨앗</h1>
-        <p className="text-xs text-gray-500">학생이 등록한 정책을 관리하고, 정책 나무 대시보드를 확인합니다.</p>
+        <PageTitle
+          icon={Sprout}
+          tone="lime"
+          title="학급 정책 · 씨앗"
+          sub="학생이 등록한 정책을 관리하고, 정책 나무 대시보드를 확인합니다."
+        />
         <div className="mt-3 flex gap-2">
           <button
             type="button"
@@ -509,7 +515,7 @@ export function PoliciesAdminPage() {
           )}
 
           {loading ? (
-            <p className="text-sm text-gray-500">불러오는 중...</p>
+            <LoadingSpinner label="불러오는 중" />
           ) : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
               {policies.map((p) => (
@@ -612,7 +618,7 @@ export function PoliciesAdminPage() {
               <div className="mt-4">
                 <h4 className="mb-2 text-xs font-bold text-gray-800">등록된 상품</h4>
                 {seedProductsLoading ? (
-                  <p className="text-xs text-gray-500">불러오는 중...</p>
+                  <LoadingSpinner label="불러오는 중" size={28} className="py-4" />
                 ) : seedProducts.length === 0 ? (
                   <p className="text-xs text-gray-500">아직 등록된 상품이 없습니다.</p>
                 ) : (
@@ -631,7 +637,7 @@ export function PoliciesAdminPage() {
               <h3 className="mb-3 text-sm font-bold text-amber-900">등록된 학생들의 씨앗 누적 집계 현황</h3>
               {seedAdminLoading ? (
                 !seedAdminTimedOut ? (
-                  <p className="text-sm text-gray-500">불러오는 중...</p>
+                  <LoadingSpinner label="불러오는 중" />
                 ) : (
                   <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
                     <p>누적 집계 불러오기가 오래 걸리고 있어요.</p>
@@ -1177,13 +1183,7 @@ export function PoliciesAdminPage() {
         <div className="fixed inset-0 z-[58] flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             {manageLoading && !detail ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-10">
-                <span
-                  className="inline-block h-10 w-10 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent"
-                  aria-hidden
-                />
-                <p className="text-sm font-medium text-gray-700">정책을 불러오는 중…</p>
-              </div>
+              <LoadingSpinner label="정책을 불러오는 중" />
             ) : detail ? (
               <>
                 <h3 className="mb-1 text-lg font-bold text-gray-900">정책 관리</h3>
@@ -1539,13 +1539,7 @@ export function PoliciesAdminPage() {
           aria-live="polite"
         >
           <div className="flex flex-col items-center gap-4 rounded-2xl bg-white px-8 py-7 shadow-2xl">
-            <span className="relative inline-flex h-16 w-16">
-              <span className="absolute inset-0 animate-ping rounded-full bg-rose-200 opacity-60" aria-hidden />
-              <span
-                className="relative inline-block h-16 w-16 animate-spin rounded-full border-[6px] border-rose-500 border-t-transparent"
-                aria-hidden
-              />
-            </span>
+            <DonutSpinner size={64} />
             <p className="text-sm font-semibold text-gray-800">정책을 삭제하는 중…</p>
             <p className="text-[11px] text-gray-500">잠시만 기다려 주세요.</p>
           </div>
@@ -1757,7 +1751,7 @@ function PolicyCompactCard({
         >
           {isManageLoading ? (
             <span className="inline-flex items-center justify-center gap-1.5">
-              <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              <DonutSpinner size={14} />
               불러오는 중
             </span>
           ) : (

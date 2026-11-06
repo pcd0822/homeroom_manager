@@ -79,6 +79,7 @@ import {
 import { MarkLegend, PeriodCell, periodHeader } from '@/components/attendance/PeriodCell'
 import { PageTitle } from '@/components/ui/Glyph'
 import { cn } from '@/lib/utils'
+import { DonutSpinner, LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 type StatsTab = 'personal' | 'class' | 'cleaning'
 type Draft = Record<string, AttendanceFlags>
@@ -479,7 +480,7 @@ export function AttendancePage() {
         }
       />
 
-      {loading && <p className="text-sm text-gray-500">불러오는 중...</p>}
+      {loading && <LoadingSpinner label="불러오는 중" />}
       {loadError && <p className="glass rounded-xl px-3 py-2 text-sm text-red-600">{loadError}</p>}
 
       {panel === 'share' && <SharePanel onClose={() => setPanel('none')} />}
@@ -923,7 +924,7 @@ function SharePanel({ onClose }: { onClose: () => void }) {
       {key && (
         <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="mx-auto shrink-0 rounded-2xl bg-white p-2 shadow-sm sm:mx-0">
-            {qr ? <img src={qr} alt="QR 출석부" className="h-48 w-48" /> : <div className="h-48 w-48 animate-pulse rounded-xl bg-gray-100" />}
+            {qr ? <img src={qr} alt="QR 출석부" className="h-48 w-48" /> : <div className="grid h-48 w-48 place-items-center"><DonutSpinner /></div>}
           </div>
           <div className="min-w-0 flex-1 space-y-2">
             <p className="break-all rounded-xl bg-white/70 px-3 py-2 text-[11px] text-gray-600 ring-1 ring-white">{url}</p>

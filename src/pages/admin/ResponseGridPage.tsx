@@ -2,6 +2,9 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getForm, getResponses, parseFormSchema, updateResponse, deleteResponse } from '@/api/api'
 import type { Form, ResponseRow, FormSchema, FormFieldSchema } from '@/types'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { Table2 } from 'lucide-react'
+import { PageTitle } from '@/components/ui/Glyph'
 
 const META_KEYS = ['response_id', 'student_id', 'student_name', 'submitted_at']
 
@@ -316,9 +319,7 @@ export function ResponseGridPage() {
           <Link to="/admin" className="text-sm font-medium text-blue-600 hover:underline">
             ← 대시보드
           </Link>
-          <h1 className="text-xl font-bold text-gray-900">
-            {form ? form.title : '로딩 중...'} — 응답 데이터
-          </h1>
+          <PageTitle icon={Table2} tone="sky" title={form ? `${form.title} — 응답 데이터` : '응답 데이터'} />
         </div>
         {!loading && (
           <div className="flex flex-wrap items-center gap-2">
@@ -382,7 +383,7 @@ export function ResponseGridPage() {
       </div>
 
       {loading ? (
-        <p className="text-gray-500">로딩 중...</p>
+        <LoadingSpinner label="로딩 중" />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow">
           <table className="min-w-full divide-y divide-gray-200">

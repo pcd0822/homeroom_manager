@@ -5,6 +5,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { authStudent, getStudents, savePolicy } from '@/api/api'
 import { compressImageFileToPolicyLogoDataUrl } from '@/lib/compressPolicyLogo'
 import type { Student } from '@/types'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { IconTile } from '@/components/ui/Glyph'
 
 const LOGIN_KEY = 'homeroom_login'
 
@@ -153,7 +155,7 @@ export function StudentPolicyRegisterPage() {
         <Helmet>
           <title>정책 등록하기</title>
         </Helmet>
-        <p className="text-sm text-gray-500">로그인 확인 중...</p>
+        <LoadingSpinner label="로그인 확인 중" />
       </div>
     )
   }
@@ -209,7 +211,7 @@ export function StudentPolicyRegisterPage() {
             >
               <House className="h-5 w-5" />
             </Link>
-            <h1 className="text-lg font-bold text-gray-900"><Sprout className="mr-1 inline h-5 w-5 align-[-3px] text-emerald-600" />정책 등록하기</h1>
+            <h1 className="flex items-center gap-2 text-lg font-bold text-gray-900"><IconTile icon={Sprout} tone="lime" size={28} />정책 등록하기</h1>
           </div>
           <Link to="/student/policies" className="shrink-0 text-xs text-blue-600">
             내 정책 목록

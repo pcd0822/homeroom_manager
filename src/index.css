@@ -99,6 +99,198 @@
 .bg-blue-600 {
   background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 60%);
 }
+/*
+ * 화면 전용 글래스 확장: 메뉴바와 같은 톤을 나머지 화면에도 맞춘다.
+ * 인쇄(생기부·명렬표)는 그대로 두려고 @media screen 안에만 쓴다.
+ * 블러(backdrop-filter)는 fixed 모달의 기준을 바꿀 수 있어, 새 규칙에는 넣지 않고 반투명 색만 쓴다.
+ */
+@media screen {
+  /* 생기부 상세: 인쇄 영역 바깥 틀은 화면에서만 걷어 내고 카드가 배경 위에 바로 뜨게 한다 */
+  div.record-dashboard-print.bg-gray-50 {
+    background-color: transparent;
+    border-color: transparent;
+    border-radius: 0;
+    padding: 0;
+  }
+  .record-dashboard-print thead tr {
+    background-color: rgba(255, 255, 255, 0.55);
+    border-color: rgba(100, 116, 139, 0.2);
+  }
+  .record-dashboard-print .rounded.border {
+    border-radius: 0.75rem;
+  }
+
+  /* 그라데이션 전체 바탕도 비워서 앱 공통 빛 배경이 보이게 한다 */
+  .min-h-screen.bg-gradient-to-br,
+  .min-h-screen.bg-gradient-to-b {
+    background-image: none;
+  }
+
+  /* 큰 묶음 카드는 메뉴바처럼 더 둥글게 */
+  section.bg-white,
+  article.bg-white,
+  form.bg-white {
+    border-radius: 1.5rem;
+  }
+  :is(div, a, button, li).bg-white:is(.rounded-lg, .rounded-xl):is(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .border):not(.absolute) {
+    border-radius: 1.25rem;
+  }
+  /* 테두리만 있던 흰 칸도 유리 톤으로 */
+  div.bg-white.border,
+  section.bg-white,
+  article.bg-white,
+  li.bg-white.border {
+    background-color: rgba(255, 255, 255, 0.72);
+    border-color: var(--glass-border);
+  }
+  /* 안쪽 회색 칸·표 머리글은 비치게 */
+  .bg-gray-50:not(.min-h-screen),
+  .bg-slate-50:not(.min-h-screen) {
+    background-color: rgba(255, 255, 255, 0.5);
+  }
+  .bg-gray-100:not(.min-h-screen) {
+    background-color: rgba(255, 255, 255, 0.55);
+  }
+  .bg-gray-200 {
+    background-color: rgba(148, 163, 184, 0.28);
+  }
+  .hover\:bg-gray-50:hover,
+  .hover\:bg-slate-50:hover,
+  .hover\:bg-gray-100:hover,
+  .hover\:bg-slate-100:hover {
+    background-color: rgba(255, 255, 255, 0.78);
+  }
+  .hover\:bg-gray-200:hover {
+    background-color: rgba(255, 255, 255, 0.9);
+  }
+  /* 줄선은 회색 대신 옅은 푸른빛 */
+  .border-gray-100,
+  .border-gray-50 {
+    border-color: rgba(100, 116, 139, 0.14);
+  }
+  .border-gray-200,
+  .border-slate-200 {
+    border-color: rgba(100, 116, 139, 0.2);
+  }
+  .divide-gray-200 > :not([hidden]) ~ :not([hidden]),
+  .divide-gray-50 > :not([hidden]) ~ :not([hidden]) {
+    border-color: rgba(100, 116, 139, 0.16);
+  }
+
+  /* 비치면 글자가 겹치는 곳: 고정 머리글, 펼침 메뉴, 모달은 거의 불투명하게 */
+  .sticky.bg-white,
+  .sticky.bg-gray-50,
+  .sticky.bg-gray-100,
+  .absolute.bg-white {
+    background-color: rgba(255, 255, 255, 0.94);
+  }
+  .fixed[class*='bg-black/'] {
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  .fixed[class*='bg-black/'] .bg-white,
+  .fixed.bg-white {
+    background-color: rgba(255, 255, 255, 0.93);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .fixed[class*='bg-black/'] > .bg-white {
+    border-radius: 1.5rem;
+  }
+
+  /* 입력칸 */
+  :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']), select, textarea).border {
+    background-color: rgba(255, 255, 255, 0.74);
+    border-color: rgba(100, 116, 139, 0.28);
+    border-radius: 0.75rem;
+    box-shadow: inset 0 1px 2px rgba(30, 41, 99, 0.06);
+  }
+  :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']), select, textarea).border:focus {
+    outline: none;
+    background-color: #fff;
+    border-color: #7dd3fc;
+    box-shadow: 0 0 0 3px rgba(125, 211, 252, 0.35);
+  }
+
+  /* 테두리 버튼 → 유리 알약 */
+  :is(button, a).border.border-gray-300,
+  :is(button, a).border.border-gray-200[class*='px-'],
+  :is(button, a).bg-white.rounded-full,
+  :is(button, a).bg-white[class*='ring-gray'] {
+    background-color: rgba(255, 255, 255, 0.6);
+    border-color: rgba(255, 255, 255, 0.85);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 4px 12px -6px rgba(30, 41, 99, 0.25);
+  }
+  :is(button, a).border.border-gray-300:hover:not(:disabled),
+  :is(button, a).border.border-gray-200[class*='px-']:hover:not(:disabled),
+  :is(button, a).bg-white.rounded-full:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.85);
+  }
+
+  /* 파란 실행 버튼 → 젤리 버튼(.btn-liquid 와 같은 색) */
+  :is(button, a).bg-blue-600 {
+    background-image: linear-gradient(180deg, #5b8cff 0%, #3b6cf6 55%, #2f5ae0 100%);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 8px 18px -8px rgba(47, 90, 224, 0.7);
+  }
+  /* 그 밖의 색 버튼에도 같은 광택 */
+  :is(button, a):is(
+      .bg-emerald-500,
+      .bg-emerald-600,
+      .bg-green-600,
+      .bg-teal-600,
+      .bg-sky-600,
+      .bg-indigo-600,
+      .bg-violet-600,
+      .bg-purple-600,
+      .bg-rose-500,
+      .bg-rose-600,
+      .bg-red-500,
+      .bg-red-600,
+      .bg-pink-500,
+      .bg-amber-500,
+      .bg-amber-600,
+      .bg-orange-500,
+      .bg-slate-600,
+      .bg-slate-700
+    ) {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 62%);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 8px 16px -9px rgba(30, 41, 99, 0.55);
+  }
+  :is(button, a).bg-blue-600:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
+
+  /* 글자 버튼 모서리는 알약으로(칸·카드형 버튼은 패딩 조합으로 걸러 그대로 둔다) */
+  :is(button, a):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl)[class*='px-'][class*='py-']:is(
+      .border-gray-300,
+      .border-gray-200,
+      .border-blue-600,
+      .border-amber-500,
+      .bg-blue-600,
+      .bg-emerald-500,
+      .bg-emerald-600,
+      .bg-green-600,
+      .bg-teal-600,
+      .bg-sky-600,
+      .bg-indigo-600,
+      .bg-violet-600,
+      .bg-purple-600,
+      .bg-rose-500,
+      .bg-rose-600,
+      .bg-red-500,
+      .bg-red-600,
+      .bg-pink-500,
+      .bg-amber-500,
+      .bg-amber-600,
+      .bg-orange-500,
+      .bg-slate-600,
+      .bg-slate-700
+    ) {
+    border-radius: 9999px;
+  }
+}
 @media print {
   body {
     background: #fff !important;

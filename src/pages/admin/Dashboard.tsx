@@ -5,19 +5,29 @@ import { buildShareUrl } from '@/lib/gasUrl'
 import type { Form, Folder, AssignmentRow } from '@/types'
 import { cn } from '@/lib/utils'
 import { FormEditSlidePanel } from '@/components/FormEditSlidePanel'
+import { FileText, FolderClosed, FolderOpen, Table2 } from 'lucide-react'
+import { IconTile, PageTitle } from '@/components/ui/Glyph'
+
+/** 폴더 칸: 메뉴바 항목과 같은 유리 카드. 고른 칸은 더 밝게 떠오른다. */
+const folderCardClass = (active: boolean) =>
+  cn(
+    'flex items-center gap-3 rounded-2xl p-3 pr-5 transition-all',
+    active
+      ? 'bg-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_16px_-8px_rgba(30,41,99,0.35)] ring-1 ring-white'
+      : 'glass hover:bg-white/70'
+  )
+
+const sortButtonClass = (active: boolean) =>
+  cn(
+    'rounded-full px-3 py-1 text-xs font-semibold transition-colors',
+    active ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+  )
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 function FolderIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-    </svg>
-  )
-}
-
-function DocumentIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
     </svg>
   )
 }
@@ -261,48 +271,31 @@ export function AdminDashboard() {
   return (
     <div className="min-h-full">
       <div className="mx-auto max-w-6xl">
-        <header className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">학급 경영 올인원</h1>
-          <p className="mt-1 text-sm text-gray-600">데이터 관리 · 문서 목록</p>
+        <header className="mb-6">
+          <PageTitle icon={Table2} tone="sky" title="학급 경영 올인원" sub="데이터 관리 · 문서 목록" />
         </header>
 
         {loading ? (
-          <p className="text-gray-500">로딩 중...</p>
+          <LoadingSpinner label="로딩 중" />
         ) : (
           <div className="space-y-8">
             {/* 폴더 섹션 - 카드 그리드 */}
             <section>
               <div className="mb-3 flex items-center justify-between gap-2">
                 <h2 className="text-sm font-medium text-gray-700">폴더</h2>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setFolderSortOrder('asc')}
-                    className={cn(
-                      'rounded-md border px-2.5 py-1.5 text-xs font-medium',
-                      folderSortOrder === 'asc'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
-                    )}
-                  >
-                    오름차순
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFolderSortOrder('desc')}
-                    className={cn(
-                      'rounded-md border px-2.5 py-1.5 text-xs font-medium',
-                      folderSortOrder === 'desc'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
-                    )}
-                  >
-                    내림차순
-                  </button>
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-0.5 rounded-full bg-white/50 p-1 ring-1 ring-white/70">
+                    <button type="button" onClick={() => setFolderSortOrder('asc')} className={sortButtonClass(folderSortOrder === 'asc')}>
+                      오름차순
+                    </button>
+                    <button type="button" onClick={() => setFolderSortOrder('desc')} className={sortButtonClass(folderSortOrder === 'desc')}>
+                      내림차순
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setShowAddFolder(true)}
-                    className="flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                    className="glass-pill flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold text-gray-700"
                   >
                     <PlusIcon className="h-4 w-4" />
                     폴더
@@ -310,7 +303,7 @@ export function AdminDashboard() {
                 </div>
               </div>
               {showAddFolder && (
-                <div className="mb-4 flex gap-2 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                <div className="glass mb-4 flex gap-2 rounded-2xl p-3">
                   <input
                     type="text"
                     value={newFolderName}
@@ -340,40 +333,20 @@ export function AdminDashboard() {
                 <button
                   type="button"
                   onClick={() => setSelectedFolderId(null)}
-                  className={cn(
-                    'flex items-center gap-3 rounded-xl border bg-white p-4 shadow-sm transition hover:shadow',
-                    selectedFolderId === null
-                      ? 'border-blue-500 ring-2 ring-blue-200'
-                      : 'border-gray-200'
-                  )}
+                  className={folderCardClass(selectedFolderId === null)}
                 >
-                  <div className={cn(
-                    'flex h-11 w-11 items-center justify-center rounded-lg',
-                    selectedFolderId === null ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
-                  )}>
-                    <FolderIcon className="h-6 w-6" />
-                  </div>
-                  <span className="font-medium text-gray-900">전체</span>
+                  <IconTile icon={FolderOpen} tone={selectedFolderId === null ? 'blue' : 'slate'} size={36} />
+                  <span className="font-semibold text-gray-900">전체</span>
                 </button>
                 {sortedFolders.map((f) => (
                   <button
                     key={f.folder_id}
                     type="button"
                     onClick={() => setSelectedFolderId(f.folder_id)}
-                    className={cn(
-                      'flex items-center gap-3 rounded-xl border bg-white p-4 shadow-sm transition hover:shadow',
-                      selectedFolderId === f.folder_id
-                        ? 'border-blue-500 ring-2 ring-blue-200'
-                        : 'border-gray-200'
-                    )}
+                    className={folderCardClass(selectedFolderId === f.folder_id)}
                   >
-                    <div className={cn(
-                      'flex h-11 w-11 items-center justify-center rounded-lg',
-                      selectedFolderId === f.folder_id ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
-                    )}>
-                      <FolderIcon className="h-6 w-6" />
-                    </div>
-                    <span className="font-medium text-gray-900">{f.name}</span>
+                    <IconTile icon={FolderClosed} tone={selectedFolderId === f.folder_id ? 'blue' : 'slate'} size={36} />
+                    <span className="font-semibold text-gray-900">{f.name}</span>
                   </button>
                 ))}
               </div>
@@ -383,7 +356,7 @@ export function AdminDashboard() {
             <section>
               <h2 className="mb-3 text-sm font-medium text-gray-700">문서</h2>
               {filteredForms.length === 0 ? (
-                <div className="rounded-xl border border-gray-200 bg-white py-12 text-center text-gray-500 shadow-sm">
+                <div className="glass rounded-3xl py-12 text-center text-gray-500">
                   문서가 없습니다.
                 </div>
               ) : (
@@ -391,18 +364,16 @@ export function AdminDashboard() {
                   {filteredForms.map((form) => (
                     <div
                       key={form.form_id}
-                      className="flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow"
+                      className="glass flex flex-col rounded-3xl p-4 transition-transform hover:-translate-y-0.5"
                     >
                       <div className="flex items-start gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
-                          <DocumentIcon className="h-6 w-6" />
-                        </div>
+                        <IconTile icon={FileText} tone={form.type === 'notice' ? 'sky' : 'violet'} size={44} />
                         <div className="min-w-0 flex-1">
-                          <h3 className="truncate font-medium text-gray-900">{form.title}</h3>
+                          <h3 className="truncate font-semibold text-gray-900">{form.title}</h3>
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             <span
                               className={cn(
-                                'inline-block rounded px-2 py-0.5 text-xs font-medium',
+                                'inline-block rounded-full px-2 py-0.5 text-xs font-medium',
                                 form.type === 'notice'
                                   ? 'bg-sky-100 text-sky-700'
                                   : 'bg-violet-100 text-violet-700'
@@ -414,7 +385,7 @@ export function AdminDashboard() {
                           </div>
                         </div>
                       </div>
-                      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/70 pt-3">
                         <div className="flex items-center gap-2">
                           <Link
                             to={`/admin/forms/${form.form_id}/responses`}

@@ -19,6 +19,9 @@ import type {
 import { generateLayout, sortSeats } from '@/lib/seating'
 import { cn } from '@/lib/utils'
 import { SeatDeskCard, TeacherDeskBanner } from '@/components/seating/SeatDeskCard'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { Armchair } from 'lucide-react'
+import { PageTitle } from '@/components/ui/Glyph'
 
 const TYPE_LABEL: Record<SeatingType, string> = {
   individual: '개별',
@@ -262,21 +265,19 @@ export function SeatingPage() {
   if (loading) {
     return (
       <div className="flex min-h-[200px] items-center justify-center">
-        <p className="text-gray-500">로딩 중...</p>
+        <LoadingSpinner label="로딩 중" />
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <SeatIcon className="h-6 w-6 text-slate-600" />
-        <h1 className="text-xl font-semibold text-gray-900">자리 배치</h1>
-      </div>
-      <p className="text-sm text-gray-600">
-        좌석 형태와 인원을 입력해 좌석을 자동 생성한 뒤, 지정 좌석 · 떨어질 친구 · 붙을 친구를 설정하고
-        “자리 뽑기 시작”을 누르면 학생용 공유창에서 자리 뽑기가 진행됩니다.
-      </p>
+      <PageTitle
+        icon={Armchair}
+        tone="slate"
+        title="자리 배치"
+        sub="좌석 형태와 인원을 입력해 좌석을 자동 생성한 뒤, 지정 좌석 · 떨어질 친구 · 붙을 친구를 설정하고 “자리 뽑기 시작”을 누르면 학생용 공유창에서 자리 뽑기가 진행됩니다."
+      />
 
       {/* 1. 기본 좌석 세팅 */}
       <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -894,12 +895,3 @@ function SeatPickerModal({
   )
 }
 
-function SeatIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 19v-3a2 2 0 012-2h8a2 2 0 012 2v3" />
-      <path d="M5 19h14" />
-      <path d="M8 14V6a2 2 0 012-2h4a2 2 0 012 2v8" />
-    </svg>
-  )
-}

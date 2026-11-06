@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, ChevronUp, Link2, Timer } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Link2, Timer, CalendarHeart } from 'lucide-react'
 import {
   getStudents,
   getCalendarEvents,
@@ -10,6 +10,8 @@ import { buildShareUrl } from '@/lib/gasUrl'
 import type { CalendarEvent, CounselingTimetable, Student, TimetablePeriod } from '@/types'
 import { CalendarBoard, type CalendarStudentInfo } from '@/components/calendar/CalendarBoard'
 import { CalendarEventModal } from '@/components/calendar/CalendarEventModal'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { PageTitle } from '@/components/ui/Glyph'
 
 let periodIdCounter = 1
 function newPeriodId() {
@@ -148,7 +150,7 @@ export function CounselingCalendarPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl">
-        <p className="py-20 text-center text-sm text-gray-500">불러오는 중...</p>
+        <LoadingSpinner label="불러오는 중" />
       </div>
     )
   }
@@ -156,12 +158,12 @@ export function CounselingCalendarPage() {
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">상담 캘린더</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            날짜를 눌러 수업시간이나 상담 일정을 추가하세요. 링크를 공유하면 학생이 열람할 수 있습니다.
-          </p>
-        </div>
+        <PageTitle
+          icon={CalendarHeart}
+          tone="rose"
+          title="상담 캘린더"
+          sub="날짜를 눌러 수업시간이나 상담 일정을 추가하세요. 링크를 공유하면 학생이 열람할 수 있습니다."
+        />
         <button
           type="button"
           onClick={handleShare}

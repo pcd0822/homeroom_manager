@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Heart, House } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { authStudent, getStudents, getAssignmentsByStudent, getForm, getNightStudyForStudent } from '@/api/api'
 import type { AssignmentRow, Student, Form, NightStudyForStudent } from '@/types'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 const NEIS_BASE = 'https://open.neis.go.kr/hub'
 const MEAL_KEY = '1ff34ee414734a8ab3bf67c55492df58'
@@ -158,19 +159,26 @@ export function StudentMealBoardPage() {
   const [showAllergyModal, setShowAllergyModal] = useState(false)
   const [selectedAllergyNum, setSelectedAllergyNum] = useState<number | null>(null)
 
+  const [assignmentsLoading, setAssignmentsLoading] = useState(true)
+
   const loadAssignmentsData = useCallback(async (sid: string) => {
-    const assignRes = await getAssignmentsByStudent(sid)
-    if (assignRes.success && assignRes.data) {
-      setAllAssignments(assignRes.data)
-      const ids = Array.from(new Set(assignRes.data.map((a) => a.form_id)))
-      const results = await Promise.all(ids.map((id) => getForm(id)))
-      const map: Record<string, Form> = {}
-      results.forEach((res, idx) => {
-        if (res.success && res.data) {
-          map[ids[idx]] = res.data
-        }
-      })
-      setFormMap(map)
+    setAssignmentsLoading(true)
+    try {
+      const assignRes = await getAssignmentsByStudent(sid)
+      if (assignRes.success && assignRes.data) {
+        setAllAssignments(assignRes.data)
+        const ids = Array.from(new Set(assignRes.data.map((a) => a.form_id)))
+        const results = await Promise.all(ids.map((id) => getForm(id)))
+        const map: Record<string, Form> = {}
+        results.forEach((res, idx) => {
+          if (res.success && res.data) {
+            map[ids[idx]] = res.data
+          }
+        })
+        setFormMap(map)
+      }
+    } finally {
+      setAssignmentsLoading(false)
     }
   }, [])
 
@@ -315,7 +323,7 @@ export function StudentMealBoardPage() {
         <Helmet>
           <title>{MEAL_BOARD_SHARE_TITLE}</title>
         </Helmet>
-        <p className="text-sm text-gray-500">로그인 확인 중...</p>
+        <LoadingSpinner label="로그인 확인 중" />
       </div>
     )
   }
@@ -464,6 +472,7 @@ export function StudentMealBoardPage() {
             </div>
           </div>
           {mealError && <p className="text-xs text-red-600">{mealError}</p>}
+          {meals === null && !mealError && <LoadingSpinner label="급식 정보를 불러오는 중" size={32} className="py-5" />}
           <div className="space-y-2">
             {meals?.map((m) => (
               <div key={m.mealName} className="rounded-lg bg-gray-50 p-2">
@@ -603,6 +612,9 @@ export function StudentMealBoardPage() {
               </button>
             </div>
           </div>
+          {scheduleItems === null && !scheduleError && (
+            <LoadingSpinner label="학사일정을 불러오는 중" size={32} className="py-5" />
+          )}
           <ul className="space-y-1 text-[11px]">
             {scheduleRange === 'year'
               ? Object.values(
@@ -649,7 +661,8 @@ export function StudentMealBoardPage() {
               마감된 과제 보기
             </label>
           </div>
-          {visibleAssignments.length === 0 && (
+          {assignmentsLoading && <LoadingSpinner label="과제를 불러오는 중" size={32} className="py-5" />}
+          {!assignmentsLoading && visibleAssignments.length === 0 && (
             <p className="text-[11px] text-gray-500">현재 진행 중인 과제가 없습니다.</p>
           )}
           <div className="space-y-2">

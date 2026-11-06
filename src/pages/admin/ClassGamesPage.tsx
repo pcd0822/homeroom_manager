@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Flower2, PencilLine, Trophy } from 'lucide-react'
-import { IconTile } from '@/components/ui/Glyph'
+import { Flower2, PencilLine, Trophy, Gamepad2 } from 'lucide-react'
+import { PageTitle, IconTile } from '@/components/ui/Glyph'
 import {
   GAME_ID_HOME_SEND_ME,
   GAME_ID_TEACHER_QUIZ,
@@ -25,10 +25,12 @@ export function ClassGamesPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="text-2xl font-bold text-gray-900">학급 게임</h1>
-      <p className="mt-1 text-sm text-gray-600">
-        학생은 학번·개인코드로 참여합니다. 아래 링크를 복사해 공유하세요. (데이터 관리하기의 문서 공유와 동일한 방식)
-      </p>
+      <PageTitle
+        icon={Gamepad2}
+        tone="coral"
+        title="학급 게임"
+        sub="학생은 학번·개인코드로 참여합니다. 아래 링크를 복사해 공유하세요. (데이터 관리하기의 문서 공유와 동일한 방식)"
+      />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-1">
         {/* 집 보내주세요! */}
@@ -54,7 +56,7 @@ export function ClassGamesPage() {
         </article>
 
         {/* 들샘 모의고사 */}
-        <article className="rounded-2xl border border-pink-200 bg-gradient-to-br from-pink-50 to-amber-50 p-5 shadow-sm">
+        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-2">
             <IconTile icon={Flower2} tone="rose" size={32} />
             <h2 className="text-lg font-semibold text-gray-900">{quizMeta.title}</h2>

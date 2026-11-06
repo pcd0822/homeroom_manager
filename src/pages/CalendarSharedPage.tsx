@@ -17,6 +17,7 @@ import {
   type CalendarRequester,
   type CalendarSaveResult,
 } from '@/components/calendar/CalendarEventModal'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 const LOGIN_KEY = 'homeroom_login'
 /** 학부모가 신청한 상담의 수정·취소 열쇠. 신청한 브라우저에만 남는다. */
@@ -485,9 +486,7 @@ export function CalendarSharedPage() {
                   자녀(학생)를 선택하면 로그인 없이 상담을 신청할 수 있어요.
                 </p>
                 {rosterLoading ? (
-                  <p className="py-3 text-center text-xs text-gray-400">
-                    학생 명단을 불러오는 중...
-                  </p>
+                  <LoadingSpinner label="학생 명단을 불러오는 중" size={28} className="py-3" />
                 ) : rosterError ? (
                   <div className="space-y-1.5">
                     <p className="text-xs text-red-600">{rosterError}</p>
@@ -665,7 +664,7 @@ export function CalendarSharedPage() {
         )}
 
         {loading ? (
-          <p className="py-16 text-center text-sm text-gray-500">불러오는 중...</p>
+          <LoadingSpinner label="불러오는 중" />
         ) : err ? (
           <p className="py-16 text-center text-sm text-red-600">{err}</p>
         ) : (

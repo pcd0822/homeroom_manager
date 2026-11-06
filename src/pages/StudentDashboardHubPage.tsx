@@ -1,15 +1,26 @@
 import { useEffect, useState } from 'react'
-import { ChevronRight, ClipboardCheck, HeartHandshake, Leaf, NotebookPen, Sparkles, Sprout, UtensilsCrossed } from 'lucide-react'
-import { IconTile } from '@/components/ui/Glyph'
+import { ChevronRight, ClipboardCheck, HeartHandshake, Leaf, LogOut, NotebookPen, Sparkles, Sprout, UtensilsCrossed, type LucideIcon } from 'lucide-react'
+import { IconTile, type GlyphTone } from '@/components/ui/Glyph'
 import { Helmet } from 'react-helmet-async'
 import { NavLink } from 'react-router-dom'
 import { authStudent, getStudentSeedLedger } from '@/api/api'
+import { DonutSpinner, LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 const LOGIN_KEY = 'homeroom_login'
 const HUB_TITLE = '학급 학생 대시보드 | 학급 경영'
 const HUB_DESC = '급식·과제 보기와 정책 관리 중 선택할 수 있습니다.'
 
 type AuthState = 'idle' | 'loading' | 'success' | 'error'
+
+const HUB_MENU: ReadonlyArray<{ to: string; icon: LucideIcon; tone: GlyphTone; title: string; desc: string }> = [
+  { to: '/student/meal-board', icon: UtensilsCrossed, tone: 'amber', title: '급식 및 개인별 과제 보기', desc: '급식 알림판, 학사일정, 과제, 야자 시간표' },
+  { to: '/student/policies', icon: Leaf, tone: 'mint', title: '정책 관리하기', desc: '등록한 정책 보기, 씨앗 뿌리기, 수정' },
+  { to: '/student/counseling', icon: HeartHandshake, tone: 'rose', title: '내 상담 일정', desc: '나에게 등록된 상담 일정 확인' },
+  { to: '/student/attendance', icon: ClipboardCheck, tone: 'sky', title: '개인별 출결 현황', desc: '내 지각·조퇴 기록, 점수와 순위 확인' },
+]
+
+const HUB_CARD =
+  'glass group flex items-center gap-4 rounded-3xl p-4 transition-all hover:-translate-y-0.5 hover:bg-white/75 active:translate-y-0'
 
 export function StudentDashboardHubPage() {
   const [studentId, setStudentId] = useState('')
@@ -105,19 +116,19 @@ export function StudentDashboardHubPage() {
         <Helmet>
           <title>{HUB_TITLE}</title>
         </Helmet>
-        <p className="text-sm text-gray-500">로그인 확인 중...</p>
+        <LoadingSpinner label="로그인 확인 중" />
       </div>
     )
   }
 
   if (authState !== 'success') {
     return (
-      <div className="min-h-screen px-4 py-8">
+      <div className="flex min-h-screen items-center justify-center px-4 py-8">
         <Helmet>
           <title>{HUB_TITLE}</title>
           <meta name="description" content={HUB_DESC} />
         </Helmet>
-        <div className="mx-auto max-w-sm rounded-3xl border border-sky-100 bg-white p-6 shadow-lg">
+        <div className="glass w-full max-w-sm rounded-3xl p-6">
           <div className="mb-4 flex justify-center">
             <IconTile icon={Sprout} tone="mint" size={56} />
           </div>
@@ -130,7 +141,7 @@ export function StudentDashboardHubPage() {
                 type="text"
                 value={studentId}
                 onChange={(e) => setStudentId(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm shadow-inner"
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
               />
             </div>
             <div>
@@ -139,14 +150,14 @@ export function StudentDashboardHubPage() {
                 type="password"
                 value={authCode}
                 onChange={(e) => setAuthCode(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm shadow-inner"
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
               />
             </div>
             {authError && <p className="text-xs text-red-600">{authError}</p>}
             <button
               type="submit"
               disabled={authSubmitting}
-              className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white shadow-md hover:bg-blue-700 disabled:opacity-60"
+              className="btn-liquid w-full rounded-full py-3 text-sm font-semibold disabled:opacity-60"
             >
               {authSubmitting ? '확인 중...' : '입장하기'}
             </button>
@@ -162,7 +173,7 @@ export function StudentDashboardHubPage() {
         <title>{HUB_TITLE}</title>
         <meta name="description" content={HUB_DESC} />
       </Helmet>
-      <div className="mx-auto max-w-md space-y-6">
+      <div className="mx-auto max-w-md space-y-5">
         <header className="text-center">
           <div className="flex justify-center">
             <IconTile icon={Sparkles} tone="sky" size={48} />
@@ -171,118 +182,52 @@ export function StudentDashboardHubPage() {
           <p className="mt-1 text-xs text-gray-500">아래에서 한 가지를 선택한 뒤 이동해 주세요.</p>
         </header>
 
-        <div className="grid gap-4">
-          <NavLink
-            to="/student/meal-board"
-            className={({ isActive }) =>
-              `group flex items-center gap-4 rounded-2xl border-2 p-4 shadow-md transition-all ${
-                isActive
-                  ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                  : 'border-gray-100 bg-white hover:border-blue-200'
-              }`
-            }
-          >
-            <IconTile icon={UtensilsCrossed} tone="amber" size={56} />
-            <div className="min-w-0 flex-1 text-left">
-              <p className="font-bold text-gray-900">급식 및 개인별 과제 보기</p>
-              <p className="text-[11px] text-gray-500">급식 알림판, 학사일정, 과제, 야자 시간표</p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-blue-400" />
-          </NavLink>
+        <div className="grid gap-3">
+          {HUB_MENU.map((m) => (
+            <NavLink key={m.to} to={m.to} className={HUB_CARD}>
+              <IconTile icon={m.icon} tone={m.tone} size={52} />
+              <div className="min-w-0 flex-1 text-left">
+                <p className="font-bold text-gray-900">{m.title}</p>
+                <p className="text-[11px] text-gray-500">{m.desc}</p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-gray-400 transition-transform group-hover:translate-x-0.5" />
+            </NavLink>
+          ))}
 
-          <NavLink
-            to="/student/policies"
-            className={({ isActive }) =>
-              `group flex items-center gap-4 rounded-2xl border-2 p-4 shadow-md transition-all ${
-                isActive
-                  ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                  : 'border-gray-100 bg-white hover:border-emerald-200'
-              }`
-            }
-          >
-            <IconTile icon={Leaf} tone="mint" size={56} />
-            <div className="min-w-0 flex-1 text-left">
-              <p className="font-bold text-gray-900">정책 관리하기</p>
-              <p className="text-[11px] text-gray-500">등록한 정책 보기, 씨앗 뿌리기, 수정</p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-emerald-400" />
-          </NavLink>
-
-          <NavLink
-            to="/student/counseling"
-            className={({ isActive }) =>
-              `group flex items-center gap-4 rounded-2xl border-2 p-4 shadow-md transition-all ${
-                isActive
-                  ? 'border-rose-500 bg-rose-50 ring-2 ring-rose-200'
-                  : 'border-gray-100 bg-white hover:border-rose-200'
-              }`
-            }
-          >
-            <IconTile icon={HeartHandshake} tone="rose" size={56} />
-            <div className="min-w-0 flex-1 text-left">
-              <p className="font-bold text-gray-900">내 상담 일정</p>
-              <p className="text-[11px] text-gray-500">나에게 등록된 상담 일정 확인</p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-rose-400" />
-          </NavLink>
-
-          <NavLink
-            to="/student/attendance"
-            className={({ isActive }) =>
-              `group flex items-center gap-4 rounded-2xl border-2 p-4 shadow-md transition-all ${
-                isActive
-                  ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200'
-                  : 'border-gray-100 bg-white hover:border-indigo-200'
-              }`
-            }
-          >
-            <IconTile icon={ClipboardCheck} tone="sky" size={56} />
-            <div className="min-w-0 flex-1 text-left">
-              <p className="font-bold text-gray-900">개인별 출결 현황</p>
-              <p className="text-[11px] text-gray-500">내 지각·조퇴 기록, 점수와 순위 확인</p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-indigo-400" />
-          </NavLink>
-
-          <NavLink
-            to="/student/seed-ledger"
-            className={({ isActive }) =>
-              `group flex items-center gap-4 rounded-2xl border-2 p-4 shadow-md transition-all ${
-                isActive
-                  ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200'
-                  : 'border-gray-100 bg-white hover:border-emerald-200'
-              }`
-            }
-          >
-            <IconTile icon={Sprout} tone="lime" size={56} />
+          <NavLink to="/student/seed-ledger" className={HUB_CARD}>
+            <IconTile icon={Sprout} tone="lime" size={52} />
             <div className="min-w-0 flex-1 text-left">
               <p className="font-bold text-gray-900">씨앗 가계부</p>
-              <p className="text-[11px] text-gray-500">
-                <Sprout className="mr-0.5 inline h-3 w-3 align-[-1px] text-emerald-600" />현재 {seedBalance ?? '불러오는 중'}개
+              <p className="flex items-center gap-1 text-[11px] text-gray-500">
+                <Sprout className="h-3 w-3 text-emerald-600" />
+                현재{' '}
+                {seedBalance === null ? (
+                  <DonutSpinner size={12} />
+                ) : (
+                  `${seedBalance}개`
+                )}
               </p>
             </div>
-            <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-emerald-400" />
+            <ChevronRight className="h-5 w-5 text-gray-400 transition-transform group-hover:translate-x-0.5" />
           </NavLink>
         </div>
 
         <NavLink
           to="/student/policy/register"
-          className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50/50 px-4 py-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+          className="btn-liquid flex items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold"
         >
           <NotebookPen className="h-4 w-4" /> 정책 새로 등록하기
         </NavLink>
-        <p className="text-center text-[11px] text-gray-400">
+        <p className="text-center text-[11px] text-gray-500">
           급식·과제·정책 등록·관리 모두 이 대시보드에서 한 번 로그인하면 이용할 수 있어요.
         </p>
 
         <button
           type="button"
           onClick={handleLogout}
-          className="mx-auto flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-500 shadow-sm hover:bg-gray-50 hover:text-gray-700"
+          className="glass-pill mx-auto flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-medium text-gray-600 hover:text-gray-900"
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
+          <LogOut className="h-4 w-4" />
           이 기기에서 로그아웃
         </button>
       </div>
