@@ -264,6 +264,23 @@ export function hasPeriodMarks(marks: MarkMap, n: number): boolean {
   return false
 }
 
+/** 화면에 보이는 칸(조회~n교시) 중 체크가 하나라도 있는지 */
+export function hasAnyMark(marks: MarkMap, n: number): boolean {
+  for (let p = 0; p <= n; p++) if (marks[p]) return true
+  return false
+}
+
+/**
+ * 칸을 누른 뒤의 지각(점수) 칸 값.
+ * 체크를 지워 칸이 모두 비면 구분과 상관없이 해제하고, 지각 구분이면 지각 칸 유무에 맞춘다.
+ * 그 밖에는 담임이 직접 정한 값을 유지한다.
+ */
+export function nextLateFlag(current: boolean, kind: PeriodKind, before: MarkMap, after: MarkMap, n: number): boolean {
+  if (hasAnyMark(before, n) && !hasAnyMark(after, n)) return false
+  if (kind === 'L') return Object.values(after).includes('L')
+  return current
+}
+
 /**
  * 담임이 구분을 고른 채 칸을 눌렀을 때의 새 칸 상태.
  * 같은 범위를 다시 누르면(예: 지각 2교시를 또 누름) 그 구분 체크를 모두 지운다.

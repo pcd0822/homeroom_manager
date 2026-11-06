@@ -3,6 +3,7 @@ import {
   applyKindClick,
   deriveEarly,
   effectiveRecords,
+  nextLateFlag,
   parseMarks,
   stringifyMarks,
   type MarkMap,
@@ -41,6 +42,17 @@ eq('조퇴 아님: 지각(조회~2)', deriveEarly(parseMarks('0:L,1:L,2:L'), 7),
 eq('조퇴: 지각 + 6~7 체크', deriveEarly(parseMarks('0:L,1:L,6:E,7:E'), 7), true)
 eq('조퇴 판정: 5교시 날 5교시만', deriveEarly(parseMarks('5:S'), 5), true)
 eq('7교시 체크는 5교시 날엔 무시', deriveEarly(parseMarks('7:S'), 5), false)
+
+const L2 = parseMarks('0:L,1:L,2:L')
+eq('지각 칸: 지각 구분으로 채움 → 켜짐', nextLateFlag(false, 'L', {}, L2, N), true)
+eq('지각 칸: 지각 구분으로 지움 → 꺼짐', nextLateFlag(true, 'L', L2, {}, N), false)
+eq('지각 칸: 구분 없이 마지막 칸 지움 → 꺼짐', nextLateFlag(true, '', parseMarks('0:L'), {}, N), false)
+eq('지각 칸: 결과 구분으로 마지막 칸 지움 → 꺼짐', nextLateFlag(true, 'R', parseMarks('0:L'), {}, N), false)
+eq('지각 칸: 조회 칸만 지워져도 비면 꺼짐', nextLateFlag(true, '', parseMarks('0:S'), {}, N), false)
+eq('지각 칸: 다른 칸이 남으면 유지', nextLateFlag(true, '', parseMarks('0:L,1:L'), parseMarks('0:L'), N), true)
+eq('지각 칸: 구분 없이 교과 칸 추가 → 직접 체크 유지', nextLateFlag(true, '', {}, parseMarks('3:S'), N), true)
+eq('지각 칸: 처음부터 빈 칸이면 직접 체크 유지', nextLateFlag(true, 'E', {}, {}, 0), true)
+eq('지각 칸: 5교시 날 안 보이는 7교시만 남으면 꺼짐', nextLateFlag(true, '', parseMarks('3:S,7:S'), parseMarks('7:S'), 5), false)
 
 const schedule = { weekday: [0, 7, 7, 7, 7, 7, 0], dates: { '2026-11-06': 5 } }
 eq(

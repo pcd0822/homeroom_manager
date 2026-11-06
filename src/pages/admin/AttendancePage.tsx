@@ -51,6 +51,7 @@ import {
   effectiveRecords,
   hasPeriodMarks,
   lastCleaningResets,
+  nextLateFlag,
   parseMarks,
   periodIndexOf,
   periodLabel,
@@ -364,17 +365,15 @@ export function AttendancePage() {
     const before = parseMarks(row?.marks)
     const after = applyKindClick(before, kind, p, dayPeriods)
     queueOps(diffMarkOps(studentId, before, after))
-    if (kind === 'L') {
-      // 지각 구분으로 채우면 지각(점수) 칸도 함께 맞춘다. 직접 해제할 수 있다.
-      const hasLate = Object.values(after).includes('L')
-      const cur = draftRef.current[studentId] || EMPTY_FLAGS
-      if (cur.late !== hasLate) {
-        setDraft((prev) => ({
-          ...prev,
-          [studentId]: { ...cur, late: hasLate, late_doc: hasLate && cur.late_doc },
-        }))
-        markFlagsDirty()
-      }
+    // 지각(점수) 칸도 교시 체크에 맞춘다. 직접 해제할 수 있다.
+    const cur = draftRef.current[studentId] || EMPTY_FLAGS
+    const late = nextLateFlag(cur.late, kind, before, after, dayPeriods)
+    if (cur.late !== late) {
+      setDraft((prev) => ({
+        ...prev,
+        [studentId]: { ...cur, late, late_doc: late && cur.late_doc },
+      }))
+      markFlagsDirty()
     }
     // 교시 판정으로 조퇴가 바뀌면 저장된 지각·조퇴 기록도 맞춘다
     if (deriveEarly(before, dayPeriods) !== deriveEarly(after, dayPeriods)) markFlagsDirty()
