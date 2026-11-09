@@ -34,6 +34,7 @@ import type {
   TeacherQuizSurveyRow,
   CounselingTimetable,
   CalendarEvent,
+  CalendarRepeat,
   CounselingRosterStudent,
   AttendanceRecord,
   CleaningReset,
@@ -685,6 +686,32 @@ export function saveCalendarEvent(params: {
 
 export function deleteCalendarEvent(eventId: string) {
   return request<{ event_id: string }>('DELETE_CALENDAR_EVENT', 'POST', { event_id: eventId })
+}
+
+/** 반복 일정 한 번에 만들기. 상담은 겹치는 날을 건너뛰고 skipped 로 돌려준다 */
+export function saveCalendarEventSeries(params: {
+  date: string
+  until: string
+  repeat: CalendarRepeat
+  skip_weekends: boolean
+  type: 'class' | 'counseling'
+  title: string
+  start_time: string
+  end_time: string
+  location: string
+  content: string
+  student_ids: string[]
+}) {
+  return request<{ series_id: string; event_ids: string[]; created: number; skipped: string[] }>(
+    'SAVE_CALENDAR_EVENT_SERIES',
+    'POST',
+    params as Record<string, unknown>
+  )
+}
+
+/** 이 회차와 그 뒤의 같은 반복 회차를 모두 삭제 */
+export function deleteCalendarEventSeries(eventId: string) {
+  return request<{ series_id: string; deleted: number }>('DELETE_CALENDAR_EVENT_SERIES', 'POST', { event_id: eventId })
 }
 
 /** 특정 학생 대상으로 등록된 상담 일정만 조회 */

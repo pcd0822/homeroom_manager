@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Check, Hand, MessagesSquare, School, Users, X } from 'lucide-react'
-import type { CalendarEvent, CalendarEventType, CounselingTimetable, Student } from '@/types'
+import { Check, Hand, MessagesSquare, Repeat, School, Users, X } from 'lucide-react'
+import type { CalendarEvent, CalendarEventType, CalendarRepeat, CounselingTimetable, Student } from '@/types'
 import {
   saveCalendarEvent,
   deleteCalendarEvent,
+  saveCalendarEventSeries,
+  deleteCalendarEventSeries,
   requestCounselingEvent,
   updateCounselingRequest,
   deleteCounselingRequest,
@@ -12,7 +14,21 @@ import {
   deleteParentCounselingRequest,
   compareStudentIds,
 } from '@/api/api'
-import { formatDateLabel } from '@/lib/calendar'
+import { REPEAT_MAX, WEEKDAY_LABELS, formatDateLabel, parseDateKey, repeatDates, toDateKey } from '@/lib/calendar'
+
+const REPEAT_LABEL: Record<CalendarRepeat, string> = { daily: '매일', weekly: '매주', monthly: '매월' }
+
+/** 반복 종료일 기본값: 시작일로부터 3개월 뒤 */
+function defaultUntil(dateKey: string): string {
+  const d = parseDateKey(dateKey)
+  return toDateKey(new Date(d.getFullYear(), d.getMonth() + 3, d.getDate()))
+}
+
+/** "11월 16일" */
+function shortKo(key: string): string {
+  const d = parseDateKey(key)
+  return `${d.getMonth() + 1}월 ${d.getDate()}일`
+}
 
 /** 공유 캘린더에서 상담을 신청하는 사람 */
 export interface CalendarRequester {
@@ -80,6 +96,35 @@ export function CalendarEventModal({
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
+  // 반복은 교사가 새 일정을 만들 때만 고른다
+  const canRepeat = !isRequest && !existing
+  const [repeat, setRepeat] = useState<'none' | CalendarRepeat>('none')
+  const [until, setUntil] = useState(() => defaultUntil(dateKey))
+  const [skipWeekends, setSkipWeekends] = useState(true)
+  const [askSeriesDelete, setAskSeriesDelete] = useState(false)
+  const isSeries = !isRequest && !!existing?.series_id
+
+  const seriesDates = useMemo(
+    () => (canRepeat && repeat !== 'none' ? repeatDates(dateKey, repeat, until, skipWeekends) : []),
+    [canRepeat, repeat, dateKey, until, skipWeekends]
+  )
+  const repeatSummary = useMemo(() => {
+    if (repeat === 'none') return ''
+    if (until < dateKey) return '종료일을 시작일 이후로 골라 주세요'
+    if (seriesDates.length === 0) return '반복할 날짜가 없습니다'
+    const d = parseDateKey(dateKey)
+    const rule =
+      repeat === 'daily'
+        ? `매일${skipWeekends ? '(주말 제외)' : ''}`
+        : repeat === 'weekly'
+          ? `매주 ${WEEKDAY_LABELS[d.getDay()]}요일`
+          : `매월 ${d.getDate()}일`
+    const last = seriesDates[seriesDates.length - 1]
+    const capped = seriesDates.length >= REPEAT_MAX && last < until
+    return `${shortKo(dateKey)}부터 ${rule}, ${seriesDates.length}회${
+      capped ? ` (최대 ${REPEAT_MAX}회라 ${shortKo(last)}까지)` : ` (${shortKo(last)}까지)`
+    }`
+  }, [repeat, until, dateKey, seriesDates, skipWeekends])
 
   const sortedStudents = useMemo(
     () => [...students].sort((a, b) => compareStudentIds(a.student_id, b.student_id)),
@@ -159,6 +204,41 @@ export function CalendarEventModal({
       else setError(reqRes.error || (existing ? '수정에 실패했습니다.' : '신청에 실패했습니다.'))
       return
     }
+    if (canRepeat && repeat !== 'none') {
+      if (until < dateKey || seriesDates.length === 0) {
+        setSaving(false)
+        setError('반복 종료일을 시작일 이후로 골라 주세요.')
+        return
+      }
+      const seriesRes = await saveCalendarEventSeries({
+        date: dateKey,
+        until,
+        repeat,
+        skip_weekends: skipWeekends,
+        type,
+        title: title.trim() || (type === 'class' ? '수업' : '상담'),
+        start_time: startTime,
+        end_time: endTime || startTime,
+        location: location.trim(),
+        content: content.trim(),
+        student_ids: type === 'counseling' ? selectedIds : [],
+      })
+      setSaving(false)
+      if (!seriesRes.success) {
+        setError(seriesRes.error || '반복 일정 저장에 실패했습니다.')
+        return
+      }
+      const skipped = seriesRes.data?.skipped || []
+      if (skipped.length > 0) {
+        alert(
+          `반복 일정 ${seriesRes.data?.created ?? 0}회를 만들었습니다. 같은 시간에 일정이 있는 ${skipped.length}일은 건너뛰었습니다: ${skipped
+            .map(shortKo)
+            .join(', ')}`
+        )
+      }
+      onSaved()
+      return
+    }
     const res = await saveCalendarEvent({
       event_id: existing?.event_id,
       date: dateKey,
@@ -178,8 +258,23 @@ export function CalendarEventModal({
     }
   }
 
+  /** 반복 일정: 이 회차만 또는 이 회차와 이후 모두 */
+  const handleSeriesDelete = async (scope: 'one' | 'following') => {
+    if (!existing) return
+    setDeleting(true)
+    const res =
+      scope === 'one' ? await deleteCalendarEvent(existing.event_id) : await deleteCalendarEventSeries(existing.event_id)
+    setDeleting(false)
+    if (res.success) onSaved()
+    else setError(res.error || '삭제에 실패했습니다.')
+  }
+
   const handleDelete = async () => {
     if (!existing) return
+    if (isSeries) {
+      setAskSeriesDelete(true)
+      return
+    }
     if (!confirm(isRequest ? '이 상담 신청을 취소할까요?' : '이 일정을 삭제할까요?')) return
     setDeleting(true)
     const res = isParent
@@ -222,7 +317,15 @@ export function CalendarEventModal({
                   ? '일정 수정'
                   : '일정 추가'}
             </h2>
-            <p className="text-xs tabular-nums text-muted">{formatDateLabel(dateKey)}</p>
+            <p className="text-xs tabular-nums text-muted">
+              {formatDateLabel(dateKey)}
+              {isSeries && existing?.repeat && (
+                <span className="ml-2 inline-flex items-center gap-1 align-middle">
+                  <Repeat className="h-3 w-3" aria-hidden />
+                  반복 일정 · {REPEAT_LABEL[existing.repeat]}
+                </span>
+              )}
+            </p>
           </div>
           <button
             type="button"
@@ -338,6 +441,55 @@ export function CalendarEventModal({
             </div>
           </div>
 
+          {/* 반복 (교사의 새 일정만) */}
+          {canRepeat && (
+            <div>
+              <label className="mb-2 block text-xs font-medium text-ink">반복</label>
+              <div className="grid grid-cols-2 gap-3">
+                <select
+                  value={repeat}
+                  onChange={(e) => setRepeat(e.target.value as 'none' | CalendarRepeat)}
+                  className="field w-full"
+                  aria-label="반복 단위"
+                >
+                  <option value="none">안 함</option>
+                  <option value="daily">매일</option>
+                  <option value="weekly">매주</option>
+                  <option value="monthly">매월</option>
+                </select>
+                {repeat !== 'none' && (
+                  <label className="flex items-center gap-2 text-xs text-ink">
+                    <span className="shrink-0">종료일</span>
+                    <input
+                      type="date"
+                      value={until}
+                      min={dateKey}
+                      onChange={(e) => setUntil(e.target.value)}
+                      className="field w-full tabular-nums"
+                    />
+                  </label>
+                )}
+              </div>
+              {repeat === 'daily' && (
+                <label className="mt-2 flex items-center gap-2 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    checked={skipWeekends}
+                    onChange={(e) => setSkipWeekends(e.target.checked)}
+                    className="h-4 w-4 accent-[var(--accent)]"
+                  />
+                  주말 빼기
+                </label>
+              )}
+              {repeat !== 'none' && (
+                <p className="mt-2 text-xs tabular-nums text-muted">
+                  {repeatSummary}
+                  {type === 'counseling' && seriesDates.length > 0 && '. 같은 시간에 일정이 있는 날은 건너뜁니다'}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* 제목 */}
           <div>
             <label className="mb-2 block text-xs font-medium text-ink">
@@ -447,6 +599,38 @@ export function CalendarEventModal({
 
           {error && <p className="text-sm text-absent">{error}</p>}
         </div>
+
+        {askSeriesDelete && (
+          <div className="mt-6 border-l-2 border-absent py-1 pl-3">
+            <p className="mb-2 text-sm text-ink">반복 일정입니다. 어디까지 삭제할까요?</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void handleSeriesDelete('one')}
+                disabled={deleting}
+                className="btn btn-danger btn-sm"
+              >
+                이 일정만
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSeriesDelete('following')}
+                disabled={deleting}
+                className="btn btn-danger btn-sm"
+              >
+                이 일정과 이후 반복 모두
+              </button>
+              <button
+                type="button"
+                onClick={() => setAskSeriesDelete(false)}
+                disabled={deleting}
+                className="btn btn-secondary btn-sm"
+              >
+                그만두기
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 하단 버튼 */}
         <div className="mt-6 flex items-center gap-2">

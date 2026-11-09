@@ -443,6 +443,12 @@ function handleRequest(e, method) {
       case 'DELETE_CALENDAR_EVENT':
         result = deleteCalendarEvent(params.event_id);
         break;
+      case 'SAVE_CALENDAR_EVENT_SERIES':
+        result = saveCalendarEventSeries(params);
+        break;
+      case 'DELETE_CALENDAR_EVENT_SERIES':
+        result = deleteCalendarEventSeries(params.event_id);
+        break;
       case 'GET_CALENDAR_EVENTS_FOR_STUDENT':
         result = getCalendarEventsForStudent(params.student_id);
         break;
@@ -3504,7 +3510,9 @@ var CALENDAR_EVENT_HEADERS = [
   'created_at',
   'created_by',      // 학생이 직접 신청한 경우 그 학번. 교사·학부모가 등록한 일정은 빈 값
   'requester_role',  // '' (교사 등록) | 'parent' (학부모가 로그인 없이 신청). 학생 신청은 created_by로 판별한다
-  'request_token'    // 학부모 신청 전용. 로그인이 없으므로 이 토큰을 가진 브라우저만 수정·취소할 수 있다
+  'request_token',   // 학부모 신청 전용. 로그인이 없으므로 이 토큰을 가진 브라우저만 수정·취소할 수 있다
+  'series_id',       // 반복 일정 묶음 번호. 한 번에 만든 반복 일정은 같은 값. 단일 일정은 빈 값
+  'repeat'           // 반복 단위 'daily' | 'weekly' | 'monthly'. 단일 일정은 빈 값
 ];
 
 function getOrCreateCounselingTimetableSheet() {
@@ -3638,7 +3646,9 @@ function _calendarRowToObject(row, col) {
     student_ids: ids.map(String),
     created_at: row[col.created_at] != null ? String(row[col.created_at]) : '',
     created_by: row[col.created_by] != null ? String(row[col.created_by]) : '',
-    requester_role: row[col.requester_role] != null ? String(row[col.requester_role]) : ''
+    requester_role: row[col.requester_role] != null ? String(row[col.requester_role]) : '',
+    series_id: row[col.series_id] != null ? String(row[col.series_id]) : '',
+    repeat: row[col.repeat] != null ? String(row[col.repeat]) : ''
     // request_token은 공개 조회(GET_CALENDAR_EVENTS)로 새어 나가면 안 되므로 포함하지 않는다.
   };
 }
@@ -3724,11 +3734,15 @@ function saveCalendarEvent(params) {
         if (!reqRole && params.requester_role) reqRole = String(params.requester_role);
         var reqToken = data[i][col.request_token] != null ? String(data[i][col.request_token]) : '';
         if (!reqToken && params.request_token) reqToken = String(params.request_token);
+        // 반복 묶음 정보도 그대로 둔다(한 회차만 고쳐도 묶음에서 빠지지 않는다).
+        var seriesId = data[i][col.series_id] != null ? String(data[i][col.series_id]) : '';
+        var repeatKind = data[i][col.repeat] != null ? String(data[i][col.repeat]) : '';
         var updated = _buildCalendarRow(headers, col, {
           event_id: eventId, date: date, type: type, title: title,
           start_time: startTime, end_time: endTime, location: location,
           content: content, student_ids: studentIdsJson, created_at: createdAt,
-          created_by: createdBy, requester_role: reqRole, request_token: reqToken
+          created_by: createdBy, requester_role: reqRole, request_token: reqToken,
+          series_id: seriesId, repeat: repeatKind
         });
         sheet.getRange(i + 1, 1, 1, headers.length).setValues([updated]);
         return { success: true, data: { event_id: eventId, updated: true } };
@@ -3773,6 +3787,8 @@ function _buildCalendarRow(headers, col, obj) {
   put('created_by', obj.created_by);
   put('requester_role', obj.requester_role);
   put('request_token', obj.request_token);
+  put('series_id', obj.series_id);
+  put('repeat', obj.repeat);
   return row;
 }
 
@@ -3792,6 +3808,160 @@ function deleteCalendarEvent(eventId) {
     }
   }
   return { success: false, error: 'not found' };
+}
+
+// ----- 반복 일정 (교사 화면 전용) -----
+
+var CALENDAR_SERIES_MAX = 100;
+
+function _seriesPad(n) { return (n < 10 ? '0' : '') + n; }
+function _seriesKey(d) { return d.getFullYear() + '-' + _seriesPad(d.getMonth() + 1) + '-' + _seriesPad(d.getDate()); }
+
+/**
+ * 반복 날짜 목록. 프론트 src/lib/calendar.ts 의 repeatDates 와 같은 규칙이어야 한다.
+ * - daily: 하루씩. skipWeekends 면 토·일 제외
+ * - weekly: 7일씩(첫 날의 요일)
+ * - monthly: 같은 날짜. 그 달에 없는 날(31일 등)은 건너뜀
+ * 종료일 포함, 최대 CALENDAR_SERIES_MAX 회.
+ */
+function _calendarRepeatDates(start, freq, until, skipWeekends) {
+  var sm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(start);
+  var um = /^(\d{4})-(\d{2})-(\d{2})$/.exec(until);
+  if (!sm || !um) return [];
+  var y = +sm[1], m = +sm[2] - 1, d = +sm[3];
+  var out = [];
+  for (var k = 0; out.length < CALENDAR_SERIES_MAX && k < 3700; k++) {
+    var dt;
+    if (freq === 'monthly') {
+      dt = new Date(y, m + k, d);
+      if (dt.getDate() !== d) {
+        // 그 달에 없는 날짜. 종료일을 넘었는지만 보고 건너뛴다
+        if (_seriesKey(new Date(y, m + k, 1)) > until) break;
+        continue;
+      }
+    } else {
+      dt = new Date(y, m, d + (freq === 'weekly' ? 7 * k : k));
+    }
+    var key = _seriesKey(dt);
+    if (key > until) break;
+    if (freq === 'daily' && skipWeekends && (dt.getDay() === 0 || dt.getDay() === 6)) continue;
+    out.push(key);
+  }
+  return out;
+}
+
+/**
+ * 반복 일정을 한 번에 만든다. 회차마다 한 행이며 모두 같은 series_id 를 갖는다.
+ * 상담 일정은 같은 시간대에 이미 일정이 있는 날을 건너뛰고 그 날짜를 돌려준다.
+ */
+function saveCalendarEventSeries(params) {
+  params = params || {};
+  var freq = String(params.repeat || '');
+  if (freq !== 'daily' && freq !== 'weekly' && freq !== 'monthly') {
+    return { success: false, error: '반복 단위를 골라 주세요.' };
+  }
+  var date = params.date != null ? String(params.date).trim() : '';
+  var until = params.until != null ? String(params.until).trim() : '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { success: false, error: 'date(YYYY-MM-DD) required' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(until) || until < date) {
+    return { success: false, error: '반복 종료일은 시작일 이후로 골라 주세요.' };
+  }
+  var type = params.type === 'counseling' ? 'counseling' : 'class';
+  var startTime = params.start_time != null ? String(params.start_time).trim() : '';
+  var endTime = params.end_time != null ? String(params.end_time).trim() : '';
+  if (!startTime) return { success: false, error: 'start_time required' };
+  if (!endTime) endTime = startTime;
+  if (endTime < startTime) { var t = startTime; startTime = endTime; endTime = t; }
+  var studentIds = Array.isArray(params.student_ids)
+    ? params.student_ids.map(function (s) { return String(s); }).filter(function (s) { return s; })
+    : [];
+  if (type === 'counseling' && studentIds.length === 0) {
+    return { success: false, error: '상담 대상 학생을 1명 이상 선택해 주세요.' };
+  }
+  var dates = _calendarRepeatDates(date, freq, until, params.skip_weekends === true || params.skip_weekends === 'true');
+  if (dates.length === 0) return { success: false, error: '반복할 날짜가 없습니다.' };
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    cacheDel(CACHE_KEYS.CALENDAR_EVENTS);
+    var sheet = getOrCreateCalendarEventsSheet();
+    var data = sheet.getDataRange().getValues();
+    var headers = data.length ? data[0].map(String) : CALENDAR_EVENT_HEADERS;
+    var col = _calendarColMap(headers);
+    var existing = [];
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][col.event_id]) existing.push(_calendarRowToObject(data[i], col));
+    }
+
+    var seriesId = 'ser_' + _randomToken().substring(0, 12);
+    var createdNow = new Date().toISOString();
+    var rows = [];
+    var ids = [];
+    var skipped = [];
+    for (var j = 0; j < dates.length; j++) {
+      if (type === 'counseling' && _findCalendarConflict(existing, dates[j], startTime, endTime, '')) {
+        skipped.push(dates[j]);
+        continue;
+      }
+      var id = 'evt_' + _randomToken().substring(0, 12);
+      ids.push(id);
+      rows.push(_buildCalendarRow(headers, col, {
+        event_id: id, date: dates[j], type: type,
+        title: params.title != null ? String(params.title) : '',
+        start_time: startTime, end_time: endTime,
+        location: params.location != null ? String(params.location) : '',
+        content: params.content != null ? String(params.content) : '',
+        student_ids: JSON.stringify(studentIds), created_at: createdNow,
+        created_by: '', requester_role: '', request_token: '',
+        series_id: seriesId, repeat: freq
+      }));
+    }
+    if (rows.length === 0) {
+      return { success: false, error: '모든 날짜에 겹치는 일정이 있어 만들지 못했습니다.' };
+    }
+    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, headers.length).setValues(rows);
+    return { success: true, data: { series_id: seriesId, event_ids: ids, created: rows.length, skipped: skipped } };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 이 회차와 그 뒤의 같은 묶음 회차를 모두 지운다. 앞선 회차는 남긴다. */
+function deleteCalendarEventSeries(eventId) {
+  eventId = eventId != null ? String(eventId).trim() : '';
+  if (!eventId) return { success: false, error: 'event_id required' };
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    cacheDel(CACHE_KEYS.CALENDAR_EVENTS);
+    var sheet = getOrCreateCalendarEventsSheet();
+    if (sheet.getLastRow() < 2) return { success: false, error: 'not found' };
+    var data = sheet.getDataRange().getValues();
+    var col = _calendarColMap(data[0].map(String));
+    var seriesId = '';
+    var fromDate = '';
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][col.event_id]) === eventId) {
+        seriesId = data[i][col.series_id] != null ? String(data[i][col.series_id]) : '';
+        fromDate = _fmtDateKey(data[i][col.date]);
+        break;
+      }
+    }
+    if (!fromDate) return { success: false, error: 'not found' };
+    if (!seriesId) return deleteCalendarEvent(eventId);
+    var deleted = 0;
+    // 아래 행부터 지워야 위 행 번호가 밀리지 않는다
+    for (var r = data.length - 1; r >= 1; r--) {
+      if (String(data[r][col.series_id]) === seriesId && _fmtDateKey(data[r][col.date]) >= fromDate) {
+        sheet.deleteRow(r + 1);
+        deleted++;
+      }
+    }
+    return { success: true, data: { series_id: seriesId, deleted: deleted } };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /** 특정 학생이 대상으로 포함된 상담 일정만 반환 */

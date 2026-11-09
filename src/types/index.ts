@@ -463,7 +463,13 @@ export interface CalendarEvent {
   created_by?: string
   /** 'parent'면 학부모가 자녀 이름으로 신청한 상담. 교사 등록·학생 신청은 빈 값 */
   requester_role?: '' | 'parent'
+  /** 반복 일정 묶음 번호. 단일 일정은 빈 값 */
+  series_id?: string
+  /** 반복 단위. 단일 일정은 빈 값 */
+  repeat?: '' | CalendarRepeat
 }
+
+export type CalendarRepeat = 'daily' | 'weekly' | 'monthly'
 
 /** 학부모의 '자녀 선택' 드롭다운용 학생 정보 (개인코드는 내려오지 않는다) */
 export interface CounselingRosterStudent {

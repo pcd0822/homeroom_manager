@@ -27,6 +27,42 @@ export function addDays(d: Date, n: number): Date {
   return r
 }
 
+/** 반복 일정 최대 회차 (GAS CALENDAR_SERIES_MAX 와 같아야 한다) */
+export const REPEAT_MAX = 100
+
+/**
+ * 반복 날짜 목록. GAS _calendarRepeatDates 와 같은 규칙이어야 한다(미리보기 횟수 = 실제 생성 횟수).
+ * daily: 하루씩(skipWeekends 면 토·일 제외) / weekly: 7일씩 / monthly: 같은 날짜, 그 달에 없으면 건너뜀.
+ * 종료일 포함, 최대 REPEAT_MAX 회.
+ */
+export function repeatDates(
+  start: string,
+  freq: 'daily' | 'weekly' | 'monthly',
+  until: string,
+  skipWeekends: boolean
+): string[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(until)) return []
+  const [y, m, d] = start.split('-').map((v) => parseInt(v, 10))
+  const out: string[] = []
+  for (let k = 0; out.length < REPEAT_MAX && k < 3700; k++) {
+    let dt: Date
+    if (freq === 'monthly') {
+      dt = new Date(y, m - 1 + k, d)
+      if (dt.getDate() !== d) {
+        if (toDateKey(new Date(y, m - 1 + k, 1)) > until) break
+        continue
+      }
+    } else {
+      dt = new Date(y, m - 1, d + (freq === 'weekly' ? 7 * k : k))
+    }
+    const key = toDateKey(dt)
+    if (key > until) break
+    if (freq === 'daily' && skipWeekends && (dt.getDay() === 0 || dt.getDay() === 6)) continue
+    out.push(key)
+  }
+  return out
+}
+
 export function addMonths(d: Date, n: number): Date {
   const r = new Date(d)
   r.setDate(1)
