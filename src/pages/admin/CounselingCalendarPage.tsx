@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, ChevronUp, Link2, Timer, CalendarHeart } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Link2, Plus, Timer, CalendarHeart, X } from 'lucide-react'
 import {
   getStudents,
   getCalendarEvents,
@@ -157,17 +157,16 @@ export function CounselingCalendarPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <PageTitle
           icon={CalendarHeart}
-          tone="rose"
           title="상담 캘린더"
-          sub="날짜를 눌러 수업시간이나 상담 일정을 추가하세요. 링크를 공유하면 학생이 열람할 수 있습니다."
+          sub="날짜를 눌러 수업시간이나 상담 일정을 추가하고, 공유 링크로 학생에게 보여 줍니다"
         />
         <button
           type="button"
           onClick={handleShare}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+          className="btn btn-primary shrink-0"
         >
           {copied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
           {copied ? '링크 복사됨' : '캘린더 공유 링크'}
@@ -175,23 +174,22 @@ export function CounselingCalendarPage() {
       </div>
 
       {/* 교시 타임테이블 세팅 */}
-      <div className="mb-4 rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className="card mb-4">
         <button
           type="button"
           onClick={() => setShowTimetable((v) => !v)}
-          className="flex w-full items-center justify-between px-4 py-3 text-left"
+          aria-expanded={showTimetable}
+          className="flex h-12 w-full items-center justify-between px-5 text-left"
         >
-          <span className="text-sm font-semibold text-gray-800">
-            <Timer className="mr-1.5 inline h-4 w-4 align-[-3px] text-gray-500" />
+          <span className="flex items-center gap-2 text-sm font-medium text-ink-strong">
+            <Timer className="h-4 w-4 text-muted" />
             교시 타임테이블 세팅
-            <span className="ml-2 font-normal text-gray-400">
-              {periods.length}교시 · 모든 날짜(주말 포함) 공통 적용
-            </span>
+            <span className="font-normal tabular-nums text-muted">{periods.length}교시 · 모든 날짜에 같게 적용</span>
           </span>
-          <span className="text-gray-400">{showTimetable ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
+          <span className="text-muted">{showTimetable ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
         </button>
         {showTimetable && (
-          <div className="border-t border-gray-100 p-4">
+          <div className="border-t border-line p-5">
             <div className="space-y-2">
               {periods.map((p) => (
                 <div key={p.id} className="flex items-center gap-2">
@@ -200,51 +198,51 @@ export function CounselingCalendarPage() {
                     value={p.label}
                     onChange={(e) => updatePeriod(p.id, { label: e.target.value })}
                     placeholder="교시명"
-                    className="w-24 shrink-0 rounded-lg border border-gray-200 px-2 py-1.5 text-sm"
+                    className="field w-24 shrink-0"
                   />
                   <input
                     type="time"
                     value={p.start_time}
                     onChange={(e) => updatePeriod(p.id, { start_time: e.target.value })}
-                    className="rounded-lg border border-gray-200 px-2 py-1.5 text-sm"
+                    className="field tabular-nums"
                   />
-                  <span className="text-gray-400">~</span>
+                  <span className="text-muted">~</span>
                   <input
                     type="time"
                     value={p.end_time}
                     onChange={(e) => updatePeriod(p.id, { end_time: e.target.value })}
-                    className="rounded-lg border border-gray-200 px-2 py-1.5 text-sm"
+                    className="field tabular-nums"
                   />
                   <button
                     type="button"
                     onClick={() => removePeriod(p.id)}
-                    className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500"
+                    className="btn btn-ghost btn-icon ml-auto hover:text-absent"
                     aria-label="교시 삭제"
                   >
-                    ✕
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
               ))}
             </div>
-            <div className="mt-3 flex items-center gap-2">
+            <div className="mt-4 flex items-center gap-2">
               <button
                 type="button"
                 onClick={addPeriod}
-                className="rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-50"
+                className="btn btn-secondary btn-sm"
               >
-                + 교시 추가
+                <Plus className="h-4 w-4" /> 교시 추가
               </button>
               <button
                 type="button"
                 onClick={handleSaveTimetable}
                 disabled={savingTimetable}
-                className="ml-auto rounded-lg bg-sky-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+                className="btn btn-secondary ml-auto"
               >
-                {savingTimetable ? '저장 중...' : '타임테이블 저장'}
+                {savingTimetable ? '저장 중…' : '타임테이블 저장'}
               </button>
             </div>
             {timetableSavedAt && (
-              <p className="mt-2 text-[11px] text-gray-400">
+              <p className="mt-2 text-xs tabular-nums text-muted">
                 마지막 저장: {new Date(timetableSavedAt).toLocaleString('ko-KR')}
               </p>
             )}

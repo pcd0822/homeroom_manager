@@ -13,6 +13,7 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  const connectedUrl = getAdminGasUrl()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,18 +47,24 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
       <div
-        className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
+        className="w-full max-w-sm rounded-xl border border-line bg-surface p-5 shadow-[0_8px_24px_rgba(15,23,42,0.08)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-bold text-gray-900">관리자 비밀번호 변경</h2>
+        {/* 연결된 GAS 주소: 사이드바에서 옮겨 온 읽기 전용 표시 */}
+        {connectedUrl && (
+          <p className="mb-3 truncate text-xs text-muted" title={connectedUrl}>
+            연결된 주소 {connectedUrl.replace(/^https:\/\/script\.google\.com\/macros\/s\//, '…/')}
+          </p>
+        )}
+        <h2 className="text-base font-semibold text-ink-strong">관리자 비밀번호 변경</h2>
 
         {done ? (
           <>
-            <p className="mt-3 text-sm text-gray-600">비밀번호가 변경되었습니다.</p>
+            <p className="mt-3 text-sm text-ink">비밀번호가 변경되었습니다.</p>
             <button
               type="button"
               onClick={onClose}
-              className="mt-5 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+              className="btn btn-primary mt-4 w-full"
             >
               확인
             </button>
@@ -65,51 +72,51 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
         ) : (
           <form onSubmit={handleSubmit} className="mt-4 space-y-3">
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="border-l-2 border-absent pl-3 text-sm text-absent">
                 {error}
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-gray-700">현재 비밀번호</label>
+              <label className="block text-xs font-medium text-ink">현재 비밀번호</label>
               <input
                 type="password"
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
                 placeholder="아직 안 바꿨다면 1234"
                 autoFocus
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="field mt-2 w-full"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">새 비밀번호 (4자 이상)</label>
+              <label className="block text-xs font-medium text-ink">새 비밀번호 (4자 이상)</label>
               <input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="field mt-2 w-full"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">새 비밀번호 확인</label>
+              <label className="block text-xs font-medium text-ink">새 비밀번호 확인</label>
               <input
                 type="password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="field mt-2 w-full"
               />
             </div>
             <div className="flex gap-2 pt-1">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="btn btn-secondary flex-1"
               >
                 취소
               </button>
               <button
                 type="submit"
                 disabled={busy}
-                className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                className="btn btn-primary flex-1"
               >
                 {busy ? '변경 중…' : '변경'}
               </button>

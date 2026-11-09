@@ -2,295 +2,240 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * 디자인 토큰 (기준: DESIGN.md)
+ * 세계관: 종이 출석부. 바탕은 옅은 회백색 종이, 카드는 불투명 흰 면, 색은 출결 표시 색만 쓴다.
+ * 출결 색은 src/lib/attendance.ts MARK_COLORS 와 같은 값이다. 거기를 바꾸면 여기도 같이 바꾼다.
+ * (MARK_COLORS 는 PeriodCell 에서 `${color}1f` 처럼 hex 뒤에 알파를 붙여 쓰므로 var() 로 바꾸지 않는다.)
+ */
 @layer base {
   :root {
-    --radius: 0.75rem;
-    /* 리퀴드 글래스 토큰 */
-    --glass-bg: rgba(255, 255, 255, 0.58);
-    --glass-bg-strong: rgba(255, 255, 255, 0.78);
-    --glass-border: rgba(255, 255, 255, 0.75);
-    --glass-edge: rgba(15, 23, 42, 0.06);
-    --glass-shadow: 0 10px 30px -12px rgba(30, 41, 99, 0.22), 0 2px 6px -2px rgba(30, 41, 99, 0.08);
-    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(255, 255, 255, 0.25);
-    --glass-blur: blur(22px) saturate(170%);
+    --radius: 0.5rem;
+
+    /* 행동 색: 결과(R). 주요 버튼·선택·활성·체크박스·포커스에만 */
+    --accent: #0284c7;
+    /* 같은 파랑의 진한 단계: 흰 글씨를 얹는 주요 버튼 채움, 파란 글씨 (흰 면 대비 5.9:1) */
+    --accent-ink: #0369a1;
+    /* 상태 색: 의미가 있을 때만 (경고 = 지각 주황, 삭제·초기화 = 결석 빨강) */
+    --late: #f59e0b;
+    --late-ink: #b45309;
+    --early: #7c3aed;
+    --absent: #e11d48;
+    /* 글씨·선: 교과 체크(S) 진회색 계열 */
+    --ink: #475569;
+    --ink-strong: #1e293b;
+    --muted: #64748b;
+    --faint: #94a3b8;
+    /* 면 */
+    --line: #e4e1da;
+    --raised: #f1efe9;
+    --surface: #ffffff;
+    --paper: #f7f6f2;
+    /* 요일: 출결 색을 회색과 반씩 섞어 채도를 낮춘다 */
+    --sun: color-mix(in srgb, var(--absent) 55%, var(--muted));
+    --sat: color-mix(in srgb, var(--accent) 55%, var(--muted));
+    /* 움직임: 곡선 하나, 짧은 시간 */
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
   }
   html {
-    background: #eef1f8;
+    background: var(--paper);
   }
   body {
     font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    @apply text-gray-900 antialiased;
+    @apply antialiased;
+    color: var(--ink-strong);
     min-height: 100vh;
-    background-color: #eef1f8;
-    /* 유리 뒤로 비치는 부드러운 빛 덩어리. 고정 배경이라 스크롤해도 유리 질감이 유지된다. */
-    background-image:
-      radial-gradient(42rem 32rem at 8% 6%, rgba(129, 140, 248, 0.38), transparent 62%),
-      radial-gradient(36rem 30rem at 92% 12%, rgba(56, 189, 248, 0.32), transparent 60%),
-      radial-gradient(40rem 34rem at 78% 92%, rgba(244, 114, 182, 0.26), transparent 62%),
-      radial-gradient(34rem 28rem at 14% 88%, rgba(52, 211, 153, 0.24), transparent 60%);
-    background-attachment: fixed;
+    background-color: var(--paper);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  /* 아이콘 선 굵기 하나 (lucide) */
+  svg.lucide {
+    stroke-width: 1.75;
+  }
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: var(--accent);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-property: opacity !important;
+      animation-duration: 0.01ms !important;
+    }
+    .animate-spin {
+      animation-duration: 0.9s !important;
+    }
   }
 }
 
 @layer components {
-  /* 기본 유리 패널 */
-  .glass {
-    background: var(--glass-bg);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-highlight), var(--glass-shadow);
+  /* 카드: 불투명 흰 면 + 1px 선. 그림자 없음 */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
   }
-  /* 글씨가 많은 표·입력 영역용 — 덜 비친다 */
+  /*
+   * 예전 유리 클래스(다른 화면에서 아직 쓴다)는 같은 이름으로 차분한 면이 되게 바꾼다.
+   * 블러·광택·색 그림자는 쓰지 않는다.
+   */
+  .glass,
   .glass-strong {
-    background: var(--glass-bg-strong);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-highlight), var(--glass-shadow);
+    background: var(--surface);
+    border: 1px solid var(--line);
   }
-  /* 작은 알약 버튼·칩 */
   .glass-pill {
-    background: rgba(255, 255, 255, 0.55);
-    -webkit-backdrop-filter: blur(14px) saturate(160%);
-    backdrop-filter: blur(14px) saturate(160%);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 4px 12px -6px rgba(30, 41, 99, 0.25);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    transition: background-color 150ms var(--ease);
   }
-  /* 주요 실행 버튼: 유리 위 젤리 느낌의 파란 버튼 */
+  .glass-pill:hover {
+    background: var(--raised);
+  }
   .btn-liquid {
-    background-image: linear-gradient(180deg, #5b8cff 0%, #3b6cf6 55%, #2f5ae0 100%);
+    background: var(--accent-ink);
     color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 8px 18px -8px rgba(47, 90, 224, 0.7);
+    border: 1px solid transparent;
+    transition: background-color 150ms var(--ease);
   }
-  .btn-liquid:hover {
-    filter: brightness(1.06);
+  .btn-liquid:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent-ink) 88%, #000);
   }
-}
 
-/*
- * 앱 전체 리퀴드 글래스: 기존 화면의 흰 카드(흰 배경 + 그림자/둥근 모서리)를 유리 패널로 바꾼다.
- * 화면마다 클래스를 고치지 않아도 같은 질감이 나도록 공통 패턴만 골라 덮어쓴다.
- * 입력칸·작은 칸(rounded/rounded-md 만 있는 bg-white)은 건드리지 않는다.
- */
-.bg-white.shadow-sm,
-.bg-white.shadow,
-.bg-white.shadow-md,
-.bg-white.shadow-lg,
-.bg-white.shadow-xl,
-.bg-white.shadow-2xl,
-.bg-white.rounded-xl,
-.bg-white.rounded-2xl,
-.bg-white.rounded-3xl {
-  background-color: var(--glass-bg-strong);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border-color: var(--glass-border);
-  box-shadow: var(--glass-highlight), var(--glass-shadow);
-}
-/* 화면 전체를 덮던 회색 바탕은 비워서 뒤의 빛 배경이 보이게 한다 */
-.min-h-screen.bg-gray-50,
-.min-h-screen.bg-slate-50,
-.min-h-screen.bg-gray-100 {
-  background-color: transparent;
-}
-/* 기본 파란 버튼에 은은한 광택 */
-.bg-blue-600 {
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 60%);
-}
-/*
- * 화면 전용 글래스 확장: 메뉴바와 같은 톤을 나머지 화면에도 맞춘다.
- * 인쇄(생기부·명렬표)는 그대로 두려고 @media screen 안에만 쓴다.
- * 블러(backdrop-filter)는 fixed 모달의 기준을 바꿀 수 있어, 새 규칙에는 넣지 않고 반투명 색만 쓴다.
- */
-@media screen {
-  /* 생기부 상세: 인쇄 영역 바깥 틀은 화면에서만 걷어 내고 카드가 배경 위에 바로 뜨게 한다 */
-  div.record-dashboard-print.bg-gray-50 {
-    background-color: transparent;
-    border-color: transparent;
-    border-radius: 0;
+  /* 버튼 3종 (DESIGN.md 4절) */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: background-color 150ms var(--ease), border-color 150ms var(--ease), color 150ms var(--ease);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .btn-sm {
+    height: 28px;
+    padding: 0 12px;
+    gap: 4px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 16px;
+  }
+  .btn-icon {
+    width: 32px;
+    height: 32px;
     padding: 0;
   }
-  .record-dashboard-print thead tr {
-    background-color: rgba(255, 255, 255, 0.55);
-    border-color: rgba(100, 116, 139, 0.2);
+  .btn-primary {
+    background: var(--accent-ink);
+    color: #fff;
   }
-  .record-dashboard-print .rounded.border {
-    border-radius: 0.75rem;
+  .btn-primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent-ink) 88%, #000);
   }
-
-  /* 그라데이션 전체 바탕도 비워서 앱 공통 빛 배경이 보이게 한다 */
-  .min-h-screen.bg-gradient-to-br,
-  .min-h-screen.bg-gradient-to-b {
-    background-image: none;
+  .btn-secondary {
+    background: var(--surface);
+    border-color: var(--line);
+    color: var(--ink);
   }
-
-  /* 큰 묶음 카드는 메뉴바처럼 더 둥글게 */
-  section.bg-white,
-  article.bg-white,
-  form.bg-white {
-    border-radius: 1.5rem;
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--raised);
   }
-  :is(div, a, button, li).bg-white:is(.rounded-lg, .rounded-xl):is(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .border):not(.absolute) {
-    border-radius: 1.25rem;
+  .btn-danger {
+    background: var(--surface);
+    border-color: color-mix(in srgb, var(--absent) 35%, #fff);
+    color: var(--absent);
   }
-  /* 테두리만 있던 흰 칸도 유리 톤으로 */
-  div.bg-white.border,
-  section.bg-white,
-  article.bg-white,
-  li.bg-white.border {
-    background-color: rgba(255, 255, 255, 0.72);
-    border-color: var(--glass-border);
+  .btn-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--absent) 6%, #fff);
   }
-  /* 안쪽 회색 칸·표 머리글은 비치게 */
-  .bg-gray-50:not(.min-h-screen),
-  .bg-slate-50:not(.min-h-screen) {
-    background-color: rgba(255, 255, 255, 0.5);
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
   }
-  .bg-gray-100:not(.min-h-screen) {
-    background-color: rgba(255, 255, 255, 0.55);
-  }
-  .bg-gray-200 {
-    background-color: rgba(148, 163, 184, 0.28);
-  }
-  .hover\:bg-gray-50:hover,
-  .hover\:bg-slate-50:hover,
-  .hover\:bg-gray-100:hover,
-  .hover\:bg-slate-100:hover {
-    background-color: rgba(255, 255, 255, 0.78);
-  }
-  .hover\:bg-gray-200:hover {
-    background-color: rgba(255, 255, 255, 0.9);
-  }
-  /* 줄선은 회색 대신 옅은 푸른빛 */
-  .border-gray-100,
-  .border-gray-50 {
-    border-color: rgba(100, 116, 139, 0.14);
-  }
-  .border-gray-200,
-  .border-slate-200 {
-    border-color: rgba(100, 116, 139, 0.2);
-  }
-  .divide-gray-200 > :not([hidden]) ~ :not([hidden]),
-  .divide-gray-50 > :not([hidden]) ~ :not([hidden]) {
-    border-color: rgba(100, 116, 139, 0.16);
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--raised);
+    color: var(--ink-strong);
   }
 
-  /* 비치면 글자가 겹치는 곳: 고정 머리글, 펼침 메뉴, 모달은 거의 불투명하게 */
-  .sticky.bg-white,
-  .sticky.bg-gray-50,
-  .sticky.bg-gray-100,
-  .absolute.bg-white {
-    background-color: rgba(255, 255, 255, 0.94);
+  /* 입력칸: 높이 36, 모서리 8 */
+  .field {
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-strong);
+    font-size: 14px;
+    line-height: 20px;
   }
-  .fixed[class*='bg-black/'] {
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
+  .field-sm {
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 16px;
   }
-  .fixed[class*='bg-black/'] .bg-white,
-  .fixed.bg-white {
-    background-color: rgba(255, 255, 255, 0.93);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
+  textarea.field {
+    height: auto;
+    padding: 8px 12px;
   }
-  .fixed[class*='bg-black/'] > .bg-white {
-    border-radius: 1.5rem;
+  .field::placeholder {
+    color: var(--faint);
   }
-
-  /* 입력칸 */
-  :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']), select, textarea).border {
-    background-color: rgba(255, 255, 255, 0.74);
-    border-color: rgba(100, 116, 139, 0.28);
-    border-radius: 0.75rem;
-    box-shadow: inset 0 1px 2px rgba(30, 41, 99, 0.06);
-  }
-  :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']), select, textarea).border:focus {
+  .field:focus {
     outline: none;
-    background-color: #fff;
-    border-color: #7dd3fc;
-    box-shadow: 0 0 0 3px rgba(125, 211, 252, 0.35);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
   }
 
-  /* 테두리 버튼 → 유리 알약 */
-  :is(button, a).border.border-gray-300,
-  :is(button, a).border.border-gray-200[class*='px-'],
-  :is(button, a).bg-white.rounded-full,
-  :is(button, a).bg-white[class*='ring-gray'] {
-    background-color: rgba(255, 255, 255, 0.6);
-    border-color: rgba(255, 255, 255, 0.85);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 4px 12px -6px rgba(30, 41, 99, 0.25);
+  /* 무채색 유리 아이콘 타일 (유지 목록). 그라데이션은 위쪽 하이라이트에만 */
+  .glass-tile {
+    background-color: rgba(255, 255, 255, 0.72);
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 50%);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    box-shadow: inset 0 1px 0 #fff, 0 0 0 1px rgba(71, 85, 105, 0.1), 0 1px 2px rgba(30, 41, 59, 0.08);
+    color: var(--ink);
   }
-  :is(button, a).border.border-gray-300:hover:not(:disabled),
-  :is(button, a).border.border-gray-200[class*='px-']:hover:not(:disabled),
-  :is(button, a).bg-white.rounded-full:hover:not(:disabled) {
-    background-color: rgba(255, 255, 255, 0.85);
-  }
-
-  /* 파란 실행 버튼 → 젤리 버튼(.btn-liquid 와 같은 색) */
-  :is(button, a).bg-blue-600 {
-    background-image: linear-gradient(180deg, #5b8cff 0%, #3b6cf6 55%, #2f5ae0 100%);
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 8px 18px -8px rgba(47, 90, 224, 0.7);
-  }
-  /* 그 밖의 색 버튼에도 같은 광택 */
-  :is(button, a):is(
-      .bg-emerald-500,
-      .bg-emerald-600,
-      .bg-green-600,
-      .bg-teal-600,
-      .bg-sky-600,
-      .bg-indigo-600,
-      .bg-violet-600,
-      .bg-purple-600,
-      .bg-rose-500,
-      .bg-rose-600,
-      .bg-red-500,
-      .bg-red-600,
-      .bg-pink-500,
-      .bg-amber-500,
-      .bg-amber-600,
-      .bg-orange-500,
-      .bg-slate-600,
-      .bg-slate-700
-    ) {
-    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 62%);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 8px 16px -9px rgba(30, 41, 99, 0.55);
-  }
-  :is(button, a).bg-blue-600:hover:not(:disabled) {
-    filter: brightness(1.06);
+  .glass-tile-active {
+    background-color: color-mix(in srgb, var(--accent) 8%, #fff);
+    box-shadow: inset 0 1px 0 #fff, 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent),
+      0 1px 2px rgba(30, 41, 59, 0.08);
+    color: var(--accent-ink);
   }
 
-  /* 글자 버튼 모서리는 알약으로(칸·카드형 버튼은 패딩 조합으로 걸러 그대로 둔다) */
-  :is(button, a):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl)[class*='px-'][class*='py-']:is(
-      .border-gray-300,
-      .border-gray-200,
-      .border-blue-600,
-      .border-amber-500,
-      .bg-blue-600,
-      .bg-emerald-500,
-      .bg-emerald-600,
-      .bg-green-600,
-      .bg-teal-600,
-      .bg-sky-600,
-      .bg-indigo-600,
-      .bg-violet-600,
-      .bg-purple-600,
-      .bg-rose-500,
-      .bg-rose-600,
-      .bg-red-500,
-      .bg-red-600,
-      .bg-pink-500,
-      .bg-amber-500,
-      .bg-amber-600,
-      .bg-orange-500,
-      .bg-slate-600,
-      .bg-slate-700
-    ) {
-    border-radius: 9999px;
+  /* 메타 숫자 */
+  .num {
+    font-variant-numeric: tabular-nums;
   }
 }
+
+/*
+ * 앱 전체 공통: 입력칸 포커스는 행동 색 하나로.
+ * (예전 리퀴드 글래스 덮어쓰기 — 빛 배경, 광택 버튼, 알약 강제 — 는 2026-11-09 걷어냈다)
+ */
+@media screen {
+  :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']), select, textarea).border:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+}
+
 @media print {
   body {
     background: #fff !important;

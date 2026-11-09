@@ -31,11 +31,11 @@ export function PeriodCell({
       aria-label={`${label} ${mark ? MARK_LABELS[mark] : '출석'}`}
       title={mark ? MARK_LABELS[mark] + (locked ? ' (담임 체크)' : '') : '출석'}
       className={cn(
-        'relative mx-auto block overflow-hidden rounded-lg border transition-[transform,background-color] active:scale-95',
+        'relative mx-auto block overflow-hidden rounded-lg border transition-[transform,background-color,border-color] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98]',
         size === 'lg' ? 'h-11 w-11' : 'h-8 w-8',
-        mark ? 'border-transparent' : 'border-slate-300/70 bg-white/80 shadow-[inset_0_1px_2px_rgba(15,23,42,0.06)] hover:border-sky-300 hover:bg-white',
-        highlight && !mark && 'bg-sky-100/80 ring-2 ring-sky-300',
-        highlight && mark && 'ring-2 ring-sky-300',
+        mark ? 'border-transparent' : 'border-[#d6d3cc] bg-surface hover:border-accent',
+        highlight && !mark && 'bg-[color-mix(in_srgb,var(--accent)_10%,white)] ring-2 ring-accent',
+        highlight && mark && 'ring-2 ring-accent',
         disabled && 'cursor-default active:scale-100',
         locked && 'cursor-not-allowed'
       )}
@@ -53,7 +53,7 @@ export function PeriodCell({
 /** 색 범례 */
 export function MarkLegend({ marks = ['L', 'E', 'A', 'R', 'S'] as PeriodMark[] }: { marks?: PeriodMark[] }) {
   return (
-    <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-600">
+    <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
       {marks.map((m) => (
         <li key={m} className="flex items-center gap-1">
           <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden>

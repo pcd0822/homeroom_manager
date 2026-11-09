@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getFolders, createForm, getStudents, saveAssignments } from '@/api/api'
 import type { Folder, FormSchema, FormFieldSchema, FieldType, Student } from '@/types'
 import { StudentAssignmentCard } from '@/components/cleaning/StudentAssignmentCard'
-import { FilePlus2 } from 'lucide-react'
+import { ArrowLeft, Check, FilePlus2, Plus, Trash2, X } from 'lucide-react'
 import { PageTitle } from '@/components/ui/Glyph'
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
@@ -191,29 +191,24 @@ export function FormBuilderPage() {
 
   return (
     <div className="min-h-full">
-      <div className="mx-auto flex max-w-6xl gap-8">
+      <div className="mx-auto flex max-w-6xl gap-6">
         {/* 왼쪽: 폼 빌더 */}
         <form onSubmit={handleSubmit} className="min-w-0 flex-1 space-y-6">
           <PageTitle
             icon={FilePlus2}
-            tone="blue"
             title="새 문서 만들기"
             right={
-              <button
-                type="button"
-                onClick={() => navigate('/admin')}
-                className="glass-pill rounded-full px-3.5 py-2 text-sm font-semibold text-gray-700"
-              >
-                ← 목록
+              <button type="button" onClick={() => navigate('/admin')} className="btn btn-secondary">
+                <ArrowLeft className="h-4 w-4" /> 목록
               </button>
             }
           />
 
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-sm font-medium text-gray-700">기본 정보</h2>
+          <div className="card p-5">
+            <h2 className="mb-4 text-base font-semibold text-ink-strong">기본 정보</h2>
             <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">문서 유형</label>
+                <label className="mb-2 block text-xs font-medium text-ink">문서 유형</label>
                 <div className="flex gap-4">
                   <label className="flex items-center gap-2">
                     <input
@@ -221,9 +216,9 @@ export function FormBuilderPage() {
                       name="formType"
                       checked={formType === 'notice'}
                       onChange={() => setFormType('notice')}
-                      className="h-4 w-4 text-blue-600"
+                      className="h-4 w-4"
                     />
-                    <span className="text-sm">공지 (가정통신문 등)</span>
+                    <span className="text-sm text-ink">공지 (가정통신문 등)</span>
                   </label>
                   <label className="flex items-center gap-2">
                     <input
@@ -231,30 +226,30 @@ export function FormBuilderPage() {
                       name="formType"
                       checked={formType === 'survey'}
                       onChange={() => setFormType('survey')}
-                      className="h-4 w-4 text-blue-600"
+                      className="h-4 w-4"
                     />
-                    <span className="text-sm">설문</span>
+                    <span className="text-sm text-ink">설문</span>
                   </label>
                 </div>
               </div>
               <div>
-                <label htmlFor="title" className="mb-1 block text-xs font-medium text-gray-600">제목</label>
+                <label htmlFor="title" className="mb-2 block text-xs font-medium text-ink">제목</label>
                 <input
                   id="title"
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="예: 2026학년도 1학기 학부모 총회 안내"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  className="field w-full"
                 />
               </div>
               <div>
-                <label htmlFor="folder" className="mb-1 block text-xs font-medium text-gray-600">폴더</label>
+                <label htmlFor="folder" className="mb-2 block text-xs font-medium text-ink">폴더</label>
                 <select
                   id="folder"
                   value={folderId}
                   onChange={(e) => setFolderId(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  className="field w-full"
                 >
                   <option value="">선택 안 함</option>
                   {folders.map((f) => (
@@ -263,66 +258,66 @@ export function FormBuilderPage() {
                 </select>
               </div>
               <div>
-                <label htmlFor="description" className="mb-1 block text-xs font-medium text-gray-600">
-                  설명 / 본문 (공지는 여기에 안내 문구, 설문은 안내 문구 입력)
+                <label htmlFor="description" className="mb-2 block text-xs font-medium text-ink">
+                  본문 (안내 문구)
                 </label>
                 <textarea
                   id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="오른쪽 챗봇으로 문구를 생성한 뒤 복사해 붙여넣기 하세요."
+                  placeholder="오른쪽 문구 도우미로 만든 문구를 넣을 수 있습니다"
                   rows={8}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  className="field w-full"
                 />
               </div>
               {formType === 'notice' && (
-                <div className="mt-2 space-y-2 rounded-lg border border-gray-100 bg-gray-50 p-3">
-                  <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                <div className="space-y-3 border-t border-line pt-4">
+                  <label className="flex items-center gap-2 text-sm text-ink">
                     <input
                       type="checkbox"
                       checked={consentEnabled}
                       onChange={(e) => setConsentEnabled(e.target.checked)}
-                      className="h-4 w-4 text-blue-600"
+                      className="h-4 w-4"
                     />
                     가정통신문 하단에 동의서 작성 영역 추가
                   </label>
                   {consentEnabled && (
-                    <div className="space-y-2 pl-5">
+                    <div className="space-y-3 pl-6">
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-600">동의서 제목</label>
+                        <label className="mb-2 block text-xs font-medium text-ink">동의서 제목</label>
                         <input
                           type="text"
                           value={consentTitle}
                           onChange={(e) => setConsentTitle(e.target.value)}
                           placeholder="예: 개인정보 수집·이용 동의"
-                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-xs"
+                          className="field w-full"
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-600">동의서 본문</label>
+                        <label className="mb-2 block text-xs font-medium text-ink">동의서 본문</label>
                         <textarea
                           value={consentBody}
                           onChange={(e) => setConsentBody(e.target.value)}
                           rows={4}
-                          placeholder="동의서 내용을 입력하세요."
-                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-xs"
+                          placeholder="동의서 내용을 입력하세요"
+                          className="field w-full"
                         />
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-gray-600">동의 선택지 (체크박스)</span>
+                          <span className="text-xs font-medium text-ink">동의 선택지 (체크박스)</span>
                           <button
                             type="button"
                             onClick={() => setConsentOptions((prev) => [...prev, ''])}
-                            className="rounded border border-blue-500 px-2 py-0.5 text-[11px] font-medium text-blue-600 hover:bg-blue-50"
+                            className="btn btn-secondary btn-sm"
                           >
-                            + 선택지 추가
+                            <Plus className="h-4 w-4" /> 선택지 추가
                           </button>
                         </div>
                         {consentOptions.length === 0 && (
-                          <p className="text-[11px] text-gray-500">선택지를 추가하면 학생이 체크박스로 동의 여부를 선택할 수 있습니다.</p>
+                          <p className="text-xs text-muted">선택지를 추가하면 학생이 체크박스로 동의 여부를 고를 수 있습니다</p>
                         )}
-                        <ul className="space-y-1.5">
+                        <ul className="space-y-2">
                           {consentOptions.map((opt, idx) => (
                             <li key={idx} className="flex items-center gap-2">
                               <input
@@ -334,19 +329,17 @@ export function FormBuilderPage() {
                                   )
                                 }
                                 placeholder={`선택지 ${idx + 1}`}
-                                className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs"
+                                className="field field-sm flex-1"
                               />
                               <button
                                 type="button"
                                 onClick={() =>
                                   setConsentOptions((prev) => prev.filter((_, i) => i !== idx))
                                 }
-                                className="rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-red-600"
+                                className="grid h-7 w-7 place-items-center rounded-md text-muted transition-colors duration-150 hover:bg-raised hover:text-absent"
                                 aria-label="선택지 삭제"
                               >
-                                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
+                                <Trash2 className="h-4 w-4" />
                               </button>
                             </li>
                           ))}
@@ -360,13 +353,11 @@ export function FormBuilderPage() {
           </div>
 
           {(
-            <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="mb-2 text-sm font-medium text-gray-700">과제 배당 대상 선택</h2>
-              <p className="mb-3 text-xs text-gray-500">
-                학생관리에서 등록된 학생들 중 과제를 배당할 대상을 선택하세요. 가정통신문 문구 도우미 아래 영역입니다.
-              </p>
-              <div className="mb-3 flex items-center gap-3">
-                <label className="flex items-center gap-2 text-xs text-gray-700">
+            <section className="card p-5">
+              <h2 className="mb-1 text-base font-semibold text-ink-strong">과제 배당 대상 선택</h2>
+              <p className="mb-4 text-sm text-muted">학생 관리에 등록된 학생 중 과제를 배당할 대상을 고릅니다</p>
+              <div className="mb-4 flex flex-wrap items-center gap-4">
+                <label className="flex items-center gap-2 text-sm text-ink">
                   <input
                     type="checkbox"
                     checked={bulkAssign}
@@ -377,28 +368,28 @@ export function FormBuilderPage() {
                         setAssignedIds(students.map((s) => s.student_id))
                       }
                     }}
-                    className="h-4 w-4 text-blue-600"
+                    className="h-4 w-4"
                   />
                   전체 학생 일괄 배당
                 </label>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
                   <span>과제 수행 기간</span>
                   <input
                     type="date"
                     value={assignStart}
                     onChange={(e) => setAssignStart(e.target.value)}
-                    className="rounded border border-gray-300 px-2 py-1 text-xs"
+                    className="field field-sm"
                   />
                   <span>~</span>
                   <input
                     type="date"
                     value={assignEnd}
                     onChange={(e) => setAssignEnd(e.target.value)}
-                    className="rounded border border-gray-300 px-2 py-1 text-xs"
+                    className="field field-sm"
                   />
                   {assignStart && assignEnd && (
-                    <span className="ml-2 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
-                      기간 설정 완료
+                    <span className="ml-2 flex items-center gap-1 text-accent-ink">
+                      <Check className="h-4 w-4" /> 기간 설정됨
                     </span>
                   )}
                 </div>
@@ -407,16 +398,16 @@ export function FormBuilderPage() {
               <div className="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
                 <div>
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <h3 className="text-xs font-semibold text-gray-700">학생 목록</h3>
+                    <h3 className="text-xs font-medium text-ink">학생 목록</h3>
                     <input
                       type="text"
                       value={assignSearch}
                       onChange={(e) => setAssignSearch(e.target.value)}
                       placeholder="학번 또는 이름 검색"
-                      className="w-40 flex-shrink rounded-md border border-gray-300 px-2 py-1 text-[11px]"
+                      className="field field-sm w-40 flex-shrink"
                     />
                   </div>
-                  <div className="max-h-60 space-y-2 overflow-y-auto rounded-lg border border-gray-200 p-2">
+                  <div className="max-h-60 overflow-y-auto rounded-lg border border-line">
                     {students
                       .filter((s) => {
                         const q = assignSearch.trim()
@@ -436,14 +427,12 @@ export function FormBuilderPage() {
                                 : [...prev, s.student_id]
                             )
                           }}
-                          className={`w-full rounded-lg border px-2 py-1.5 text-left text-xs transition ${
-                            selected
-                              ? 'border-blue-500 bg-blue-50 text-blue-800'
-                              : 'border-gray-200 bg-white hover:bg-gray-50'
+                          className={`w-full border-b border-line px-3 py-2 text-left text-sm transition-colors duration-150 last:border-b-0 ${
+                            selected ? 'bg-[color-mix(in_srgb,var(--accent)_8%,white)]' : 'hover:bg-raised'
                           }`}
                         >
                           <div className="flex items-center gap-2">
-                            <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-gray-100">
+                            <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-raised">
                               {s.photo_data ? (
                                 <img
                                   src={
@@ -455,18 +444,18 @@ export function FormBuilderPage() {
                                   className="h-full w-full object-cover"
                                 />
                               ) : (
-                                <div className="flex h-full w-full items-center justify-center text-[11px] text-gray-400">
+                                <div className="flex h-full w-full items-center justify-center text-xs text-muted">
                                   {s.name.charAt(0) || '?'}
                                 </div>
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium">{s.name}</p>
-                              <p className="text-[11px] text-gray-500">{s.student_id}</p>
+                              <p className="truncate text-sm font-medium text-ink-strong">{s.name}</p>
+                              <p className="text-xs tabular-nums text-muted">{s.student_id}</p>
                             </div>
                             {selected && (
-                              <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold text-white">
-                                배당
+                              <span className="flex items-center gap-1 text-xs font-medium text-accent-ink">
+                                <Check className="h-4 w-4" /> 배당
                               </span>
                             )}
                           </div>
@@ -474,16 +463,16 @@ export function FormBuilderPage() {
                       )
                     })}
                     {students.length === 0 && (
-                      <p className="text-xs text-gray-400">등록된 학생이 없습니다. 먼저 학생관리에서 학생을 추가해 주세요.</p>
+                      <p className="px-3 py-2 text-sm text-muted">등록된 학생이 없습니다. 먼저 학생 관리에서 학생을 추가해 주세요</p>
                     )}
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="mb-2 text-xs font-semibold text-gray-700">배당된 학생</h3>
-                  <div className="flex max-h-60 flex-col gap-2 overflow-y-auto rounded-lg border border-gray-200 p-2">
+                  <h3 className="mb-2 text-xs font-medium text-ink">배당된 학생</h3>
+                  <div className="flex max-h-60 flex-col gap-2 overflow-y-auto">
                     {assignedIds.length === 0 && (
-                      <p className="text-xs text-gray-400">아직 배당된 학생이 없습니다.</p>
+                      <p className="py-2 text-sm text-muted">아직 배당된 학생이 없습니다</p>
                     )}
                     {assignedIds.map((sid) => {
                       const stu = students.find((s) => s.student_id === sid)
@@ -498,10 +487,10 @@ export function FormBuilderPage() {
                             onClick={() =>
                               setAssignedIds((prev) => prev.filter((id) => id !== sid))
                             }
-                            className="absolute right-1 top-1 hidden rounded-full bg-black/60 p-0.5 text-white group-hover:block"
+                            className="absolute right-2 top-1/2 z-10 hidden h-7 w-7 -translate-y-1/2 place-items-center rounded-md bg-surface text-muted hover:text-absent group-focus-within:grid group-hover:grid"
                             aria-label="배당 취소"
                           >
-                            ×
+                            <X className="h-4 w-4" />
                           </button>
                           <StudentAssignmentCard
                             studentId={stu.student_id}
@@ -518,20 +507,20 @@ export function FormBuilderPage() {
           )}
 
           {formType === 'survey' && (
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="card p-5">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-sm font-medium text-gray-700">설문 항목</h2>
+                <h2 className="text-base font-semibold text-ink-strong">설문 항목</h2>
                 <button
                   type="button"
                   onClick={addField}
-                  className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                  className="btn btn-secondary btn-sm"
                 >
-                  + 항목 추가
+                  <Plus className="h-4 w-4" /> 항목 추가
                 </button>
               </div>
               <div className="space-y-4">
                 {fields.map((field) => (
-                  <div key={field.id} className="flex flex-wrap items-start gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                  <div key={field.id} className="flex flex-wrap items-start gap-3 border-t border-line pt-4 first:border-t-0 first:pt-0">
                     <select
                       value={field.type}
                       onChange={(e) => {
@@ -542,7 +531,7 @@ export function FormBuilderPage() {
                         }
                         updateField(field.id, patch)
                       }}
-                      className="rounded border border-gray-300 px-2 py-1.5 text-sm"
+                      className="field"
                     >
                       {FIELD_TYPES.map((opt) => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -553,9 +542,9 @@ export function FormBuilderPage() {
                       value={field.label}
                       onChange={(e) => updateField(field.id, { label: e.target.value })}
                       placeholder="질문/항목 이름"
-                      className="flex-1 min-w-[120px] rounded border border-gray-300 px-2 py-1.5 text-sm"
+                      className="field min-w-[120px] flex-1"
                     />
-                    <label className="flex items-center gap-1 text-sm">
+                    <label className="flex h-9 items-center gap-2 text-sm text-ink">
                       <input
                         type="checkbox"
                         checked={field.required}
@@ -566,27 +555,27 @@ export function FormBuilderPage() {
                     {(field.type === 'radio' || field.type === 'checkbox') && (
                       <div className="w-full space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-gray-600">선택지</span>
-                          <div className="flex gap-1.5">
+                          <span className="text-xs font-medium text-ink">선택지</span>
+                          <div className="flex gap-2">
                             <button
                               type="button"
                               onClick={() => addOption(field.id)}
-                              className="rounded border border-blue-600 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
+                              className="btn btn-secondary btn-sm"
                             >
-                              + 선택지 추가
+                              <Plus className="h-4 w-4" /> 선택지 추가
                             </button>
                             {!(field.options || []).includes('기타') && (
                               <button
                                 type="button"
                                 onClick={() => addOption(field.id, '기타')}
-                                className="rounded border border-amber-500 px-2 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50"
+                                className="btn btn-secondary btn-sm"
                               >
-                                + 기타
+                                <Plus className="h-4 w-4" /> 기타
                               </button>
                             )}
                           </div>
                         </div>
-                        <ul className="space-y-1.5">
+                        <ul className="space-y-2">
                           {(field.options || []).map((opt, idx) => (
                             <li key={idx} className="flex items-center gap-2">
                               <input
@@ -594,31 +583,29 @@ export function FormBuilderPage() {
                                 value={opt}
                                 onChange={(e) => updateOption(field.id, idx, e.target.value)}
                                 placeholder={`선택지 ${idx + 1}`}
-                                className="flex-1 min-w-0 rounded border border-gray-300 px-2 py-1.5 text-sm"
+                                className="field min-w-0 flex-1"
                               />
                               <button
                                 type="button"
                                 onClick={() => removeOption(field.id, idx)}
-                                className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-red-600"
+                                className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-muted transition-colors duration-150 hover:bg-raised hover:text-absent"
                                 title="삭제"
                                 aria-label="선택지 삭제"
                               >
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
+                                <Trash2 className="h-4 w-4" />
                               </button>
                             </li>
                           ))}
                         </ul>
                         {(field.options?.length ?? 0) === 0 && (
-                          <p className="text-xs text-gray-500">선택지를 추가해 주세요.</p>
+                          <p className="text-xs text-muted">선택지를 추가해 주세요</p>
                         )}
                       </div>
                     )}
                     <button
                       type="button"
                       onClick={() => removeField(field.id)}
-                      className="text-red-600 hover:underline text-sm"
+                      className="btn btn-danger btn-sm"
                     >
                       삭제
                     </button>
@@ -629,55 +616,53 @@ export function FormBuilderPage() {
           )}
 
           {error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>
+            <p className="border-l-2 border-absent pl-3 text-sm text-absent">{error}</p>
           )}
           <button
             type="submit"
             disabled={saving}
-            className="w-full rounded-md bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="btn btn-primary w-full"
           >
-            {saving ? '저장 중...' : '문서 저장'}
+            {saving ? '저장 중…' : '문서 저장'}
           </button>
         </form>
 
         {/* 오른쪽: 가정통신문 챗봇 */}
         <aside className="hidden w-96 shrink-0 lg:block">
-          <div className="sticky top-6 rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 px-4 py-3">
-              <h3 className="font-medium text-gray-900">가정통신문 문구 도우미</h3>
-              <p className="mt-0.5 text-xs text-gray-500">
-                요청을 입력하면 문구 초안을 만들어 드립니다. 생성 후 복사해 왼쪽 설명란에 붙여넣기 하세요.
-              </p>
+          <div className="card sticky top-6">
+            <div className="border-b border-line px-5 py-4">
+              <h3 className="text-base font-semibold text-ink-strong">가정통신문 문구 도우미</h3>
+              <p className="mt-1 text-xs text-muted">요청을 쓰면 문구 초안을 만들고, 버튼 하나로 본문에 넣습니다</p>
             </div>
-            <div className="p-4 space-y-3">
+            <div className="space-y-3 p-5">
               <textarea
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 placeholder="예: 현장체험학습 동의서 만들어줘"
                 rows={3}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                className="field w-full"
                 disabled={chatLoading}
               />
               <button
                 type="button"
                 onClick={handleChat}
                 disabled={chatLoading}
-                className="w-full rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+                className="btn btn-secondary w-full"
               >
-                {chatLoading ? '생성 중...' : '문구 생성'}
+                {chatLoading ? '생성 중…' : '문구 생성'}
               </button>
               {chatReply && (
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <div className="border-t border-line pt-3">
                   <div className="mb-2 flex justify-end">
                     <button
                       type="button"
                       onClick={copyReply}
-                      className="text-xs font-medium text-blue-600 hover:underline"
+                      className="btn btn-ghost btn-sm text-accent-ink"
                     >
-                      복사 후 설명란에 넣기
+                      복사하고 본문에 넣기
                     </button>
                   </div>
-                  <pre className="whitespace-pre-wrap text-xs text-gray-800 max-h-64 overflow-y-auto font-sans">
+                  <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap font-sans text-sm text-ink">
                     {chatReply}
                   </pre>
                 </div>

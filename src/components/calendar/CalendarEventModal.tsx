@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Hand, MessagesSquare, School, Users } from 'lucide-react'
+import { Check, Hand, MessagesSquare, School, Users, X } from 'lucide-react'
 import type { CalendarEvent, CalendarEventType, CounselingTimetable, Student } from '@/types'
 import {
   saveCalendarEvent,
@@ -208,12 +208,12 @@ export function CalendarEventModal({
       onClick={onClose}
     >
       <div
-        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl"
+        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-xl border border-line bg-surface p-5 shadow-[0_8px_24px_rgba(15,23,42,0.08)] sm:rounded-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">
+            <h2 className="text-base font-semibold text-ink-strong">
               {isRequest
                 ? existing
                   ? '상담 신청 수정'
@@ -222,15 +222,15 @@ export function CalendarEventModal({
                   ? '일정 수정'
                   : '일정 추가'}
             </h2>
-            <p className="text-xs text-gray-500">{formatDateLabel(dateKey)}</p>
+            <p className="text-xs tabular-nums text-muted">{formatDateLabel(dateKey)}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100"
+            className="btn btn-ghost btn-icon"
             aria-label="닫기"
           >
-            ✕
+            <X className="h-4 w-4" />
           </button>
         </div>
 
@@ -242,15 +242,14 @@ export function CalendarEventModal({
               key={t}
               type="button"
               onClick={() => setType(t)}
-              className={`rounded-xl border-2 px-3 py-2.5 text-sm font-semibold transition-colors ${
+              aria-pressed={type === t}
+              className={`btn h-10 ${
                 type === t
-                  ? t === 'class'
-                    ? 'border-sky-500 bg-sky-50 text-sky-700'
-                    : 'border-rose-500 bg-rose-50 text-rose-700'
-                  : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                  ? 'border-accent bg-[color-mix(in_srgb,var(--accent)_8%,white)] text-accent-ink'
+                  : 'border-line text-ink hover:bg-raised'
               }`}
             >
-              <span className="inline-flex items-center justify-center gap-1.5">
+              <span className="inline-flex items-center justify-center gap-2">
                 {t === 'class' ? <School className="h-4 w-4" /> : <MessagesSquare className="h-4 w-4" />}
                 {t === 'class' ? '수업시간' : '상담'}
               </span>
@@ -260,7 +259,7 @@ export function CalendarEventModal({
         )}
 
         {isRequest && (
-          <div className="mb-4 flex items-center gap-2 rounded-xl border-2 border-rose-100 bg-rose-50/70 px-3 py-2.5 text-xs leading-relaxed text-rose-700">
+          <div className="mb-4 flex items-center gap-2 border-l-2 border-line py-1 pl-3 text-sm text-ink">
             {isParent ? (
               <>
                 <StudentAvatar
@@ -274,16 +273,16 @@ export function CalendarEventModal({
                   size="md"
                 />
                 <span>
-                  <Users className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
-                  <b>{requester?.name || requester?.student_id}</b>({requester?.student_id}) 학생의{' '}
-                  <b>학부모</b> 상담 신청이에요. 선생님께는 <b>학부모 신청</b>으로 표시됩니다.
+                  <Users className="mr-1 inline h-4 w-4 align-middle text-muted" />
+                  <span className="font-medium text-ink-strong">{requester?.name || requester?.student_id}</span>(
+                  {requester?.student_id}) 학생의 학부모 상담 신청입니다. 선생님께는 학부모 신청으로 표시됩니다.
                 </span>
               </>
             ) : (
               <span>
-                <Hand className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
-                <b>{requester?.name || requester?.student_id}</b> 님의 상담 신청이에요. 상담 대상은
-                본인으로 자동 지정됩니다.
+                <Hand className="mr-1 inline h-4 w-4 align-middle text-muted" />
+                <span className="font-medium text-ink-strong">{requester?.name || requester?.student_id}</span> 님의 상담
+                신청입니다. 상담 대상은 본인으로 자동 지정됩니다.
               </span>
             )}
           </div>
@@ -293,17 +292,17 @@ export function CalendarEventModal({
           {/* 교시 빠른 선택 */}
           {periods.length > 0 && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-700">교시 빠른 선택</label>
-              <div className="flex flex-wrap gap-1.5">
+              <label className="mb-2 block text-xs font-medium text-ink">교시 빠른 선택</label>
+              <div className="flex flex-wrap gap-2">
                 {periods.map((p) => (
                   <button
                     key={p.id}
                     type="button"
                     onClick={() => applyPeriod(p.id)}
-                    className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                    className={`btn btn-sm ${
                       startTime === p.start_time && endTime === p.end_time
-                        ? 'border-sky-400 bg-sky-50 text-sky-700'
-                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                        ? 'border-accent bg-[color-mix(in_srgb,var(--accent)_8%,white)] text-accent-ink'
+                        : 'btn-secondary'
                     }`}
                     title={`${p.start_time}~${p.end_time}`}
                   >
@@ -311,8 +310,8 @@ export function CalendarEventModal({
                   </button>
                 ))}
               </div>
-              <p className="mt-1 text-[11px] text-gray-400">
-                교시를 누르면 시간이 채워져요. 여러 시간에 걸친 상담은 종료 시간을 직접 늘려 주세요.
+              <p className="mt-2 text-xs text-muted">
+                교시를 누르면 시간이 채워집니다. 여러 교시에 걸친 상담은 종료 시간을 직접 늘려 주세요
               </p>
             </div>
           )}
@@ -320,28 +319,28 @@ export function CalendarEventModal({
           {/* 시간 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-700">시작 시간</label>
+              <label className="mb-2 block text-xs font-medium text-ink">시작 시간</label>
               <input
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                className="field w-full"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-700">종료 시간</label>
+              <label className="mb-2 block text-xs font-medium text-ink">종료 시간</label>
               <input
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                className="field w-full"
               />
             </div>
           </div>
 
           {/* 제목 */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-700">
+            <label className="mb-2 block text-xs font-medium text-ink">
               {type === 'class' ? '수업/과목명' : '상담 제목 (선택)'}
             </label>
             <input
@@ -349,19 +348,19 @@ export function CalendarEventModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={type === 'class' ? '예: 국어, 자습, 종례' : '예: 진로 상담'}
-              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+              className="field w-full"
             />
           </div>
 
           {/* 장소 */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-700">장소</label>
+            <label className="mb-2 block text-xs font-medium text-ink">장소</label>
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="예: 3학년 2반 교실, 상담실"
-              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+              className="field w-full"
             />
           </div>
 
@@ -370,27 +369,27 @@ export function CalendarEventModal({
             <>
               {!isRequest && (
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">
+                <label className="mb-2 block text-xs font-medium text-ink">
                   대상 학생 {selectedIds.length > 0 && `(${selectedIds.length}명)`}
                 </label>
                 {selectedIds.length > 0 && (
-                  <div className="mb-2 flex flex-wrap gap-1.5">
+                  <div className="mb-2 flex flex-wrap gap-2">
                     {selectedIds.map((id) => {
                       const s = studentsById[id]
                       return (
                         <span
                           key={id}
-                          className="inline-flex items-center gap-1 rounded-full bg-rose-50 py-0.5 pl-0.5 pr-2 text-xs text-rose-700"
+                          className="inline-flex h-7 items-center gap-1 rounded-md border border-line pl-1 pr-1 text-xs text-ink"
                         >
                           <StudentAvatar student={s} fallbackId={id} size="sm" />
                           {s?.name || id}
                           <button
                             type="button"
                             onClick={() => toggleStudent(id)}
-                            className="text-rose-400 hover:text-rose-600"
+                            className="grid h-5 w-5 place-items-center rounded text-muted hover:text-absent"
                             aria-label="제거"
                           >
-                            ✕
+                            <X className="h-4 w-4" />
                           </button>
                         </span>
                       )
@@ -402,11 +401,11 @@ export function CalendarEventModal({
                   value={studentQuery}
                   onChange={(e) => setStudentQuery(e.target.value)}
                   placeholder="학번 또는 이름 검색"
-                  className="mb-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                  className="field mb-2 w-full"
                 />
-                <div className="max-h-48 overflow-y-auto rounded-xl border border-gray-100">
+                <div className="max-h-48 overflow-y-auto rounded-lg border border-line">
                   {filteredStudents.length === 0 ? (
-                    <p className="px-3 py-4 text-center text-xs text-gray-400">학생이 없습니다.</p>
+                    <p className="px-3 py-4 text-center text-xs text-muted">학생이 없습니다</p>
                   ) : (
                     filteredStudents.map((s) => {
                       const selected = selectedIds.includes(s.student_id)
@@ -415,16 +414,16 @@ export function CalendarEventModal({
                           key={s.student_id}
                           type="button"
                           onClick={() => toggleStudent(s.student_id)}
-                          className={`flex w-full items-center gap-2 border-b border-gray-50 px-3 py-2 text-left last:border-b-0 ${
-                            selected ? 'bg-rose-50' : 'hover:bg-gray-50'
+                          className={`flex w-full items-center gap-2 border-b border-line px-3 py-2 text-left transition-colors duration-150 last:border-b-0 ${
+                            selected ? 'bg-[color-mix(in_srgb,var(--accent)_8%,white)]' : 'hover:bg-raised'
                           }`}
                         >
                           <StudentAvatar student={s} fallbackId={s.student_id} size="md" />
-                          <span className="w-12 shrink-0 text-xs font-semibold text-gray-500">
+                          <span className="w-12 shrink-0 text-xs font-medium tabular-nums text-muted">
                             {s.student_id}
                           </span>
-                          <span className="flex-1 text-sm text-gray-800">{s.name}</span>
-                          {selected && <span className="text-rose-500">✓</span>}
+                          <span className="flex-1 text-sm text-ink-strong">{s.name}</span>
+                          {selected && <Check className="h-4 w-4 text-accent-ink" aria-label="선택됨" />}
                         </button>
                       )
                     })
@@ -434,37 +433,37 @@ export function CalendarEventModal({
               )}
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">상담 내용</label>
+                <label className="mb-2 block text-xs font-medium text-ink">상담 내용</label>
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   rows={3}
-                  placeholder="상담 목적이나 메모를 간단히 적어 주세요."
-                  className="w-full resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                  placeholder="상담 목적이나 메모를 간단히 적어 주세요"
+                  className="field w-full resize-none"
                 />
               </div>
             </>
           )}
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-absent">{error}</p>}
         </div>
 
         {/* 하단 버튼 */}
-        <div className="mt-5 flex items-center gap-2">
+        <div className="mt-6 flex items-center gap-2">
           {existing && (
             <button
               type="button"
               onClick={handleDelete}
               disabled={deleting || saving}
-              className="rounded-xl border border-red-200 px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+              className="btn btn-danger"
             >
-              {deleting ? (isRequest ? '취소 중...' : '삭제 중...') : isRequest ? '신청 취소' : '삭제'}
+              {deleting ? (isRequest ? '취소 중…' : '삭제 중…') : isRequest ? '신청 취소' : '삭제'}
             </button>
           )}
           <button
             type="button"
             onClick={onClose}
-            className="ml-auto rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            className="btn btn-secondary ml-auto"
           >
             취소
           </button>
@@ -472,12 +471,12 @@ export function CalendarEventModal({
             type="button"
             onClick={handleSave}
             disabled={saving || deleting}
-            className="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-sky-700 disabled:opacity-50"
+            className="btn btn-primary"
           >
             {saving
               ? isRequest
-                ? '보내는 중...'
-                : '저장 중...'
+                ? '보내는 중…'
+                : '저장 중…'
               : isRequest
                 ? existing
                   ? '수정하기'
@@ -508,7 +507,7 @@ function StudentAvatar({
   }
   return (
     <span
-      className={`${cls} flex items-center justify-center rounded-full bg-gray-300 text-[10px] font-semibold text-white`}
+      className={`${cls} flex items-center justify-center rounded-full bg-raised text-xs font-medium text-muted`}
     >
       {(student?.name || fallbackId).slice(0, 1)}
     </span>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, ChevronUp, MapPin, Users } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, MapPin, Plus, Users } from 'lucide-react'
 import type { CalendarEvent, CounselingTimetable, TimetablePeriod } from '@/types'
 import {
   WEEKDAY_LABELS,
@@ -38,10 +38,18 @@ interface CalendarBoardProps {
   onEventClick?: (event: CalendarEvent) => void
 }
 
+/** 일정 구분: 칩은 모두 흰 면 + 1px 선이고, 구분은 작은 점 색으로만 한다(수업 회색, 상담 진회색) */
 const TYPE_STYLES: Record<CalendarEvent['type'], { chip: string; dot: string; label: string }> = {
-  class: { chip: 'bg-sky-100 text-sky-800 border-sky-200', dot: 'bg-sky-500', label: '수업' },
-  counseling: { chip: 'bg-rose-100 text-rose-800 border-rose-200', dot: 'bg-rose-500', label: '상담' },
+  class: { chip: 'border-line bg-surface text-ink', dot: 'bg-muted', label: '수업' },
+  counseling: { chip: 'border-line bg-surface text-ink-strong', dot: 'bg-ink', label: '상담' },
 }
+
+function TypeDot({ type }: { type: CalendarEvent['type'] }) {
+  return <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${TYPE_STYLES[type].dot}`} aria-hidden />
+}
+
+const weekdayColor = (day: number, fallback: string) =>
+  day === 0 ? 'text-[color:var(--sun)]' : day === 6 ? 'text-[color:var(--sat)]' : fallback
 
 function sortEvents(a: CalendarEvent, b: CalendarEvent): number {
   if (a.date !== b.date) return a.date < b.date ? -1 : 1
@@ -104,32 +112,18 @@ export function CalendarBoard({
   }, [range, cursor])
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+    <div className="card p-4 sm:p-5">
       {/* 컨트롤 바 */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={goPrev}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
-            aria-label="이전"
-          >
-            ‹
+          <button type="button" onClick={goPrev} className="btn btn-ghost btn-icon" aria-label="이전">
+            <ChevronLeft className="h-4 w-4" />
           </button>
-          <span className="min-w-[8rem] text-center text-sm font-bold text-gray-900">{rangeLabel}</span>
-          <button
-            type="button"
-            onClick={goNext}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
-            aria-label="다음"
-          >
-            ›
+          <span className="min-w-[8rem] text-center text-base font-semibold tabular-nums text-ink-strong">{rangeLabel}</span>
+          <button type="button" onClick={goNext} className="btn btn-ghost btn-icon" aria-label="다음">
+            <ChevronRight className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            onClick={goToday}
-            className="ml-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
-          >
+          <button type="button" onClick={goToday} className="btn btn-secondary btn-sm ml-2">
             오늘
           </button>
         </div>
@@ -196,16 +190,16 @@ export function CalendarBoard({
       )}
 
       {/* 범례 */}
-      <div className="mt-3 flex items-center gap-4 px-1 text-[11px] text-gray-500">
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-sky-500" /> 수업시간
+      <div className="mt-4 flex items-center gap-4 px-1 text-xs text-muted">
+        <span className="flex items-center gap-2">
+          <TypeDot type="class" /> 수업시간
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> 상담
+        <span className="flex items-center gap-2">
+          <TypeDot type="counseling" /> 상담
         </span>
         {addable && (
           <span className="ml-auto">
-            {editable ? '날짜를 누르면 일정을 추가할 수 있어요' : '날짜를 누르면 상담을 신청할 수 있어요'}
+            {editable ? '날짜를 누르면 일정을 추가합니다' : '날짜를 누르면 상담을 신청합니다'}
           </span>
         )}
       </div>
@@ -223,14 +217,15 @@ function Segmented({
   options: Array<{ value: string; label: string }>
 }) {
   return (
-    <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+    <div className="inline-flex rounded-lg border border-line bg-surface p-0.5">
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           onClick={() => onChange(o.value)}
-          className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-            value === o.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          aria-pressed={value === o.value}
+          className={`h-7 rounded-md px-3 text-xs font-medium transition-colors duration-150 ${
+            value === o.value ? 'bg-raised text-ink-strong' : 'text-muted hover:text-ink-strong'
           }`}
         >
           {o.label}
@@ -264,15 +259,10 @@ function MonthView({
     setExpandedDays((cur) => ({ ...cur, [key]: !cur[key] }))
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-100">
-      <div className="grid grid-cols-7 border-b border-gray-100 bg-gray-50">
+    <div className="overflow-hidden rounded-lg border border-line">
+      <div className="grid grid-cols-7 border-b border-line bg-raised">
         {WEEKDAY_LABELS.map((w, i) => (
-          <div
-            key={w}
-            className={`py-1.5 text-center text-[11px] font-semibold ${
-              i === 0 ? 'text-rose-500' : i === 6 ? 'text-sky-500' : 'text-gray-500'
-            }`}
-          >
+          <div key={w} className={`py-2 text-center text-xs font-medium ${weekdayColor(i, 'text-muted')}`}>
             {w}
           </div>
         ))}
@@ -286,23 +276,19 @@ function MonthView({
           return (
             <div
               key={key}
-              className={`min-h-[84px] border-b border-r border-gray-100 p-1 align-top last:border-r-0 ${
-                inMonth ? 'bg-white' : 'bg-gray-50/60'
+              className={`min-h-[88px] border-b border-r border-line p-1 align-top last:border-r-0 ${
+                inMonth ? 'bg-surface' : 'bg-paper'
               }`}
             >
-              {/* 상단: 날짜(좌측 코너) + 추가 아이콘 */}
-              <div className="mb-0.5 flex items-center gap-1">
+              {/* 상단: 날짜(좌측 코너) + 추가 버튼 */}
+              <div className="mb-1 flex items-center gap-1">
                 <span
-                  className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-semibold ${
+                  className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-xs font-medium tabular-nums ${
                     isToday
-                      ? 'bg-sky-600 text-white'
-                      : day.getDay() === 0
-                        ? 'text-rose-500'
-                        : day.getDay() === 6
-                          ? 'text-sky-500'
-                          : inMonth
-                            ? 'text-gray-700'
-                            : 'text-gray-400'
+                      ? 'bg-accent-ink text-white'
+                      : inMonth
+                        ? weekdayColor(day.getDay(), 'text-ink-strong')
+                        : 'text-faint'
                   }`}
                 >
                   {day.getDate()}
@@ -311,43 +297,44 @@ function MonthView({
                   <button
                     type="button"
                     onClick={() => onDateClick?.(key)}
-                    className="flex h-4 w-4 items-center justify-center rounded-full text-gray-300 transition-colors hover:bg-sky-100 hover:text-sky-600"
+                    className="grid h-6 w-6 place-items-center rounded-md text-faint transition-colors duration-150 hover:bg-raised hover:text-accent-ink"
                     title="일정 추가"
                     aria-label={`${key} 일정 추가`}
                   >
-                    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" d="M12 5v14M5 12h14" />
-                    </svg>
+                    <Plus className="h-4 w-4" />
                   </button>
                 )}
               </div>
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 {(expandedDays[key] ? dayEvents : dayEvents.slice(0, 3)).map((ev) => (
                   <button
                     key={ev.event_id}
                     type="button"
                     disabled={!editable}
                     onClick={() => editable && onEventClick?.(ev)}
-                    className={`block w-full truncate rounded border px-1 py-0.5 text-left text-[10px] leading-tight ${TYPE_STYLES[ev.type].chip} ${
-                      editable ? 'cursor-pointer hover:brightness-95' : 'cursor-default'
+                    className={`flex h-5 w-full items-center gap-1 overflow-hidden rounded border px-1 text-left text-xs ${TYPE_STYLES[ev.type].chip} ${
+                      editable ? 'cursor-pointer transition-colors duration-150 hover:bg-raised' : 'cursor-default'
                     }`}
                     title={`${ev.start_time} ${ev.title}`}
                   >
-                    {ev.start_time && <span className="font-semibold">{ev.start_time.slice(0, 5)} </span>}
-                    {ev.requester_role === 'parent' && <span title="학부모 신청"><Users className="mr-0.5 inline h-2.5 w-2.5 align-[-1px]" /></span>}
-                    {ev.title || TYPE_STYLES[ev.type].label}
+                    <TypeDot type={ev.type} />
+                    {ev.start_time && <span className="shrink-0 font-medium tabular-nums">{ev.start_time.slice(0, 5)}</span>}
+                    {ev.requester_role === 'parent' && (
+                      <span title="학부모 신청" className="shrink-0 text-muted">
+                        <Users className="h-3 w-3" />
+                      </span>
+                    )}
+                    <span className="min-w-0 truncate">{ev.title || TYPE_STYLES[ev.type].label}</span>
                   </button>
                 ))}
                 {dayEvents.length > 3 && (
                   <button
                     type="button"
                     onClick={() => toggleDay(key)}
-                    className="block w-full rounded px-1 text-left text-[10px] font-medium text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                    className="flex h-5 w-full items-center gap-1 rounded px-1 text-left text-xs font-medium text-muted hover:bg-raised hover:text-ink-strong"
                   >
-                    <span className="inline-flex items-center gap-0.5">
-                      {expandedDays[key] ? '접기' : `+${dayEvents.length - 3}건`}
-                      {expandedDays[key] ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                    </span>
+                    {expandedDays[key] ? '접기' : `+${dayEvents.length - 3}건`}
+                    {expandedDays[key] ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                   </button>
                 )}
               </div>
@@ -385,29 +372,21 @@ function WeekView({
         const dayEvents = eventsByDate[key] || []
         const isToday = isSameDay(day, today)
         return (
-          <div key={key} className="rounded-xl border border-gray-100">
-            <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-3 py-1.5">
-              <span
-                className={`text-xs font-semibold ${
-                  day.getDay() === 0 ? 'text-rose-500' : day.getDay() === 6 ? 'text-sky-500' : 'text-gray-700'
-                }`}
-              >
+          <div key={key} className="overflow-hidden rounded-lg border border-line">
+            <div className="flex h-9 items-center justify-between border-b border-line bg-raised px-3">
+              <span className={`text-xs font-medium tabular-nums ${weekdayColor(day.getDay(), 'text-ink-strong')}`}>
                 {day.getMonth() + 1}/{day.getDate()} ({WEEKDAY_LABELS[day.getDay()]})
-                {isToday && <span className="ml-1 rounded bg-sky-600 px-1 text-[10px] text-white">오늘</span>}
+                {isToday && <span className="ml-2 text-accent-ink">오늘</span>}
               </span>
               {addable && (
-                <button
-                  type="button"
-                  onClick={() => onDateClick?.(key)}
-                  className="rounded-md px-2 py-0.5 text-xs font-medium text-sky-600 hover:bg-sky-50"
-                >
-                  + 추가
+                <button type="button" onClick={() => onDateClick?.(key)} className="btn btn-ghost btn-sm">
+                  <Plus className="h-4 w-4" /> 추가
                 </button>
               )}
             </div>
-            <div className="divide-y divide-gray-50">
+            <div className="divide-y divide-line">
               {dayEvents.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-gray-300">일정 없음</p>
+                <p className="px-3 py-2 text-xs text-faint">일정 없음</p>
               ) : (
                 dayEvents.map((ev) => (
                   <EventRow
@@ -469,38 +448,34 @@ function DayView({
 
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between px-1">
-        <span className="text-sm font-semibold text-gray-700">{formatDateLabel(key)}</span>
+      <div className="mb-3 flex items-center justify-between px-1">
+        <span className="text-sm font-semibold tabular-nums text-ink-strong">{formatDateLabel(key)}</span>
         {addable && (
-          <button
-            type="button"
-            onClick={() => onDateClick?.(key)}
-            className="rounded-lg bg-sky-600 px-3 py-1 text-xs font-semibold text-white hover:bg-sky-700"
-          >
-            + 일정 추가
+          <button type="button" onClick={() => onDateClick?.(key)} className="btn btn-secondary btn-sm">
+            <Plus className="h-4 w-4" /> 일정 추가
           </button>
         )}
       </div>
 
       {periods.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-gray-200 py-6 text-center text-xs text-gray-400">
-          교시 타임테이블을 먼저 저장하면 교시별로 일정을 볼 수 있어요.
+        <p className="rounded-lg border border-dashed border-line py-6 text-center text-xs text-muted">
+          교시 타임테이블을 먼저 저장하면 교시별로 일정을 볼 수 있습니다
         </p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-gray-100">
+        <div className="overflow-hidden rounded-lg border border-line">
           {periods.map((p) => {
             const inPeriod = dayEvents.filter((ev) => eventOverlapsPeriod(ev, p))
             return (
-              <div key={p.id} className="flex border-b border-gray-100 last:border-b-0">
-                <div className="w-24 shrink-0 border-r border-gray-100 bg-gray-50 px-2 py-2">
-                  <p className="text-xs font-semibold text-gray-700">{p.label}</p>
-                  <p className="text-[10px] text-gray-400">
+              <div key={p.id} className="flex border-b border-line last:border-b-0">
+                <div className="w-24 shrink-0 border-r border-line bg-raised px-3 py-2">
+                  <p className="text-xs font-medium text-ink">{p.label}</p>
+                  <p className="text-xs tabular-nums text-muted">
                     {p.start_time}~{p.end_time}
                   </p>
                 </div>
-                <div className="min-w-0 flex-1 divide-y divide-gray-50">
+                <div className="min-w-0 flex-1 divide-y divide-line">
                   {inPeriod.length === 0 ? (
-                    <p className="px-3 py-2 text-xs text-gray-300">-</p>
+                    <p className="px-3 py-2 text-xs text-faint">-</p>
                   ) : (
                     inPeriod.map((ev) => (
                       <EventRow
@@ -520,9 +495,9 @@ function DayView({
       )}
 
       {otherEvents.length > 0 && (
-        <div className="mt-3">
-          <p className="mb-1 px-1 text-xs font-semibold text-gray-400">교시 외 일정</p>
-          <div className="divide-y divide-gray-50 rounded-xl border border-gray-100">
+        <div className="mt-4">
+          <p className="mb-2 px-1 text-xs font-medium text-muted">교시 외 일정</p>
+          <div className="divide-y divide-line rounded-lg border border-line">
             {otherEvents.map((ev) => (
               <EventRow
                 key={ev.event_id}
@@ -554,52 +529,46 @@ function TableView({
 }) {
   const rows = dates.flatMap((key) => eventsByDate[key] || [])
   if (rows.length === 0) {
-    return <p className="py-10 text-center text-sm text-gray-400">이 기간에 등록된 일정이 없습니다.</p>
+    return <p className="py-10 text-center text-sm text-muted">이 기간에 등록된 일정이 없습니다</p>
   }
   return (
-    <div className="overflow-x-auto rounded-xl border border-gray-100">
+    <div className="overflow-x-auto rounded-lg border border-line">
       <table className="w-full text-left text-xs">
-        <thead className="bg-gray-50 text-gray-500">
+        <thead className="bg-raised text-muted">
           <tr>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">날짜</th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">시간</th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">구분</th>
-            <th className="px-3 py-2 font-semibold">내용</th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">장소</th>
-            <th className="px-3 py-2 font-semibold">대상</th>
+            <th className="h-9 whitespace-nowrap px-3 font-medium">날짜</th>
+            <th className="h-9 whitespace-nowrap px-3 font-medium">시간</th>
+            <th className="h-9 whitespace-nowrap px-3 font-medium">구분</th>
+            <th className="h-9 px-3 font-medium">내용</th>
+            <th className="h-9 whitespace-nowrap px-3 font-medium">장소</th>
+            <th className="h-9 px-3 font-medium">대상</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-50">
+        <tbody className="divide-y divide-line">
           {rows.map((ev) => (
             <tr
               key={ev.event_id}
-              className={editable ? 'cursor-pointer hover:bg-sky-50/50' : ''}
+              className={editable ? 'cursor-pointer transition-colors duration-150 hover:bg-raised' : ''}
               onClick={() => editable && onEventClick?.(ev)}
             >
-              <td className="whitespace-nowrap px-3 py-2 text-gray-700">{formatDateLabel(ev.date)}</td>
-              <td className="whitespace-nowrap px-3 py-2 text-gray-700">
+              <td className="whitespace-nowrap px-3 py-2 tabular-nums text-ink">{formatDateLabel(ev.date)}</td>
+              <td className="whitespace-nowrap px-3 py-2 tabular-nums text-ink">
                 {formatTimeRange(ev.start_time, ev.end_time)}
               </td>
               <td className="whitespace-nowrap px-3 py-2">
-                <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${TYPE_STYLES[ev.type].chip}`}>
+                <span className="inline-flex items-center gap-2 text-ink">
+                  <TypeDot type={ev.type} />
                   {TYPE_STYLES[ev.type].label}
                 </span>
               </td>
-              <td className="px-3 py-2 text-gray-700">
-                <span className="font-medium">{ev.title || TYPE_STYLES[ev.type].label}</span>
-                {ev.content && <span className="block text-[11px] text-gray-400">{ev.content}</span>}
+              <td className="px-3 py-2 text-ink">
+                <span className="font-medium text-ink-strong">{ev.title || TYPE_STYLES[ev.type].label}</span>
+                {ev.content && <span className="block text-xs text-muted">{ev.content}</span>}
               </td>
-              <td className="whitespace-nowrap px-3 py-2 text-gray-500">{ev.location || '-'}</td>
-              <td className="px-3 py-2 text-gray-500">
+              <td className="whitespace-nowrap px-3 py-2 text-muted">{ev.location || '-'}</td>
+              <td className="px-3 py-2 text-muted">
                 {ev.type === 'class' ? (
-                  <span className="inline-flex items-center gap-1">
-                    <img
-                      src="/game/teacher-love.png"
-                      alt="담임샘"
-                      className="h-4 w-4 rounded-full object-cover"
-                    />
-                    담임샘
-                  </span>
+                  <span className="text-ink">담임</span>
                 ) : ev.student_ids.length > 0 ? (
                   <div className="flex flex-wrap items-center gap-1">
                     {ev.student_ids.map((id) => (
@@ -644,24 +613,16 @@ function StudentChip({
 }) {
   const src = photoSrc(info?.photo_data)
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full py-0.5 pl-0.5 pr-2 text-[10px] ${
-        byParent ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-600'
-      }`}
-    >
+    <span className="inline-flex h-6 items-center gap-1 rounded-md border border-line pl-0.5 pr-2 text-xs text-ink">
       {src ? (
-        <img src={src} alt="" className="h-4 w-4 rounded-full object-cover" />
+        <img src={src} alt="" className="h-5 w-5 rounded-full object-cover" />
       ) : (
-        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-gray-300 text-[8px] text-white">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-raised text-xs text-muted">
           {(info?.name || id).slice(0, 1)}
         </span>
       )}
       {info?.name || id}
-      {byParent && (
-        <span className="rounded-full bg-violet-600 px-1.5 py-px text-[9px] font-semibold text-white">
-          학부모
-        </span>
-      )}
+      {byParent && <span className="text-muted">· 학부모</span>}
     </span>
   )
 }
@@ -681,30 +642,24 @@ function EventRow({
     <div
       role={editable ? 'button' : undefined}
       onClick={() => editable && onEventClick?.(ev)}
-      className={`flex items-start gap-2 px-3 py-2 ${editable ? 'cursor-pointer hover:bg-sky-50/50' : ''}`}
+      className={`flex items-start gap-2 px-3 py-2 ${editable ? 'cursor-pointer transition-colors duration-150 hover:bg-raised' : ''}`}
     >
-      <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${TYPE_STYLES[ev.type].dot}`} />
+      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TYPE_STYLES[ev.type].dot}`} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-800">
+          <span className="text-xs font-medium tabular-nums text-ink-strong">
             {formatTimeRange(ev.start_time, ev.end_time)}
           </span>
-          <span className="truncate text-xs text-gray-700">{ev.title || TYPE_STYLES[ev.type].label}</span>
+          <span className="truncate text-sm text-ink">{ev.title || TYPE_STYLES[ev.type].label}</span>
         </div>
-        {ev.location && <p className="flex items-center gap-0.5 text-[11px] text-gray-400"><MapPin className="h-3 w-3 shrink-0" />{ev.location}</p>}
-        {ev.content && <p className="text-[11px] text-gray-500">{ev.content}</p>}
-        {ev.type === 'class' && (
-          <div className="mt-1">
-            <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 py-0.5 pl-0.5 pr-2 text-[10px] text-sky-700">
-              <img
-                src="/game/teacher-love.png"
-                alt="담임샘"
-                className="h-4 w-4 rounded-full object-cover"
-              />
-              담임샘
-            </span>
-          </div>
+        {ev.location && (
+          <p className="flex items-center gap-1 text-xs text-muted">
+            <MapPin className="h-4 w-4 shrink-0" />
+            {ev.location}
+          </p>
         )}
+        {ev.content && <p className="text-xs text-muted">{ev.content}</p>}
+        {ev.type === 'class' && <p className="mt-1 text-xs text-muted">담임</p>}
         {ev.type === 'counseling' && ev.student_ids.length > 0 && (
           <div className="mt-1 flex flex-wrap items-center gap-1">
             {ev.student_ids.map((id) => (
