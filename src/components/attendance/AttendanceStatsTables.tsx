@@ -9,7 +9,7 @@ import {
   type AttendanceStat,
   type RankKey,
 } from '@/lib/attendance'
-import { ChevronUp, Lock } from 'lucide-react'
+import { ChevronUp, Gift, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /** 개인별 통계: 횟수·점수와 세 가지 순위 */
@@ -85,13 +85,11 @@ function SlashTally({ late, early }: { late: number; early: number }) {
   )
 }
 
-/** 순위권 표시: 순위 숫자 옆 행동 색 짧은 사선 한 획 */
+/** 순위권 표시: 상품 수령 대상임을 알리는 선물 아이콘 (들샘 지정 유지 요소) */
 function RewardSlash() {
   return (
-    <span title="문화상품권 대상 순위권" className="ml-1 inline-flex align-middle">
-      <svg viewBox="0 0 12 12" className="h-3 w-3" role="img" aria-label="문화상품권 대상 순위권">
-        <line x1="2" y1="11" x2="10" y2="1" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
-      </svg>
+    <span title="문화상품권 대상 순위권" className="ml-1 inline-flex align-middle text-accent-ink">
+      <Gift className="h-4 w-4" strokeWidth={1.75} role="img" aria-label="문화상품권 대상 순위권" />
     </span>
   )
 }
@@ -228,7 +226,7 @@ export function ClassStatsTable({
         </tbody>
       </table>
       <p className="mt-2 text-xs text-muted">
-        머리글을 누르면 적은 순으로 정렬합니다. 동점은 같은 순위이고, 파란 사선은 총점 {REWARD_RANK_LIMIT}위 이내(동점 포함)입니다.
+        머리글을 누르면 적은 순으로 정렬합니다. 동점은 같은 순위이고, 선물 표시는 총점 {REWARD_RANK_LIMIT}위 이내(동점 포함)입니다.
         {blindOthers && ' 다른 친구의 순위와 점수는 가려져 있습니다.'}
       </p>
     </div>

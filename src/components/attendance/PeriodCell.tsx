@@ -31,21 +31,29 @@ export function PeriodCell({
       aria-label={`${label} ${mark ? MARK_LABELS[mark] : '출석'}`}
       title={mark ? MARK_LABELS[mark] + (locked ? ' (담임 체크)' : '') : '출석'}
       className={cn(
-        'relative mx-auto block overflow-hidden rounded-lg border transition-[transform,background-color,border-color] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98]',
-        size === 'lg' ? 'h-11 w-11' : 'h-8 w-8',
-        mark ? 'border-transparent' : 'border-[#d6d3cc] bg-surface hover:border-accent',
-        highlight && !mark && 'bg-[color-mix(in_srgb,var(--accent)_10%,white)] ring-2 ring-accent',
-        highlight && mark && 'ring-2 ring-accent',
+        // 누르는 영역(md 28px)은 보이는 칸(md 20px)보다 넓게 둔다
+        'group mx-auto grid place-items-center transition-transform duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98]',
+        size === 'lg' ? 'h-11 w-11' : 'h-7 w-7',
         disabled && 'cursor-default active:scale-100',
         locked && 'cursor-not-allowed'
       )}
-      style={mark ? { backgroundColor: `${color}1f` } : undefined}
     >
-      {mark && (
-        <svg viewBox="0 0 32 32" className="absolute inset-0 h-full w-full" aria-hidden>
-          <line x1="6" y1="26" x2="26" y2="6" stroke={color} strokeWidth="3.4" strokeLinecap="round" />
-        </svg>
-      )}
+      <span
+        className={cn(
+          'relative block overflow-hidden border transition-[background-color,border-color] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]',
+          size === 'lg' ? 'h-11 w-11 rounded-lg' : 'h-5 w-5 rounded',
+          mark ? 'border-transparent' : 'border-[#d6d3cc] bg-surface group-hover:border-accent',
+          highlight && !mark && 'bg-[color-mix(in_srgb,var(--accent)_10%,white)] ring-2 ring-accent',
+          highlight && mark && 'ring-2 ring-accent'
+        )}
+        style={mark ? { backgroundColor: `${color}1f` } : undefined}
+      >
+        {mark && (
+          <svg viewBox="0 0 32 32" className="absolute inset-0 h-full w-full" aria-hidden>
+            <line x1="6" y1="26" x2="26" y2="6" stroke={color} strokeWidth={size === 'lg' ? 3.4 : 4} strokeLinecap="round" />
+          </svg>
+        )}
+      </span>
     </button>
   )
 }
