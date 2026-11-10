@@ -284,7 +284,8 @@ export function AttendanceBoardPage() {
                         <th
                           key={p}
                           className={cn(
-                            'w-12 py-2.5 text-center font-semibold',
+                            'py-2.5 text-center font-semibold',
+                            p === 0 ? 'w-11' : 'w-10',
                             focusPeriod === p && 'bg-sky-100/70 text-sky-700'
                           )}
                         >
@@ -336,7 +337,6 @@ export function AttendanceBoardPage() {
                               >
                                 <PeriodCell
                                   mark={m}
-                                  size="lg"
                                   label={`${s.name} ${p === 0 ? '조회' : `${p}교시`}`}
                                   highlight={focusPeriod === p}
                                   locked={editable && p >= 1 && locked}
