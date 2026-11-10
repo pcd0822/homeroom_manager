@@ -59,7 +59,7 @@ export function PeriodCell({
 }
 
 /** 색 범례 */
-export function MarkLegend({ marks = ['L', 'E', 'A', 'R', 'S'] as PeriodMark[] }: { marks?: PeriodMark[] }) {
+export function MarkLegend({ marks = ['L', 'E', 'A', 'R', 'O', 'S'] as PeriodMark[] }: { marks?: PeriodMark[] }) {
   return (
     <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
       {marks.map((m) => (

@@ -134,13 +134,13 @@ export function AttendanceBoardPage() {
 
   // 요약: 구분별 인원 + 교시 체크로 판정한 조퇴
   const summary = useMemo(() => {
-    const count = { A: 0, L: 0, E: 0, R: 0 } as Record<'A' | 'L' | 'E' | 'R', number>
+    const count = { A: 0, L: 0, E: 0, R: 0, O: 0 } as Record<'A' | 'L' | 'E' | 'R' | 'O', number>
     const marked = new Set<string>()
     for (const r of rows) {
       const m = parseMarks(r.marks)
       const has = Object.keys(m).length > 0
       if (has) marked.add(r.student_id)
-      if (r.kind) count[r.kind as 'A' | 'L' | 'E' | 'R'] += 1
+      if (r.kind) count[r.kind as 'A' | 'L' | 'E' | 'R' | 'O'] += 1
       else if (deriveEarly(m, periods)) count.E += 1
     }
     return { count, marked: marked.size }
@@ -230,7 +230,7 @@ export function AttendanceBoardPage() {
         {!loading && !error && date && (
           <>
             <div className="flex flex-wrap items-center gap-2">
-              {(['A', 'L', 'E', 'R'] as const).map((k) => (
+              {(['A', 'L', 'E', 'R', 'O'] as const).map((k) => (
                 <span key={k} className="glass-pill rounded-full px-3 py-1 text-xs font-semibold text-gray-700">
                   {MARK_LABELS[k]} <span className="tabular-nums">{summary.count[k]}</span>명
                 </span>

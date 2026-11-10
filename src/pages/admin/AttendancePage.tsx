@@ -650,7 +650,6 @@ export function AttendancePage() {
                   </span>
                 ),
               }))}
-              highlightId={selectedStudentId}
               onSelect={selectStudentForStats}
             />
           )}

@@ -15,6 +15,7 @@ export default {
         "late-ink": "var(--late-ink)",
         early: "var(--early)",
         absent: "var(--absent)",
+        other: "var(--other)",
         ink: "var(--ink)",
         "ink-strong": "var(--ink-strong)",
         muted: "var(--muted)",

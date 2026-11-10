@@ -196,6 +196,18 @@ function selftest() {
     stu
   )
 
+  // 2026-11-10: 기타(O)는 담임만 넣고, QR 출석부는 그 칸을 바꾸지 못한다
+  const o1 = call({ action: 'SAVE_PERIOD_OPS', date: today, ops: [
+    { student_id: '30504', type: 'kind', kind: 'O' },
+    { student_id: '30504', type: 'mark', period: 2, value: 'O' },
+  ] })
+  const rowO = o1.data && o1.data.rows.find((r) => r.student_id === '30504')
+  check('담임 기타 저장', o1.success && rowO && rowO.marks === '2:O' && rowO.kind === 'O', o1)
+  const o2 = call({ action: 'SAVE_ATTENDANCE_BOARD_MARK', k: key, date: today, student_id: '30504', period: 2, on: false })
+  check('QR 출석부는 기타 칸을 못 지움', !o2.success, o2)
+  const o3 = call({ action: 'SAVE_ATTENDANCE_BOARD_MARK', k: key, date: today, student_id: '30504', period: 2, on: true })
+  check('QR 출석부는 기타 칸을 빗금으로 못 바꿈', !o3.success, o3)
+
   const rot = call({ action: 'ROTATE_ATTENDANCE_SHARE_KEY' })
   const old = call({ action: 'GET_ATTENDANCE_BOARD', k: key })
   check('재발급하면 예전 QR 거절', rot.success && rot.data.key !== key && !old.success, old)

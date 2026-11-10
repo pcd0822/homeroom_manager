@@ -75,6 +75,21 @@ eq(
   ]
 )
 
+// 2026-11-10: 지각 칸을 결석이 덮어쓰면 지각 체크 해제, 기타(O) 구분
+{
+  const n = 7
+  const late2 = applyKindClick({}, 'L', 2, n)
+  const absent = applyKindClick(late2, 'A', 3, n)
+  eq('지각 → 결석으로 덮으면 지각 체크 해제', nextLateFlag(true, 'A', late2, absent, n), false)
+  eq('지각 + 결과 한 칸이면 지각 유지', nextLateFlag(true, 'R', late2, applyKindClick(late2, 'R', 5, n), n), true)
+  eq('지각 칸 없이 직접 체크한 지각은 결석이어도 유지', nextLateFlag(true, 'A', {}, applyKindClick({}, 'A', 1, n), n), true)
+  eq('기타는 누른 칸만', applyKindClick({}, 'O', 3, n), { 3: 'O' })
+  eq('기타 다시 누르면 빠짐', applyKindClick({ 3: 'O' }, 'O', 3, n), {})
+  eq('마지막 교시 기타만 → 조퇴 아님', deriveEarly({ 7: 'O' }, n), false)
+  eq('기타 1~4 + 조퇴 5~7 → 조퇴', deriveEarly({ 1: 'O', 2: 'O', 3: 'O', 4: 'O', 5: 'E', 6: 'E', 7: 'E' }, n), true)
+  eq('기타 왕복', parseMarks(stringifyMarks({ 0: 'L', 3: 'O' })), { 0: 'L', 3: 'O' })
+}
+
 if (fail) {
   console.log(`\n${fail}개 실패`)
   process.exit(1)

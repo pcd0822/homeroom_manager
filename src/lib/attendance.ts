@@ -193,7 +193,8 @@ export function periodLabel(p: AttendancePeriod): string {
  * 칸 하나 = 한 학생의 한 교시. 교시 0은 조회.
  * 담임은 출결 구분을 고른 뒤 칸을 누르면 구분에 맞춰 자동으로 채운다.
  *   지각: 조회 ~ 누른 교시     조퇴: 누른 교시 ~ 마지막 교시
- *   결석: 조회 ~ 마지막 교시   결과: 누른 칸만
+ *   결석: 조회 ~ 마지막 교시   결과·기타: 누른 칸만
+ * 기타(O)는 담임만 넣는다(QR 출석부에서는 잠긴 칸). 지각·조퇴 점수와 조퇴 판정에 들어가지 않는다.
  * 교과교사(QR 출석부)는 구분 없이 1~N교시 칸에 빗금(S)만 넣고 뺀다.
  * 조퇴 점수는 교시 체크로 자동 판정한다: 앞 교시에 한 시간이라도 출석하고, 그 뒤 어느 교시부터 마지막 교시까지 체크.
  */
@@ -206,6 +207,7 @@ export const KIND_OPTIONS: Array<{ value: Exclude<PeriodKind, ''>; label: string
   { value: 'E', label: '조퇴' },
   { value: 'A', label: '결석' },
   { value: 'R', label: '결과' },
+  { value: 'O', label: '기타' },
 ]
 
 export const MARK_LABELS: Record<PeriodMark, string> = {
@@ -213,6 +215,7 @@ export const MARK_LABELS: Record<PeriodMark, string> = {
   L: '지각',
   E: '조퇴',
   R: '결과',
+  O: '기타',
   S: '교과 체크',
 }
 
@@ -222,6 +225,7 @@ export const MARK_COLORS: Record<PeriodMark, string> = {
   L: '#f59e0b',
   E: '#7c3aed',
   R: '#0284c7',
+  O: '#0d9488',
   S: '#475569',
 }
 
@@ -230,7 +234,7 @@ export type MarkMap = Partial<Record<number, PeriodMark>>
 export function parseMarks(raw: string | undefined | null): MarkMap {
   const out: MarkMap = {}
   for (const part of String(raw ?? '').split(',')) {
-    const m = /^\s*(\d)\s*:\s*([ALERS])\s*$/.exec(part)
+    const m = /^\s*(\d)\s*:\s*([ALEROS])\s*$/.exec(part)
     if (!m) continue
     const p = Number(m[1])
     if (p >= 0 && p <= PERIOD_MAX) out[p] = m[2] as PeriodMark
@@ -252,15 +256,21 @@ export function periodsForDate(schedule: PeriodSchedule, date: string): number {
   return schedule.weekday[parseDateKey(date).getDay()] ?? 0
 }
 
-/** 1~n교시 중 체크된 칸으로 조퇴인지 판정 (조회는 보지 않음) */
+/** 조퇴 판정에 쓰는 칸인지. 기타(O)는 출석으로 본다. */
+function countsForEarly(m: PeriodMark | undefined): boolean {
+  return !!m && m !== 'O'
+}
+
+/** 1~n교시 중 체크된 칸으로 조퇴인지 판정 (조회는 보지 않음, 기타 칸은 빼고 본다) */
 export function deriveEarly(marks: MarkMap, n: number): boolean {
-  if (n < 2 || !marks[n]) return false
-  for (let p = 1; p < n; p++) if (!marks[p]) return true
+  if (n < 2 || !countsForEarly(marks[n])) return false
+  for (let p = 1; p < n; p++) if (!countsForEarly(marks[p])) return true
   return false
 }
 
+/** 1~n교시에 조퇴 판정 대상 체크(기타 제외)가 있는지. 없으면 조퇴는 직접 체크한 값을 쓴다. */
 export function hasPeriodMarks(marks: MarkMap, n: number): boolean {
-  for (let p = 1; p <= n; p++) if (marks[p]) return true
+  for (let p = 1; p <= n; p++) if (countsForEarly(marks[p])) return true
   return false
 }
 
@@ -273,11 +283,13 @@ export function hasAnyMark(marks: MarkMap, n: number): boolean {
 /**
  * 칸을 누른 뒤의 지각(점수) 칸 값.
  * 체크를 지워 칸이 모두 비면 구분과 상관없이 해제하고, 지각 구분이면 지각 칸 유무에 맞춘다.
+ * 다른 구분(예: 결석)이 지각 칸을 모두 덮어써 지각 칸이 사라져도 해제한다.
  * 그 밖에는 담임이 직접 정한 값을 유지한다.
  */
 export function nextLateFlag(current: boolean, kind: PeriodKind, before: MarkMap, after: MarkMap, n: number): boolean {
   if (hasAnyMark(before, n) && !hasAnyMark(after, n)) return false
   if (kind === 'L') return Object.values(after).includes('L')
+  if (Object.values(before).includes('L') && !Object.values(after).includes('L')) return false
   return current
 }
 
@@ -316,9 +328,9 @@ export function applyKindClick(marks: MarkMap, kind: PeriodKind, period: number,
     for (let p = 0; p <= n; p++) next[p] = 'A'
     return next
   }
-  // 결과 또는 구분 없음: 누른 칸만 넣고 뺀다
+  // 결과·기타 또는 구분 없음: 누른 칸만 넣고 뺀다
   if (next[period]) delete next[period]
-  else next[period] = kind === 'R' ? 'R' : 'S'
+  else next[period] = kind === 'R' || kind === 'O' ? kind : 'S'
   return next
 }
 

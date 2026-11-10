@@ -18,6 +18,7 @@
 | `--late` / `--late-ink` | `late` / `late-ink` | #f59e0b / #b45309 | 지각·경고. 글씨는 `late-ink` 만 |
 | `--early` | `early` | #7c3aed | 조퇴 상태 |
 | `--absent` | `absent` | #e11d48 | 결석, 삭제·초기화 버튼 글씨·테두리, 실패 |
+| `--other` | `other` | #0d9488 | 기타 출결(담임만, 점수 없음). 출결 칸·범례에만 |
 | `--ink` | `ink` | #475569 | 교과 체크(S) 색. 본문 글씨, 아이콘 선 |
 | `--ink-strong` | `ink-strong` | #1e293b | 제목, 큰 수치 |
 | `--muted` | `muted` | #64748b | 보조 글, 메타 |

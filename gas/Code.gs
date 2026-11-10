@@ -4726,7 +4726,8 @@ function deleteCleaningReset(params) {
 // 저장은 "이 칸을 이 값으로" 단위 연산(op)으로 받아 잠금 안에서 합친다 → 담임·교과교사가 동시에 체크해도 서로 덮어쓰지 않는다.
 // 조퇴 자동 판정·점수 계산은 프론트(src/lib/attendance.ts)에서만 한다.
 var PERIOD_HEADERS = ['date', 'student_id', 'kind', 'marks', 'note', 'updated_at'];
-var PERIOD_MARK_VALUES = { A: true, L: true, E: true, R: true, S: true };
+// O(기타)는 담임만 넣는다. QR 출석부 저장(saveAttendanceBoardMark)은 S 가 아닌 칸을 바꾸지 못한다.
+var PERIOD_MARK_VALUES = { A: true, L: true, E: true, R: true, O: true, S: true };
 var PERIOD_MAX = 7;
 var PERIOD_TZ = 'Asia/Seoul';
 
@@ -4816,8 +4817,8 @@ function getPeriodAttendance(params) {
 
 /**
  * op 목록을 한 날짜에 적용한다(잠금 안). 공통 저장 함수.
- * op: { student_id, type: 'mark', period, value: 'A'|'L'|'E'|'R'|'S'|'' }
- *     { student_id, type: 'kind', kind: 'A'|'L'|'E'|'R'|'' }
+ * op: { student_id, type: 'mark', period, value: 'A'|'L'|'E'|'R'|'O'|'S'|'' }
+ *     { student_id, type: 'kind', kind: 'A'|'L'|'E'|'R'|'O'|'' }
  *     { student_id, type: 'note', note }
  * guard(op, marks) 가 문자열을 돌려주면 저장하지 않고 그 오류를 돌려준다.
  */

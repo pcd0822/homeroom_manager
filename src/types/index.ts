@@ -85,9 +85,9 @@ export interface StudentAttendanceData {
 }
 
 /** 교시 칸 하나의 체크 종류. A 결석 · L 지각 · E 조퇴 · R 결과 · S 교과교사 빗금(구분 없음) */
-export type PeriodMark = 'A' | 'L' | 'E' | 'R' | 'S'
+export type PeriodMark = 'A' | 'L' | 'E' | 'R' | 'O' | 'S'
 /** 담임이 고르는 출결 구분 (빈칸 = 선택 안 함) */
-export type PeriodKind = '' | 'A' | 'L' | 'E' | 'R'
+export type PeriodKind = '' | 'A' | 'L' | 'E' | 'R' | 'O'
 
 /** 교시별 출결 하루 한 행 (HomeroomPeriodAttendance 시트). marks는 '0:L,1:L,5:S' 형식(0 = 조회) */
 export interface PeriodRow {
