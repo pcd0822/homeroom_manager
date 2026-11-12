@@ -3,6 +3,7 @@ import {
   applyKindClick,
   deriveEarly,
   effectiveRecords,
+  hasPeriodMarks,
   nextLateFlag,
   parseMarks,
   stringifyMarks,
@@ -87,6 +88,12 @@ eq(
   eq('기타 다시 누르면 빠짐', applyKindClick({ 3: 'O' }, 'O', 3, n), {})
   eq('마지막 교시 기타만 → 조퇴 아님', deriveEarly({ 7: 'O' }, n), false)
   eq('기타 1~4 + 조퇴 5~7 → 조퇴', deriveEarly({ 1: 'O', 2: 'O', 3: 'O', 4: 'O', 5: 'E', 6: 'E', 7: 'E' }, n), true)
+  eq('마지막 교시만 결과 → 조퇴 아님', deriveEarly({ 7: 'R' }, n), false)
+  eq('5~7교시 결과 → 조퇴 아님', deriveEarly({ 5: 'R', 6: 'R', 7: 'R' }, n), false)
+  eq('결과 1~4 + 조퇴 5~7 → 조퇴', deriveEarly({ 1: 'R', 2: 'R', 3: 'R', 4: 'R', 5: 'E', 6: 'E', 7: 'E' }, n), true)
+  eq('6교시 교과 체크 + 7교시 결과 → 조퇴 아님', deriveEarly({ 6: 'S', 7: 'R' }, n), false)
+  eq('7교시 교과 체크 → 지금처럼 조퇴', deriveEarly({ 7: 'S' }, n), true)
+  eq('결과만 있는 날은 자동 판정하지 않음(직접 체크 값)', hasPeriodMarks({ 7: 'R' }, n), false)
   eq('기타 왕복', parseMarks(stringifyMarks({ 0: 'L', 3: 'O' })), { 0: 'L', 3: 'O' })
 }
 

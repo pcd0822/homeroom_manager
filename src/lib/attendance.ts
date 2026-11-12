@@ -195,6 +195,7 @@ export function periodLabel(p: AttendancePeriod): string {
  *   지각: 조회 ~ 누른 교시     조퇴: 누른 교시 ~ 마지막 교시
  *   결석: 조회 ~ 마지막 교시   결과·기타: 누른 칸만
  * 기타(O)는 담임만 넣는다(QR 출석부에서는 잠긴 칸). 지각·조퇴 점수와 조퇴 판정에 들어가지 않는다.
+ * 결과(R)는 담임이 고른 구분이라 조퇴 판정에서 출석으로 본다(마지막 교시까지 결과여도 조퇴가 아니다).
  * 교과교사(QR 출석부)는 구분 없이 1~N교시 칸에 빗금(S)만 넣고 뺀다.
  * 조퇴 점수는 교시 체크로 자동 판정한다: 앞 교시에 한 시간이라도 출석하고, 그 뒤 어느 교시부터 마지막 교시까지 체크.
  */
@@ -256,19 +257,19 @@ export function periodsForDate(schedule: PeriodSchedule, date: string): number {
   return schedule.weekday[parseDateKey(date).getDay()] ?? 0
 }
 
-/** 조퇴 판정에 쓰는 칸인지. 기타(O)는 출석으로 본다. */
+/** 조퇴 판정에 쓰는 칸인지. 기타(O)·결과(R)는 출석으로 본다. 교과 체크(S)는 판정에 넣는다. */
 function countsForEarly(m: PeriodMark | undefined): boolean {
-  return !!m && m !== 'O'
+  return !!m && m !== 'O' && m !== 'R'
 }
 
-/** 1~n교시 중 체크된 칸으로 조퇴인지 판정 (조회는 보지 않음, 기타 칸은 빼고 본다) */
+/** 1~n교시 중 체크된 칸으로 조퇴인지 판정 (조회는 보지 않음, 기타·결과 칸은 빼고 본다) */
 export function deriveEarly(marks: MarkMap, n: number): boolean {
   if (n < 2 || !countsForEarly(marks[n])) return false
   for (let p = 1; p < n; p++) if (!countsForEarly(marks[p])) return true
   return false
 }
 
-/** 1~n교시에 조퇴 판정 대상 체크(기타 제외)가 있는지. 없으면 조퇴는 직접 체크한 값을 쓴다. */
+/** 1~n교시에 조퇴 판정 대상 체크(기타·결과 제외)가 있는지. 없으면 조퇴는 직접 체크한 값을 쓴다. */
 export function hasPeriodMarks(marks: MarkMap, n: number): boolean {
   for (let p = 1; p <= n; p++) if (countsForEarly(marks[p])) return true
   return false
