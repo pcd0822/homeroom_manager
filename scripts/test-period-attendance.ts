@@ -32,7 +32,8 @@ eq('조퇴 3 → 3~7', s(applyKindClick({}, 'E', 3, N)), '3:E,4:E,5:E,6:E,7:E')
 eq('조퇴 5교시 날(N=5) 3 → 3~5', s(applyKindClick({}, 'E', 3, 5)), '3:E,4:E,5:E')
 eq('조퇴 3 → 5로 옮기기', s(applyKindClick(parseMarks('3:E,4:E,5:E,6:E,7:E'), 'E', 5, N)), '5:E,6:E,7:E')
 eq('결과 → 한 칸 토글', s(applyKindClick(parseMarks('5:S'), 'R', 2, N)), '2:R,5:S')
-eq('결과 → 있는 칸 지움', s(applyKindClick(parseMarks('2:R,5:S'), 'R', 5, N)), '2:R')
+eq('결과 → 같은 결과 칸 지움', s(applyKindClick(parseMarks('2:R,5:S'), 'R', 2, N)), '5:S')
+eq('결과 → 교과 체크 칸은 결과로 바뀜', s(applyKindClick(parseMarks('2:R,5:S'), 'R', 5, N)), '2:R,5:R')
 eq('지각 + 교과 체크 유지', s(applyKindClick(parseMarks('6:S'), 'L', 1, N)), '0:L,1:L,6:S')
 
 eq('조퇴 판정: 1,2 출석, 3~7 체크', deriveEarly(parseMarks('3:S,4:S,5:S,6:S,7:S'), 7), true)
@@ -49,11 +50,26 @@ eq('지각 칸: 지각 구분으로 채움 → 켜짐', nextLateFlag(false, 'L',
 eq('지각 칸: 지각 구분으로 지움 → 꺼짐', nextLateFlag(true, 'L', L2, {}, N), false)
 eq('지각 칸: 구분 없이 마지막 칸 지움 → 꺼짐', nextLateFlag(true, '', parseMarks('0:L'), {}, N), false)
 eq('지각 칸: 결과 구분으로 마지막 칸 지움 → 꺼짐', nextLateFlag(true, 'R', parseMarks('0:L'), {}, N), false)
-eq('지각 칸: 조회 칸만 지워져도 비면 꺼짐', nextLateFlag(true, '', parseMarks('0:S'), {}, N), false)
+eq('지각 칸: 지각 칸 없이 교과 칸만 지워져 비면 직접 체크 유지', nextLateFlag(true, '', parseMarks('0:S'), {}, N), true)
 eq('지각 칸: 다른 칸이 남으면 유지', nextLateFlag(true, '', parseMarks('0:L,1:L'), parseMarks('0:L'), N), true)
 eq('지각 칸: 구분 없이 교과 칸 추가 → 직접 체크 유지', nextLateFlag(true, '', {}, parseMarks('3:S'), N), true)
 eq('지각 칸: 처음부터 빈 칸이면 직접 체크 유지', nextLateFlag(true, 'E', {}, {}, 0), true)
-eq('지각 칸: 5교시 날 안 보이는 7교시만 남으면 꺼짐', nextLateFlag(true, '', parseMarks('3:S,7:S'), parseMarks('7:S'), 5), false)
+eq('지각 칸: 교과 칸만 지워지면 직접 체크 유지(5교시 날)', nextLateFlag(true, '', parseMarks('3:S,7:S'), parseMarks('7:S'), 5), true)
+
+// 2026-11-17: 결과로 교과 체크 칸을 눌러도 지각 체크가 풀리지 않는다
+{
+  const lateClick = (b: string, kind: 'R' | 'O' | '', p: number) => {
+    const before = parseMarks(b)
+    const after = applyKindClick(before, kind, p, N)
+    return { marks: s(after), late: nextLateFlag(true, kind, before, after, N) }
+  }
+  eq('직접 지각 + 교과 3교시 → 결과로 3교시', lateClick('3:S', 'R', 3), { marks: '3:R', late: true })
+  eq('지각 조회 → 결과로 조회 누르면 결과로 바뀌고 지각 해제', lateClick('0:L', 'R', 0), { marks: '0:R', late: false })
+  eq('지각 조회~2 + 교과 3 → 결과로 3교시', lateClick('0:L,1:L,2:L,3:S', 'R', 3), { marks: '0:L,1:L,2:L,3:R', late: true })
+  eq('직접 지각 + 결과 한 칸 → 그 칸 지움', lateClick('4:R', 'R', 4), { marks: '', late: true })
+  eq('직접 지각 + 교과 3 → 기타로 3교시', lateClick('3:S', 'O', 3), { marks: '3:O', late: true })
+  eq('구분 없이 교과 칸 지움 → 직접 지각 유지', lateClick('3:S', '', 3), { marks: '', late: true })
+}
 
 const schedule = { weekday: [0, 7, 7, 7, 7, 7, 0], dates: { '2026-11-06': 5 } }
 eq(

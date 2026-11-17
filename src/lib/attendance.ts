@@ -283,12 +283,11 @@ export function hasAnyMark(marks: MarkMap, n: number): boolean {
 
 /**
  * 칸을 누른 뒤의 지각(점수) 칸 값.
- * 체크를 지워 칸이 모두 비면 구분과 상관없이 해제하고, 지각 구분이면 지각 칸 유무에 맞춘다.
- * 다른 구분(예: 결석)이 지각 칸을 모두 덮어써 지각 칸이 사라져도 해제한다.
- * 그 밖에는 담임이 직접 정한 값을 유지한다.
+ * 지각 구분이면 지각 칸 유무에 맞춘다.
+ * 지각(L) 칸이 있다가 사라지면(지움, 결석·결과로 덮어씀) 구분과 상관없이 해제한다.
+ * 지각 칸 없이 담임이 직접 켠 지각은 교과·결과·기타 칸을 지워도 그대로 둔다.
  */
-export function nextLateFlag(current: boolean, kind: PeriodKind, before: MarkMap, after: MarkMap, n: number): boolean {
-  if (hasAnyMark(before, n) && !hasAnyMark(after, n)) return false
+export function nextLateFlag(current: boolean, kind: PeriodKind, before: MarkMap, after: MarkMap, _n: number): boolean {
   if (kind === 'L') return Object.values(after).includes('L')
   if (Object.values(before).includes('L') && !Object.values(after).includes('L')) return false
   return current
@@ -329,9 +328,15 @@ export function applyKindClick(marks: MarkMap, kind: PeriodKind, period: number,
     for (let p = 0; p <= n; p++) next[p] = 'A'
     return next
   }
-  // 결과·기타 또는 구분 없음: 누른 칸만 넣고 뺀다
+  // 결과·기타: 누른 칸만. 다른 표시(교과 체크 등)가 있으면 그 구분으로 바꾸고, 같은 구분 칸을 누를 때만 지운다
+  if (kind === 'R' || kind === 'O') {
+    if (next[period] === kind) delete next[period]
+    else next[period] = kind
+    return next
+  }
+  // 구분 없음: 누른 칸만 교과 체크(S)로 넣고 뺀다
   if (next[period]) delete next[period]
-  else next[period] = kind === 'R' || kind === 'O' ? kind : 'S'
+  else next[period] = 'S'
   return next
 }
 

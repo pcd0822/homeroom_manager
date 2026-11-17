@@ -22,6 +22,10 @@ export function PersonalStatsTable({
   ranks: Record<RankKey, number>
   total: number
 }) {
+  // 개인별 누적 점수는 서류를 낸 지각·조퇴를 빼고 센다(학급별 표·총점 순위는 stat.score 그대로)
+  const lateNoDoc = stat.late - stat.late_doc
+  const earlyNoDoc = stat.early - stat.early_doc
+  const personalScore = lateNoDoc + earlyNoDoc * 2
   const rows: Array<[string, ReactNode]> = [
     ['지각', `${stat.late}회`],
     ['조퇴', `${stat.early}회`],
@@ -41,11 +45,11 @@ export function PersonalStatsTable({
           <tr>
             <th className="pt-3 text-left align-top font-medium text-ink-strong">
               누적 점수
-              <span className="block text-xs font-normal text-muted">지각 1점, 조퇴 2점</span>
+              <span className="block text-xs font-normal text-muted">서류 없는 지각 1점, 조퇴 2점</span>
             </th>
             <td className="pt-3 text-right">
-              <span className="text-2xl font-medium tabular-nums text-ink-strong">{stat.score}점</span>
-              <SlashTally late={stat.late} early={stat.early} />
+              <span className="text-2xl font-medium tabular-nums text-ink-strong">{personalScore}점</span>
+              <SlashTally late={lateNoDoc} early={earlyNoDoc} />
             </td>
           </tr>
         </tbody>
